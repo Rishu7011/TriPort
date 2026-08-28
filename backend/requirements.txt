@@ -1,0 +1,64 @@
+# ============================================================
+# BorderGuard-AI — Shared Backend Requirements
+# One venv for all services. Install with:
+#   python -m venv venv
+#   source venv/bin/activate
+#   pip install -r requirements.txt
+# ============================================================
+
+# ── Web Framework ─────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+pydantic-settings==2.2.1
+python-multipart==0.0.9        # multipart file uploads
+
+# ── HTTP client (inter-service calls) ────────────────────
+httpx==0.27.0
+
+# ── Database ─────────────────────────────────────────────
+sqlalchemy==2.0.30
+asyncpg==0.29.0                # async postgres driver
+alembic==1.13.1
+pgvector==0.2.5                # vector type support
+
+# ── Object Storage ───────────────────────────────────────
+minio==7.2.7
+
+# ── Auth ─────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# ── Env & Config ─────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Logging ──────────────────────────────────────────────
+structlog==24.1.0
+
+# ── OCR & Document Processing (Phase 1) ──────────────────
+paddlepaddle==2.6.1            # PaddleOCR backend
+paddleocr==2.7.3
+passporteye==2.2.1             # MRZ parsing + ICAO checksum
+Pillow==10.3.0
+anthropic==0.26.0              # Claude LLM fallback
+
+# ── Tampering Detection (Phase 2) ────────────────────────
+opencv-python-headless==4.9.0.80
+exifread==3.0.0
+numpy==1.26.4
+scikit-image==0.23.2
+torch==2.3.0                   # CNN classifier (stretch goal)
+torchvision==0.18.0
+efficientnet-pytorch==0.7.1    # stretch goal
+
+# ── Face Verification (Phase 2) ──────────────────────────
+deepface==0.0.93
+tf-keras==2.16.0               # DeepFace backend
+
+# ── Encryption (Phase 4) ─────────────────────────────────
+cryptography==42.0.7
+
+# ── Testing ──────────────────────────────────────────────
+pytest==8.2.0
+pytest-asyncio==0.23.7
+httpx==0.27.0                  # async test client

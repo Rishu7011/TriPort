@@ -1,0 +1,57 @@
+# BorderGuard-AI — graphify exclusions
+# Gitignore syntax (including ! negation). Merged with .gitignore; patterns here win.
+# https://github.com/safishamsi/graphify#ignoring-files
+
+# -----------------------------------------------------------------------------
+# graphify local artifacts (graphify-out/ dir is already auto-skipped)
+# -----------------------------------------------------------------------------
+graphify-out/cost.json
+graphify-out/cache/
+
+# -----------------------------------------------------------------------------
+# Lock files & generated config (deps, not architecture)
+# -----------------------------------------------------------------------------
+bun.lock
+frontend/next-env.d.ts
+
+# -----------------------------------------------------------------------------
+# Empty Python package stubs (isolated nodes, no signal)
+# -----------------------------------------------------------------------------
+backend/**/__init__.py
+
+# -----------------------------------------------------------------------------
+# Boilerplate / static frontend assets (create-next-app starter)
+# -----------------------------------------------------------------------------
+frontend/public/
+frontend/app/favicon.ico
+frontend/app/globals.css
+
+# -----------------------------------------------------------------------------
+# IDE & agent rules (not project architecture)
+# -----------------------------------------------------------------------------
+.cursor/
+frontend/AGENTS.md
+frontend/CLAUDE.md
+
+# -----------------------------------------------------------------------------
+# Datasets, model weights, runtime outputs (large / sensitive / binary)
+# -----------------------------------------------------------------------------
+datasets/
+**/*.pt
+**/*.pth
+**/*.onnx
+**/*.pb
+**/*.h5
+**/*.pkl
+uploads/
+scanned_docs/
+ela_output/
+heatmaps/
+inference/
+
+# -----------------------------------------------------------------------------
+# Secrets (belt-and-suspenders — graphify also flags sensitive paths)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+secrets/
