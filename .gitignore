@@ -1,0 +1,185 @@
+# =============================================================================
+# BorderGuard-AI — .gitignore
+# Stack: Python (FastAPI), Next.js (TypeScript), Docker, PostgreSQL, MinIO
+# =============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Secrets & Environment Variables
+# ─────────────────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example          # keep the example template committed
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Datasets  (keep download_datasets.sh, not the actual data)
+# ─────────────────────────────────────────────────────────────────────────────
+datasets/midv500/
+datasets/midv2020/
+datasets/synthetic-tampered/
+datasets/lfw/
+datasets/*.zip
+datasets/*.tar.gz
+datasets/*.tar
+datasets/*.h5
+datasets/*.csv
+# allow the download script and README inside datasets/
+!datasets/download_datasets.sh
+!datasets/README.md
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ML Model Weights  (large binary files)
+# ─────────────────────────────────────────────────────────────────────────────
+services/tampering-service/app/models/
+**/*.pt
+**/*.pth
+**/*.onnx
+**/*.pb
+**/*.h5
+**/*.pkl
+**/*.bin
+# allow placeholder / model README
+!**/models/.gitkeep
+!**/models/README.md
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+*.log
+
+# mypy / ruff / flake8
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# PaddleOCR / EasyOCR caches (downloaded on first run)
+inference/
+*.inference.pdmodel
+*.inference.pdiparams
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Next.js / Node.js  (dashboard/)
+# ─────────────────────────────────────────────────────────────────────────────
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.turbo/
+dashboard/.vercel/
+dashboard/.eslintcache
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Node (general, in case scripts/ picks up node deps)
+# ─────────────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker  (local volumes, override files with credentials)
+# ─────────────────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+.docker/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PostgreSQL / MinIO  (local data volumes if bind-mounted)
+# ─────────────────────────────────────────────────────────────────────────────
+postgres-data/
+minio-data/
+pgdata/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Uploaded / scanned document images  (NEVER commit real documents)
+# ─────────────────────────────────────────────────────────────────────────────
+uploads/
+scanned_docs/
+tmp_images/
+*.scan.jpg
+*.scan.png
+
+# ELA output heatmaps (generated at runtime)
+ela_output/
+heatmaps/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OS / Editor artefacts
+# ─────────────────────────────────────────────────────────────────────────────
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains / PyCharm
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Misc
+# ─────────────────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+scratch/
+plan.md
