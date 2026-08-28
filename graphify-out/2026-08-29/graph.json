@@ -1,100 +1,7 @@
 {
   "directed": false,
   "multigraph": false,
-  "graph": {
-    "hyperedges": [
-      {
-        "id": "docker_compose_backend_microservices",
-        "label": "FastAPI Backend Microservices",
-        "nodes": [
-          "docker_compose_yml_ocr_service",
-          "docker_compose_yml_validation_service",
-          "docker_compose_yml_tampering_service",
-          "docker_compose_yml_face_service",
-          "docker_compose_yml_risk_engine",
-          "docker_compose_yml_audit_ledger",
-          "docker_compose_yml_orchestrator"
-        ],
-        "relation": "implement",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "docker-compose.yml"
-      },
-      {
-        "id": "backend_requirements_phased_capabilities",
-        "label": "Phased Backend Capabilities",
-        "nodes": [
-          "backend_requirements_txt_ocr_phase_1",
-          "backend_requirements_txt_tampering_phase_2",
-          "backend_requirements_txt_face_phase_2",
-          "backend_requirements_txt_encryption_phase_4"
-        ],
-        "relation": "form",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "backend/requirements.txt"
-      },
-      {
-        "id": "orchestrator_service_coordination",
-        "label": "Orchestrator Service Coordination Flow",
-        "nodes": [
-          "docker_compose_yml_orchestrator",
-          "docker_compose_yml_ocr_service",
-          "docker_compose_yml_validation_service",
-          "docker_compose_yml_tampering_service",
-          "docker_compose_yml_face_service",
-          "docker_compose_yml_risk_engine",
-          "docker_compose_yml_audit_ledger",
-          "docker_compose_yml_postgres",
-          "docker_compose_yml_minio"
-        ],
-        "relation": "participate_in",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "docker-compose.yml"
-      },
-      {
-        "id": "frontend_public_globe_svg_document_structure",
-        "label": "SVG Document Structure",
-        "nodes": [
-          "frontend_public_globe_globe_svg",
-          "frontend_public_globe_globe_path",
-          "frontend_public_globe_svg_clip_path"
-        ],
-        "relation": "form",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "frontend/public/globe.svg"
-      },
-      {
-        "id": "frontend_public_next_branding_group",
-        "label": "Next.js Branding Identity",
-        "nodes": [
-          "frontend_public_next_nextjs_wordmark",
-          "frontend_public_next_nextjs_framework",
-          "frontend_public_next_branding_logo_purpose"
-        ],
-        "relation": "participate_in",
-        "confidence": "INFERRED",
-        "confidence_score": 0.85,
-        "source_file": "frontend/public/next.svg"
-      },
-      {
-        "id": "frontend_public_window_icon_composition",
-        "label": "Window Icon Visual Composition",
-        "nodes": [
-          "frontend_public_window_browser_window_icon",
-          "frontend_public_window_window_frame",
-          "frontend_public_window_content_dots",
-          "frontend_public_window_gray_monochrome_style"
-        ],
-        "relation": "form",
-        "confidence": "EXTRACTED",
-        "confidence_score": 0.95,
-        "source_file": "frontend/public/window.svg"
-      }
-    ]
-  },
+  "graph": {},
   "nodes": [
     {
       "label": "__init__.py",
@@ -107,33 +14,13 @@
       "norm_label": "__init__.py"
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/audit_ledger/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_audit_ledger_init",
-      "community": 25,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/audit_ledger/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_audit_ledger_core_init",
-      "community": 24,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "main.py",
       "file_type": "code",
       "source_file": "backend/audit_ledger/main.py",
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_audit_ledger_main",
-      "community": 0,
+      "community": 11,
       "norm_label": "main.py"
     },
     {
@@ -143,7 +30,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_audit_ledger_main_health",
-      "community": 0,
+      "community": 11,
       "norm_label": "health()"
     },
     {
@@ -153,7 +40,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_audit_ledger_main_on_startup",
-      "community": 0,
+      "community": 11,
       "norm_label": "on_startup()"
     },
     {
@@ -163,18 +50,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_audit_ledger_main_rationale_1",
-      "community": 0,
+      "community": 11,
       "norm_label": "audit ledger \u2014 hash-chained append-only event log."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/audit_ledger/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_audit_ledger_routers_init",
-      "community": 26,
-      "norm_label": "__init__.py"
     },
     {
       "label": "ledger.py",
@@ -227,16 +104,6 @@
       "norm_label": "phase 4a stub \u2014 chain integrity verification. full implementation in phase 4."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/audit_ledger/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_audit_ledger_schemas_init",
-      "community": 27,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "config.py",
       "file_type": "code",
       "source_file": "backend/config.py",
@@ -275,26 +142,6 @@
       "id": "backend_config_rationale_1",
       "community": 13,
       "norm_label": "shared settings loaded from .env (or environment variables). every service impor"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/face_service/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_face_service_init",
-      "community": 29,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/face_service/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_face_service_core_init",
-      "community": 28,
-      "norm_label": "__init__.py"
     },
     {
       "label": "main.py",
@@ -337,16 +184,6 @@
       "norm_label": "face service \u2014 1:1 verification and 1:n deduplication using face embeddings."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/face_service/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_face_service_routers_init",
-      "community": 30,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "face.py",
       "file_type": "code",
       "source_file": "backend/face_service/routers/face.py",
@@ -375,16 +212,6 @@
       "id": "backend_face_service_routers_face_rationale_7",
       "community": 15,
       "norm_label": "phase 2b stub \u2014 face verification. full implementation in phase 2."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/face_service/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_face_service_schemas_init",
-      "community": 31,
-      "norm_label": "__init__.py"
     },
     {
       "label": "logging_config.py",
@@ -437,26 +264,6 @@
       "norm_label": "shared structured logging setup. call configure_logging() at service startup."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_ocr_service_init",
-      "community": 34,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_init",
-      "community": 33,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "main.py",
       "file_type": "code",
       "source_file": "backend/ocr_service/main.py",
@@ -497,23 +304,13 @@
       "norm_label": "ocr service \u2014 extracts structured fields from identity documents."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_ocr_service_routers_init",
-      "community": 35,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "extraction.py",
       "file_type": "code",
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_ocr_service_routers_extraction",
-      "community": 16,
+      "community": 0,
       "norm_label": "extraction.py"
     },
     {
@@ -523,7 +320,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_ocr_service_routers_extraction_extract_fields",
-      "community": 16,
+      "community": 0,
       "norm_label": "extract_fields()"
     },
     {
@@ -533,118 +330,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_ocr_service_routers_extraction_rationale_8",
-      "community": 16,
+      "community": 0,
       "norm_label": "phase 1a stub \u2014 ocr extraction. full implementation in phase 1."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_ocr_service_schemas_init",
-      "community": 36,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_init",
-      "community": 41,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/auth/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_auth_init",
-      "community": 37,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_core_init",
-      "community": 38,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/db/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_db_init",
-      "community": 39,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/db/migrations/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_init",
-      "community": 40,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_routers_init",
-      "community": 42,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_schemas_init",
-      "community": 43,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/orchestrator/storage/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_orchestrator_storage_init",
-      "community": 44,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/risk_engine/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_risk_engine_init",
-      "community": 46,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/risk_engine/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_risk_engine_core_init",
-      "community": 45,
-      "norm_label": "__init__.py"
     },
     {
       "label": "main.py",
@@ -653,7 +340,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_risk_engine_main",
-      "community": 0,
+      "community": 3,
       "norm_label": "main.py"
     },
     {
@@ -663,7 +350,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_risk_engine_main_health",
-      "community": 0,
+      "community": 3,
       "norm_label": "health()"
     },
     {
@@ -673,7 +360,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_risk_engine_main_on_startup",
-      "community": 0,
+      "community": 3,
       "norm_label": "on_startup()"
     },
     {
@@ -683,18 +370,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_risk_engine_main_rationale_1",
-      "community": 0,
+      "community": 3,
       "norm_label": "risk engine \u2014 combines all module signals into a weighted risk score."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/risk_engine/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_risk_engine_routers_init",
-      "community": 47,
-      "norm_label": "__init__.py"
     },
     {
       "label": "risk.py",
@@ -703,7 +380,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_risk_engine_routers_risk",
-      "community": 0,
+      "community": 3,
       "norm_label": "risk.py"
     },
     {
@@ -713,7 +390,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_risk_engine_routers_risk_score",
-      "community": 0,
+      "community": 3,
       "norm_label": "score()"
     },
     {
@@ -723,38 +400,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_risk_engine_routers_risk_rationale_7",
-      "community": 0,
+      "community": 3,
       "norm_label": "phase 3 stub \u2014 risk scoring. full implementation in phase 3."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/risk_engine/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_risk_engine_schemas_init",
-      "community": 48,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tampering_service/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tampering_service_init",
-      "community": 50,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tampering_service/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tampering_service_core_init",
-      "community": 49,
-      "norm_label": "__init__.py"
     },
     {
       "label": "main.py",
@@ -797,33 +444,13 @@
       "norm_label": "tampering service \u2014 ela, metadata forensics, boundary analysis, stamp matching."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tampering_service/models/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tampering_service_models_init",
-      "community": 51,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tampering_service/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tampering_service_routers_init",
-      "community": 52,
-      "norm_label": "__init__.py"
-    },
-    {
       "label": "tampering.py",
       "file_type": "code",
       "source_file": "backend/tampering_service/routers/tampering.py",
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tampering_service_routers_tampering",
-      "community": 17,
+      "community": 0,
       "norm_label": "tampering.py"
     },
     {
@@ -833,7 +460,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_tampering_service_routers_tampering_detect",
-      "community": 17,
+      "community": 0,
       "norm_label": "detect()"
     },
     {
@@ -843,48 +470,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_tampering_service_routers_tampering_rationale_7",
-      "community": 17,
+      "community": 0,
       "norm_label": "phase 2a stub \u2014 tampering detection. full implementation in phase 2."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tampering_service/schemas/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tampering_service_schemas_init",
-      "community": 53,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/tests/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tests_init",
-      "community": 54,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/validation_service/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_validation_service_init",
-      "community": 56,
-      "norm_label": "__init__.py"
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/validation_service/core/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_validation_service_core_init",
-      "community": 55,
-      "norm_label": "__init__.py"
     },
     {
       "label": "main.py",
@@ -893,7 +480,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_validation_service_main",
-      "community": 0,
+      "community": 5,
       "norm_label": "main.py"
     },
     {
@@ -903,7 +490,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_validation_service_main_health",
-      "community": 0,
+      "community": 5,
       "norm_label": "health()"
     },
     {
@@ -913,7 +500,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_validation_service_main_on_startup",
-      "community": 0,
+      "community": 5,
       "norm_label": "on_startup()"
     },
     {
@@ -923,18 +510,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_validation_service_main_rationale_1",
-      "community": 0,
+      "community": 5,
       "norm_label": "validation service \u2014 evaluates extracted fields against document rules."
-    },
-    {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/validation_service/routers/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_validation_service_routers_init",
-      "community": 57,
-      "norm_label": "__init__.py"
     },
     {
       "label": "validation.py",
@@ -943,7 +520,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_validation_service_routers_validation",
-      "community": 0,
+      "community": 5,
       "norm_label": "validation.py"
     },
     {
@@ -953,7 +530,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_validation_service_routers_validation_validate",
-      "community": 0,
+      "community": 5,
       "norm_label": "validate()"
     },
     {
@@ -963,28 +540,48 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_validation_service_routers_validation_rationale_7",
-      "community": 0,
+      "community": 5,
       "norm_label": "phase 1b stub \u2014 rules validation. full implementation in phase 1."
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/validation_service/rules/__init__.py",
+      "label": "README.md",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_rules_init",
-      "community": 58,
-      "norm_label": "__init__.py"
+      "id": "frontend_readme",
+      "community": 9,
+      "norm_label": "readme.md"
     },
     {
-      "label": "__init__.py",
-      "file_type": "code",
-      "source_file": "backend/validation_service/schemas/__init__.py",
-      "source_location": "L1",
+      "label": "Getting Started",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L3",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_init",
-      "community": 59,
-      "norm_label": "__init__.py"
+      "id": "frontend_readme_getting_started",
+      "community": 9,
+      "norm_label": "getting started"
+    },
+    {
+      "label": "Learn More",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "frontend_readme_learn_more",
+      "community": 9,
+      "norm_label": "learn more"
+    },
+    {
+      "label": "Deploy on Vercel",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "frontend_readme_deploy_on_vercel",
+      "community": 9,
+      "norm_label": "deploy on vercel"
     },
     {
       "label": "layout.tsx",
@@ -1075,26 +672,6 @@
       "id": "frontend_eslint_config_eslintconfig",
       "community": 20,
       "norm_label": "eslintconfig"
-    },
-    {
-      "label": "next-env.d.ts",
-      "file_type": "code",
-      "source_file": "frontend/next-env.d.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "frontend_next_env_d",
-      "community": 22,
-      "norm_label": "next-env.d.ts"
-    },
-    {
-      "label": "NOTE: This file should not be edited",
-      "file_type": "rationale",
-      "source_file": "frontend/next-env.d.ts",
-      "source_location": "L6",
-      "_origin": "ast",
-      "id": "frontend_next_env_d_rationale_6",
-      "community": 22,
-      "norm_label": "note: this file should not be edited"
     },
     {
       "label": "next.config.ts",
@@ -1213,7 +790,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "frontend_package_dependencies",
-      "community": 1,
+      "community": 6,
       "norm_label": "dependencies"
     },
     {
@@ -1223,7 +800,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "frontend_package_dependencies_next",
-      "community": 1,
+      "community": 6,
       "norm_label": "next"
     },
     {
@@ -1233,7 +810,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "next",
-      "community": 1,
+      "community": 6,
       "norm_label": "next"
     },
     {
@@ -1243,7 +820,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "frontend_package_dependencies_react",
-      "community": 1,
+      "community": 6,
       "norm_label": "react"
     },
     {
@@ -1253,7 +830,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "react",
-      "community": 1,
+      "community": 6,
       "norm_label": "react"
     },
     {
@@ -1263,7 +840,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_dependencies_react_dom",
-      "community": 1,
+      "community": 6,
       "norm_label": "react-dom"
     },
     {
@@ -1273,7 +850,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "react_dom",
-      "community": 1,
+      "community": 6,
       "norm_label": "react-dom"
     },
     {
@@ -1835,984 +1412,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "readme_md_borderguard_ai",
       "community": 8,
-      "norm_label": "borderguard-ai"
-    },
-    {
-      "label": "Shared Backend Requirements",
-      "file_type": "document",
-      "source_file": "backend/requirements.txt",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt",
-      "community": 3,
-      "norm_label": "shared backend requirements"
-    },
-    {
-      "label": "Shared Backend venv",
-      "file_type": "rationale",
-      "source_file": "backend/requirements.txt",
-      "source_location": "2:7",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_shared_venv",
-      "community": 8,
-      "norm_label": "shared backend venv"
-    },
-    {
-      "label": "FastAPI Web Framework Stack",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "9:14",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_web_framework_stack",
-      "community": 3,
-      "norm_label": "fastapi web framework stack"
-    },
-    {
-      "label": "Inter-Service HTTP Client",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "16:17",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_inter_service_http",
-      "community": 3,
-      "norm_label": "inter-service http client"
-    },
-    {
-      "label": "PostgreSQL Database Stack",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "19:23",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_database_stack",
-      "community": 3,
-      "norm_label": "postgresql database stack"
-    },
-    {
-      "label": "MinIO Object Storage Client",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "25:26",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_object_storage",
-      "community": 3,
-      "norm_label": "minio object storage client"
-    },
-    {
-      "label": "JWT and Password Auth Stack",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "28:30",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_auth_stack",
-      "community": 3,
-      "norm_label": "jwt and password auth stack"
-    },
-    {
-      "label": "OCR and Document Processing Phase 1",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "38:43",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_ocr_phase_1",
-      "community": 3,
-      "norm_label": "ocr and document processing phase 1"
-    },
-    {
-      "label": "Tampering Detection Phase 2",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "45:52",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_tampering_phase_2",
-      "community": 3,
-      "norm_label": "tampering detection phase 2"
-    },
-    {
-      "label": "Face Verification Phase 2",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "54:56",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_face_phase_2",
-      "community": 3,
-      "norm_label": "face verification phase 2"
-    },
-    {
-      "label": "Encryption Phase 4",
-      "file_type": "concept",
-      "source_file": "backend/requirements.txt",
-      "source_location": "58:59",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "backend_requirements_txt_encryption_phase_4",
-      "community": 3,
-      "norm_label": "encryption phase 4"
-    },
-    {
-      "label": "Docker Compose Stack",
-      "file_type": "document",
-      "source_file": "docker-compose.yml",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml",
-      "community": 8,
-      "norm_label": "docker compose stack"
-    },
-    {
-      "label": "Next.js Officer Dashboard",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "2:2",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_officer_dashboard",
-      "community": 8,
-      "norm_label": "next.js officer dashboard"
-    },
-    {
-      "label": "FastAPI Microservices Backend",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "3:3",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_fastapi_microservices",
-      "community": 3,
-      "norm_label": "fastapi microservices backend"
-    },
-    {
-      "label": "Shared Backend Docker Image",
-      "file_type": "rationale",
-      "source_file": "docker-compose.yml",
-      "source_location": "44:45",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_shared_backend_image",
-      "community": 8,
-      "norm_label": "shared backend docker image"
-    },
-    {
-      "label": "postgres",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "7:23",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_postgres",
-      "community": 3,
-      "norm_label": "postgres"
-    },
-    {
-      "label": "minio",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "25:42",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_minio",
-      "community": 3,
-      "norm_label": "minio"
-    },
-    {
-      "label": "ocr-service",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "46:62",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_ocr_service",
-      "community": 3,
-      "norm_label": "ocr-service"
-    },
-    {
-      "label": "validation-service",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "64:80",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_validation_service",
-      "community": 3,
-      "norm_label": "validation-service"
-    },
-    {
-      "label": "tampering-service",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "82:98",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_tampering_service",
-      "community": 3,
-      "norm_label": "tampering-service"
-    },
-    {
-      "label": "face-service",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "100:116",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_face_service",
-      "community": 3,
-      "norm_label": "face-service"
-    },
-    {
-      "label": "risk-engine",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "118:134",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_risk_engine",
-      "community": 3,
-      "norm_label": "risk-engine"
-    },
-    {
-      "label": "audit-ledger",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "136:155",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_audit_ledger",
-      "community": 3,
-      "norm_label": "audit-ledger"
-    },
-    {
-      "label": "orchestrator",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "157:190",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_orchestrator",
-      "community": 3,
-      "norm_label": "orchestrator"
-    },
-    {
-      "label": "frontend",
-      "file_type": "concept",
-      "source_file": "docker-compose.yml",
-      "source_location": "193:211",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "docker_compose_yml_frontend",
-      "community": 8,
-      "norm_label": "frontend"
-    },
-    {
-      "label": "Next.js Agent Rules",
-      "file_type": "document",
-      "source_file": "frontend/AGENTS.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_agents_md",
-      "community": 18,
-      "norm_label": "next.js agent rules"
-    },
-    {
-      "label": "Next.js Breaking Changes Warning",
-      "file_type": "rationale",
-      "source_file": "frontend/AGENTS.md",
-      "source_location": "3:7",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_agents_md_nextjs_breaking_changes",
-      "community": 18,
-      "norm_label": "next.js breaking changes warning"
-    },
-    {
-      "label": "Claude Agent Rules",
-      "file_type": "document",
-      "source_file": "frontend/CLAUDE.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_claude_md",
-      "community": 18,
-      "norm_label": "claude agent rules"
-    },
-    {
-      "label": "Frontend README",
-      "file_type": "document",
-      "source_file": "frontend/README.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_readme_md",
-      "community": 8,
-      "norm_label": "frontend readme"
-    },
-    {
-      "label": "Next.js Project",
-      "file_type": "concept",
-      "source_file": "frontend/README.md",
-      "source_location": "1:1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_readme_md_nextjs_project",
-      "community": 8,
-      "norm_label": "next.js project"
-    },
-    {
-      "label": "create-next-app Bootstrap",
-      "file_type": "concept",
-      "source_file": "frontend/README.md",
-      "source_location": "1:1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_readme_md_create_next_app",
-      "community": 8,
-      "norm_label": "create-next-app bootstrap"
-    },
-    {
-      "label": "file.svg",
-      "file_type": "image",
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file",
-      "community": 6,
-      "norm_label": "file.svg"
-    },
-    {
-      "label": "SVG Document Root",
-      "file_type": "image",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_svg_document",
-      "community": 6,
-      "norm_label": "svg document root"
-    },
-    {
-      "label": "Path Shape Element",
-      "file_type": "image",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_path_shape",
-      "community": 6,
-      "norm_label": "path shape element"
-    },
-    {
-      "label": "Document File Icon",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_document_icon",
-      "community": 6,
-      "norm_label": "document file icon"
-    },
-    {
-      "label": "Folded Corner Detail",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_folded_corner",
-      "community": 6,
-      "norm_label": "folded corner detail"
-    },
-    {
-      "label": "Text Line Indicators",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_text_lines",
-      "community": 6,
-      "norm_label": "text line indicators"
-    },
-    {
-      "label": "Fill Color #666",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_fill_color_666",
-      "community": 6,
-      "norm_label": "fill color #666"
-    },
-    {
-      "label": "16\u00d716 ViewBox",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_viewbox_16x16",
-      "community": 6,
-      "norm_label": "16\u00d716 viewbox"
-    },
-    {
-      "label": "SVG Namespace (xmlns)",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_svg_namespace",
-      "community": 6,
-      "norm_label": "svg namespace (xmlns)"
-    },
-    {
-      "label": "UI Icon for File/Document",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_ui_icon_purpose",
-      "community": 6,
-      "norm_label": "ui icon for file/document"
-    },
-    {
-      "label": "Frontend Public Static Asset",
-      "file_type": "concept",
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_file_public_static_asset",
-      "community": 6,
-      "norm_label": "frontend public static asset"
-    },
-    {
-      "label": "globe.svg",
-      "file_type": "image",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_globe_svg",
-      "community": 9,
-      "norm_label": "globe.svg"
-    },
-    {
-      "label": "Wireframe Globe Icon",
-      "file_type": "image",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_wireframe_globe_icon",
-      "community": 9,
-      "norm_label": "wireframe globe icon"
-    },
-    {
-      "label": "Globe Path Geometry",
-      "file_type": "image",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_globe_path",
-      "community": 9,
-      "norm_label": "globe path geometry"
-    },
-    {
-      "label": "SVG Clip Path",
-      "file_type": "image",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_svg_clip_path",
-      "community": 9,
-      "norm_label": "svg clip path"
-    },
-    {
-      "label": "16\u00d716 ViewBox",
-      "file_type": "concept",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_viewbox_16x16",
-      "community": 9,
-      "norm_label": "16\u00d716 viewbox"
-    },
-    {
-      "label": "Gray Fill (#666)",
-      "file_type": "concept",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_fill_666",
-      "community": 9,
-      "norm_label": "gray fill (#666)"
-    },
-    {
-      "label": "Earth / World Symbol",
-      "file_type": "concept",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_earth_symbol",
-      "community": 9,
-      "norm_label": "earth / world symbol"
-    },
-    {
-      "label": "Static Public Asset",
-      "file_type": "concept",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_static_public_asset",
-      "community": 9,
-      "norm_label": "static public asset"
-    },
-    {
-      "label": "Internationalization UI Purpose",
-      "file_type": "concept",
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_globe_internationalization_ui",
-      "community": 9,
-      "norm_label": "internationalization ui purpose"
-    },
-    {
-      "label": "next.svg",
-      "file_type": "image",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next",
-      "community": 5,
-      "norm_label": "next.svg"
-    },
-    {
-      "label": "SVG Document Root",
-      "file_type": "image",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_svg_document",
-      "community": 5,
-      "norm_label": "svg document root"
-    },
-    {
-      "label": "Primary Path Shape (NEXT Letters)",
-      "file_type": "image",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_path_shape_primary",
-      "community": 5,
-      "norm_label": "primary path shape (next letters)"
-    },
-    {
-      "label": "Secondary Path Shape (.js Suffix)",
-      "file_type": "image",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_path_shape_secondary",
-      "community": 5,
-      "norm_label": "secondary path shape (.js suffix)"
-    },
-    {
-      "label": "Next.js Wordmark Logo",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_nextjs_wordmark",
-      "community": 5,
-      "norm_label": "next.js wordmark logo"
-    },
-    {
-      "label": "Next.js Framework Brand",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_nextjs_framework",
-      "community": 5,
-      "norm_label": "next.js framework brand"
-    },
-    {
-      "label": "Fill Color #000",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_fill_color_black",
-      "community": 5,
-      "norm_label": "fill color #000"
-    },
-    {
-      "label": "394\u00d780 ViewBox",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_viewbox_394x80",
-      "community": 5,
-      "norm_label": "394\u00d780 viewbox"
-    },
-    {
-      "label": "SVG Namespace (xmlns)",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_svg_namespace",
-      "community": 5,
-      "norm_label": "svg namespace (xmlns)"
-    },
-    {
-      "label": "Frontend Public Static Asset",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_public_static_asset",
-      "community": 5,
-      "norm_label": "frontend public static asset"
-    },
-    {
-      "label": "Homepage Header Branding Logo",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_branding_logo_purpose",
-      "community": 5,
-      "norm_label": "homepage header branding logo"
-    },
-    {
-      "label": "create-next-app Default Starter Asset",
-      "file_type": "concept",
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_next_create_next_app_asset",
-      "community": 5,
-      "norm_label": "create-next-app default starter asset"
-    },
-    {
-      "label": "vercel.svg",
-      "file_type": "image",
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_vercel",
-      "community": 14,
-      "norm_label": "vercel.svg"
-    },
-    {
-      "label": "Vercel Logomark",
-      "file_type": "concept",
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_vercel_vercel_logomark",
-      "community": 14,
-      "norm_label": "vercel logomark"
-    },
-    {
-      "label": "White upward-pointing triangle",
-      "file_type": "concept",
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": "L1",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_vercel_triangle_shape",
-      "community": 14,
-      "norm_label": "white upward-pointing triangle"
-    },
-    {
-      "label": "Vercel deployment platform",
-      "file_type": "concept",
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_vercel_vercel_platform",
-      "community": 14,
-      "norm_label": "vercel deployment platform"
-    },
-    {
-      "label": "window.svg",
-      "file_type": "image",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window",
-      "community": 10,
-      "norm_label": "window.svg"
-    },
-    {
-      "label": "Browser Window Icon",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_browser_window_icon",
-      "community": 10,
-      "norm_label": "browser window icon"
-    },
-    {
-      "label": "Rounded Window Frame",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_window_frame",
-      "community": 10,
-      "norm_label": "rounded window frame"
-    },
-    {
-      "label": "Three Horizontal Content Dots",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_content_dots",
-      "community": 10,
-      "norm_label": "three horizontal content dots"
-    },
-    {
-      "label": "Gray Monochrome Fill (#666)",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_gray_monochrome_style",
-      "community": 10,
-      "norm_label": "gray monochrome fill (#666)"
-    },
-    {
-      "label": "16x16 ViewBox Icon Size",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_16x16_viewbox",
-      "community": 10,
-      "norm_label": "16x16 viewbox icon size"
-    },
-    {
-      "label": "Next.js Create-Next-App Starter Icon",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_window_nextjs_starter_asset",
-      "community": 10,
-      "norm_label": "next.js create-next-app starter icon"
-    },
-    {
-      "label": "Next.js Public Static Assets Directory",
-      "file_type": "concept",
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "frontend_public_static_assets",
-      "community": 10,
-      "norm_label": "next.js public static assets directory"
+      "norm_label": "borderguard-ai",
+      "id": "readme_md_borderguard_ai"
     }
   ],
   "links": [
@@ -3485,6 +2087,36 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "frontend_readme",
+      "target": "frontend_readme_deploy_on_vercel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "frontend_readme",
+      "target": "frontend_readme_getting_started",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "frontend_readme",
+      "target": "frontend_readme_learn_more",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "frontend/app/layout.tsx",
       "source_location": "L10",
       "weight": 1.0,
@@ -3540,16 +2172,6 @@
       "weight": 1.0,
       "source": "frontend_eslint_config",
       "target": "frontend_eslint_config_eslintconfig",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/next-env.d.ts",
-      "source_location": "L6",
-      "weight": 1.0,
-      "source": "frontend_next_env_d_rationale_6",
-      "target": "frontend_next_env_d",
       "confidence_score": 1.0
     },
     {
@@ -4287,1049 +2909,8 @@
       "source": "frontend_tsconfig_exclude",
       "target": "ref_node_modules",
       "confidence_score": 1.0
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "readme.md",
-      "source_location": "1:1",
-      "weight": 1.0,
-      "source": "readme_md_borderguard_ai",
-      "target": "docker_compose_yml"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "28:30",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_auth_stack"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "19:23",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_database_stack"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "58:59",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_encryption_phase_4"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "54:56",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_face_phase_2"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "16:17",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_inter_service_http"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "25:26",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_object_storage"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "38:43",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_ocr_phase_1"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "2:7",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_shared_venv"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "45:52",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_tampering_phase_2"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt",
-      "source_location": "9:14",
-      "weight": 1.0,
-      "source": "backend_requirements_txt",
-      "target": "backend_requirements_txt_web_framework_stack"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "backend/requirements.txt",
-      "source_location": "2:7",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_shared_venv",
-      "target": "docker_compose_yml_shared_backend_image"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "backend/requirements.txt",
-      "source_location": "9:14",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_web_framework_stack",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "backend/requirements.txt",
-      "source_location": "16:17",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_inter_service_http",
-      "target": "docker_compose_yml_orchestrator"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docker-compose.yml",
-      "source_location": "8:8",
-      "weight": 1.0,
-      "source": "docker_compose_yml_postgres",
-      "target": "backend_requirements_txt_database_stack"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docker-compose.yml",
-      "source_location": "26:26",
-      "weight": 1.0,
-      "source": "docker_compose_yml_minio",
-      "target": "backend_requirements_txt_object_storage"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.2,
-      "source_file": "backend/requirements.txt",
-      "source_location": "28:30",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_auth_stack",
-      "target": "docker_compose_yml_orchestrator"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "backend/requirements.txt",
-      "source_location": "38:43",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_ocr_phase_1",
-      "target": "docker_compose_yml_ocr_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "backend/requirements.txt",
-      "source_location": "45:52",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_tampering_phase_2",
-      "target": "docker_compose_yml_tampering_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "backend/requirements.txt",
-      "source_location": "54:56",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_face_phase_2",
-      "target": "docker_compose_yml_face_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.25,
-      "source_file": "backend/requirements.txt",
-      "source_location": "58:59",
-      "weight": 1.0,
-      "source": "backend_requirements_txt_encryption_phase_4",
-      "target": "docker_compose_yml_audit_ledger"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "3:3",
-      "weight": 1.0,
-      "source": "docker_compose_yml",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "2:2",
-      "weight": 1.0,
-      "source": "docker_compose_yml",
-      "target": "docker_compose_yml_officer_dashboard"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "44:45",
-      "weight": 1.0,
-      "source": "docker_compose_yml",
-      "target": "docker_compose_yml_shared_backend_image"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "192:192",
-      "weight": 1.0,
-      "source": "docker_compose_yml_frontend",
-      "target": "docker_compose_yml_officer_dashboard"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docker-compose.yml",
-      "source_location": "2:2",
-      "weight": 1.0,
-      "source": "docker_compose_yml_officer_dashboard",
-      "target": "frontend_readme_md_nextjs_project"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "136:155",
-      "weight": 1.0,
-      "source": "docker_compose_yml_audit_ledger",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "100:116",
-      "weight": 1.0,
-      "source": "docker_compose_yml_face_service",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "46:62",
-      "weight": 1.0,
-      "source": "docker_compose_yml_ocr_service",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "157:190",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "118:134",
-      "weight": 1.0,
-      "source": "docker_compose_yml_risk_engine",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "82:98",
-      "weight": 1.0,
-      "source": "docker_compose_yml_tampering_service",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "64:80",
-      "weight": 1.0,
-      "source": "docker_compose_yml_validation_service",
-      "target": "docker_compose_yml_fastapi_microservices"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "148:150",
-      "weight": 1.0,
-      "source": "docker_compose_yml_audit_ledger",
-      "target": "docker_compose_yml_postgres"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "169:171",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_postgres"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "172:173",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_minio"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "174:175",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_ocr_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "176:177",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_validation_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "178:179",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_tampering_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "180:181",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_face_service"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "182:183",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_risk_engine"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "184:185",
-      "weight": 1.0,
-      "source": "docker_compose_yml_orchestrator",
-      "target": "docker_compose_yml_audit_ledger"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml",
-      "source_location": "204:206",
-      "weight": 1.0,
-      "source": "docker_compose_yml_frontend",
-      "target": "docker_compose_yml_orchestrator"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docker-compose.yml",
-      "source_location": "193:211",
-      "weight": 1.0,
-      "source": "docker_compose_yml_frontend",
-      "target": "frontend_readme_md_nextjs_project"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/AGENTS.md",
-      "source_location": "3:7",
-      "weight": 1.0,
-      "source": "frontend_agents_md",
-      "target": "frontend_agents_md_nextjs_breaking_changes"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/CLAUDE.md",
-      "source_location": "1:1",
-      "weight": 1.0,
-      "source": "frontend_claude_md",
-      "target": "frontend_agents_md"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/README.md",
-      "source_location": "1:1",
-      "weight": 1.0,
-      "source": "frontend_readme_md",
-      "target": "frontend_readme_md_create_next_app"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/README.md",
-      "source_location": "1:1",
-      "weight": 1.0,
-      "source": "frontend_readme_md",
-      "target": "frontend_readme_md_nextjs_project"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_file",
-      "target": "frontend_public_file_public_static_asset"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file",
-      "target": "frontend_public_file_svg_document"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_file",
-      "target": "frontend_public_file_ui_icon_purpose"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_svg_document",
-      "target": "frontend_public_file_path_shape"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_svg_document",
-      "target": "frontend_public_file_svg_namespace"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_svg_document",
-      "target": "frontend_public_file_viewbox_16x16"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_path_shape",
-      "target": "frontend_public_file_document_icon"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_path_shape",
-      "target": "frontend_public_file_fill_color_666"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_path_shape",
-      "target": "frontend_public_file_folded_corner"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/file.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_file_path_shape",
-      "target": "frontend_public_file_text_lines"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/file.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_file_document_icon",
-      "target": "frontend_public_file_ui_icon_purpose"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_svg",
-      "target": "frontend_public_globe_globe_path"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_svg",
-      "target": "frontend_public_globe_static_public_asset"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_svg",
-      "target": "frontend_public_globe_svg_clip_path"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_svg",
-      "target": "frontend_public_globe_viewbox_16x16"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_svg",
-      "target": "frontend_public_globe_wireframe_globe_icon"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_path",
-      "target": "frontend_public_globe_wireframe_globe_icon"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_wireframe_globe_icon",
-      "target": "frontend_public_globe_earth_symbol"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.2,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_wireframe_globe_icon",
-      "target": "frontend_public_globe_internationalization_ui"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_wireframe_globe_icon",
-      "target": "frontend_public_globe_viewbox_16x16"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_globe_globe_path",
-      "target": "frontend_public_globe_fill_666"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_next",
-      "target": "frontend_public_next_branding_logo_purpose"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_next",
-      "target": "frontend_public_next_create_next_app_asset"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_next",
-      "target": "frontend_public_next_public_static_asset"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next",
-      "target": "frontend_public_next_svg_document"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_svg_document",
-      "target": "frontend_public_next_path_shape_primary"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_svg_document",
-      "target": "frontend_public_next_path_shape_secondary"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_svg_document",
-      "target": "frontend_public_next_svg_namespace"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_svg_document",
-      "target": "frontend_public_next_viewbox_394x80"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_path_shape_primary",
-      "target": "frontend_public_next_fill_color_black"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_path_shape_primary",
-      "target": "frontend_public_next_nextjs_wordmark"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_path_shape_secondary",
-      "target": "frontend_public_next_fill_color_black"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_next_path_shape_secondary",
-      "target": "frontend_public_next_nextjs_wordmark"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_next_nextjs_wordmark",
-      "target": "frontend_public_next_branding_logo_purpose"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/next.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_next_nextjs_wordmark",
-      "target": "frontend_public_next_nextjs_framework"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_vercel",
-      "target": "frontend_public_vercel_triangle_shape"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_vercel",
-      "target": "frontend_public_vercel_vercel_logomark"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_public_vercel_vercel_logomark",
-      "target": "frontend_public_vercel_triangle_shape"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/vercel.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_vercel_vercel_logomark",
-      "target": "frontend_public_vercel_vercel_platform"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window",
-      "target": "frontend_public_static_assets"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window",
-      "target": "frontend_public_window_16x16_viewbox"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window",
-      "target": "frontend_public_window_browser_window_icon"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window",
-      "target": "frontend_public_window_gray_monochrome_style"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window",
-      "target": "frontend_public_window_nextjs_starter_asset"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window_browser_window_icon",
-      "target": "frontend_public_window_content_dots"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window_browser_window_icon",
-      "target": "frontend_public_window_window_frame"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/window.svg",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "frontend_public_window_nextjs_starter_asset",
-      "target": "frontend_public_window_browser_window_icon"
     }
   ],
-  "hyperedges": [
-    {
-      "id": "docker_compose_backend_microservices",
-      "label": "FastAPI Backend Microservices",
-      "nodes": [
-        "docker_compose_yml_ocr_service",
-        "docker_compose_yml_validation_service",
-        "docker_compose_yml_tampering_service",
-        "docker_compose_yml_face_service",
-        "docker_compose_yml_risk_engine",
-        "docker_compose_yml_audit_ledger",
-        "docker_compose_yml_orchestrator"
-      ],
-      "relation": "implement",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml"
-    },
-    {
-      "id": "backend_requirements_phased_capabilities",
-      "label": "Phased Backend Capabilities",
-      "nodes": [
-        "backend_requirements_txt_ocr_phase_1",
-        "backend_requirements_txt_tampering_phase_2",
-        "backend_requirements_txt_face_phase_2",
-        "backend_requirements_txt_encryption_phase_4"
-      ],
-      "relation": "form",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/requirements.txt"
-    },
-    {
-      "id": "orchestrator_service_coordination",
-      "label": "Orchestrator Service Coordination Flow",
-      "nodes": [
-        "docker_compose_yml_orchestrator",
-        "docker_compose_yml_ocr_service",
-        "docker_compose_yml_validation_service",
-        "docker_compose_yml_tampering_service",
-        "docker_compose_yml_face_service",
-        "docker_compose_yml_risk_engine",
-        "docker_compose_yml_audit_ledger",
-        "docker_compose_yml_postgres",
-        "docker_compose_yml_minio"
-      ],
-      "relation": "participate_in",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docker-compose.yml"
-    },
-    {
-      "id": "frontend_public_globe_svg_document_structure",
-      "label": "SVG Document Structure",
-      "nodes": [
-        "frontend_public_globe_globe_svg",
-        "frontend_public_globe_globe_path",
-        "frontend_public_globe_svg_clip_path"
-      ],
-      "relation": "form",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/public/globe.svg"
-    },
-    {
-      "id": "frontend_public_next_branding_group",
-      "label": "Next.js Branding Identity",
-      "nodes": [
-        "frontend_public_next_nextjs_wordmark",
-        "frontend_public_next_nextjs_framework",
-        "frontend_public_next_branding_logo_purpose"
-      ],
-      "relation": "participate_in",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "frontend/public/next.svg"
-    },
-    {
-      "id": "frontend_public_window_icon_composition",
-      "label": "Window Icon Visual Composition",
-      "nodes": [
-        "frontend_public_window_browser_window_icon",
-        "frontend_public_window_window_frame",
-        "frontend_public_window_content_dots",
-        "frontend_public_window_gray_monochrome_style"
-      ],
-      "relation": "form",
-      "confidence": "EXTRACTED",
-      "confidence_score": 0.95,
-      "source_file": "frontend/public/window.svg"
-    }
-  ],
-  "built_at_commit": "9e502af0aea9df874880403710ef0bada5b5f560"
+  "hyperedges": [],
+  "built_at_commit": "a7b1e22a9d7367ce83f5152c96f0a0f4775c9b88"
 }
