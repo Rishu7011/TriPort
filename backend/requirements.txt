@@ -1,6 +1,23 @@
 # ============================================================
-# BorderGuard-AI — Shared Backend Requirements
-# One venv for all services. Install with:
+# BorderGuard-AI — Backend Requirements Index
+#
+# Dependencies are split by phase to avoid version conflicts:
+#
+#   requirements-core.txt  ← Phase 0 (web, db, auth, logging)
+#   requirements-ml.txt    ← Phase 1+ (OCR, CV, face — needs Python 3.11)
+#
+# Phase 0 quickstart (any Python version):
+#   uv venv
+#   source .venv/bin/activate
+#   uv pip install -r requirements-core.txt
+#
+# Phase 1 onwards (Python 3.11 required for ML libs):
+#   uv venv --python 3.11
+#   source .venv/bin/activate
+#   uv pip install -r requirements-core.txt -r requirements-ml.txt
+# ============================================================
+#
+# Full dependency list below (for reference):
 #   python -m venv venv
 #   source venv/bin/activate
 #   pip install -r requirements.txt
