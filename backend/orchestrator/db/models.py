@@ -245,3 +245,23 @@ class AuditLedgerEntry(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+# ---------------------------------------------------------------------------
+# blacklist — watch/suspect/banned entries for watchlist cross-checks
+# ---------------------------------------------------------------------------
+class BlacklistEntry(Base):
+    __tablename__ = "blacklist"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    document_number: Mapped[str | None] = mapped_column(Text, index=True, nullable=True)
+    full_name: Mapped[str | None] = mapped_column(Text, index=True, nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nationality: Mapped[str | None] = mapped_column(Text, nullable=True)
+    severity: Mapped[str] = mapped_column(Text, nullable=False, default="banned")  # watch | suspect | banned
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

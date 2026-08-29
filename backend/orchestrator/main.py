@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.logging_config import configure_logging, get_logger
+from backend.orchestrator.routers import documents
 
 configure_logging()
 logger = get_logger("orchestrator")
@@ -12,7 +13,7 @@ logger = get_logger("orchestrator")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("service_started", port=8007)
+    logger.info("service_started", port=8000)
     yield
 
 
@@ -29,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(documents.router)
 
 
 @app.get("/health", tags=["health"])

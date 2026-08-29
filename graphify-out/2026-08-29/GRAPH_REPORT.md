@@ -1,16 +1,16 @@
 # Graph Report - BorderGuard-AI  (2026-08-29)
 
 ## Corpus Check
-- 39 files · ~8,597 words
+- 39 files · ~9,301 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 258 nodes · 364 edges · 31 communities (24 shown, 7 thin omitted)
+- 257 nodes · 364 edges · 30 communities (24 shown, 6 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.5)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cd3b6a40`
+- Built from commit: `1d0dfda4`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,7 +23,6 @@
 - Next.js Branding Assets
 - File Icon Assets
 - TypeScript Project Config
-- Project Overview Docs
 - Globe Icon Assets
 - date_logic.py
 - Audit Ledger Router
@@ -70,7 +69,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (31 total, 7 thin omitted)
+## Communities (30 total, 6 thin omitted)
 
 ### Community 0 - "FastAPI Service Layer"
 Cohesion: 0.07
@@ -153,9 +152,9 @@ Cohesion: 0.50
 Nodes (4): extract_fields_with_llm(), Generic interface for vision-capable LLM document extraction.      Args:, DocumentType, ExtractedField
 
 ## Knowledge Gaps
-- **54 isolated node(s):** `backend`, `Getting Started`, `Learn More`, `Deploy on Vercel`, `geistSans` (+49 more)
+- **53 isolated node(s):** `backend`, `Getting Started`, `Learn More`, `Deploy on Vercel`, `geistSans` (+48 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -169,7 +168,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 3 inferred relationships involving `ExtractedField` (e.g. with `RuleResult` and `ValidationRequest`) actually correct?**
   _`ExtractedField` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Shared settings loaded from .env (or environment variables). Every service impor`, `LLM Fallback — Pluggable Vision LLM interface for non-standard documents.  CONCE`, `Generic interface for vision-capable LLM document extraction.      Args:` to the rest of the system?**
-  _114 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _113 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `FastAPI Service Layer` be split into smaller, more focused modules?**
   _Cohesion score 0.06970128022759602 - nodes in this community are weakly interconnected._
 - **Should `Frontend Package Dependencies` be split into smaller, more focused modules?**
