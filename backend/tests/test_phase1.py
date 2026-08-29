@@ -38,6 +38,20 @@ def test_validation_engine_valid_passport():
     assert len(response.failed_rules) == 0
 
 
+def test_validation_engine_ocr_field_names():
+    """Test passport fields with visual zone naming (date_of_expiry, passport_number) passing all rules."""
+    fields = [
+        ExtractedField(field_name="passport_number", field_value="A1234567", confidence=0.95, extraction_method=ExtractionMethod.OCR),
+        ExtractedField(field_name="date_of_birth", field_value="1990-05-15", confidence=0.95, extraction_method=ExtractionMethod.OCR),
+        ExtractedField(field_name="date_of_expiry", field_value="2030-12-31", confidence=0.95, extraction_method=ExtractionMethod.OCR),
+        ExtractedField(field_name="nationality", field_value="IND", confidence=0.95, extraction_method=ExtractionMethod.OCR),
+    ]
+
+    response = validate_document(DocumentType.PASSPORT, fields)
+    assert response.passed is True
+    assert len(response.failed_rules) == 0
+
+
 def test_validation_engine_expired_passport():
     """Test expired passport failing expiry_not_passed rule."""
     fields = [
@@ -50,3 +64,27 @@ def test_validation_engine_expired_passport():
     response = validate_document(DocumentType.PASSPORT, fields)
     assert response.passed is False
     assert "expiry_not_passed" in response.failed_rules
+
+
+def test_mrz_parser_with_p_doc_number():
+    """Test MRZ parser correctly handles document numbers starting with 'P' without line confusion."""
+    from backend.ocr_service.core.mrz_parser import parse_mrz_from_text_lines
+    lines = [
+        "P<INDSURNAME<<GIVENNAME<<<<<<<<<<<<<<<<<<<<<",
+        "P1234567<1IND8501156M2812313<<<<<<<<<<<<<<<<",
+    ]
+    res = parse_mrz_from_text_lines(lines)
+    assert res.mrz_present is True
+    assert res.checksum_valid is True
+    assert res.mrz_fields["doc_number"] == "P1234567"
+    assert res.mrz_fields["nationality"] == "IND"
+
+
+def test_date_conditions_offset():
+    """Test date condition evaluations including +/- offsets."""
+    from backend.validation_service.core.date_logic import evaluate_date_condition
+    passed, _ = evaluate_date_condition("1995-01-01", "< today - 18y")
+    assert passed is True
+    passed_future, _ = evaluate_date_condition("2020-01-01", "< today - 18y")
+    assert passed_future is False
+

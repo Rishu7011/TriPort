@@ -61,12 +61,12 @@ def parse_mrz_from_text_lines(text_lines: list[str]) -> MRZResult:
     line2 = None
 
     for line in cleaned_lines:
-        # Standardize line length if near 44
-        if len(line) >= 35:
-            if line.startswith("P<") or line.startswith("P"):
-                line1 = line
-            elif re.search(r"[0-9]{6}", line) and "<" in line:
+        if len(line) >= 30:
+            # Line 2 has DOB (6 digits), check digit, sex (M/F/<), and Expiry (6 digits)
+            if re.search(r"[0-9]{6}[0-9][MFX<][0-9]{6}", line) or (re.search(r"[0-9]{6}", line) and "<" in line and not line.startswith("P<")):
                 line2 = line
+            elif line.startswith("P<") or (line.startswith("P") and "<<" in line):
+                line1 = line
 
     if not line1 or not line2:
         return MRZResult(mrz_present=False)

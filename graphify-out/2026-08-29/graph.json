@@ -4,154 +4,44 @@
   "graph": {},
   "nodes": [
     {
-      "label": "README.md",
-      "file_type": "document",
-      "source_file": "backend/README.md",
+      "label": "config.py",
+      "file_type": "code",
+      "source_file": "backend/config.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_readme",
-      "community": 17,
-      "norm_label": "readme.md"
+      "id": "backend_config",
+      "community": 13,
+      "norm_label": "config.py"
     },
     {
-      "label": "main.py",
+      "label": "Settings",
       "file_type": "code",
-      "source_file": "backend/main.py",
-      "source_location": "L1",
+      "source_file": "backend/config.py",
+      "source_location": "L9",
       "_origin": "ast",
-      "id": "backend_main",
-      "community": 16,
-      "norm_label": "main.py"
+      "id": "backend_config_settings",
+      "community": 13,
+      "norm_label": "settings"
     },
     {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "backend/main.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_main_main",
-      "community": 16,
-      "norm_label": "main()"
-    },
-    {
-      "label": "field_extractor.py",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor",
-      "community": 5,
-      "norm_label": "field_extractor.py"
-    },
-    {
-      "label": "get_ocr_reader()",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L26",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_get_ocr_reader",
-      "community": 5,
-      "norm_label": "get_ocr_reader()"
-    },
-    {
-      "label": "_bytes_to_numpy_image()",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L86",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
-      "community": 15,
-      "norm_label": "_bytes_to_numpy_image()"
-    },
-    {
-      "label": "ndarray",
+      "label": "BaseSettings",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "ndarray",
-      "community": 15,
-      "norm_label": "ndarray"
+      "id": "basesettings",
+      "community": 13,
+      "norm_label": "basesettings"
     },
     {
-      "label": "extract_raw_ocr_lines()",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L92",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "community": 5,
-      "norm_label": "extract_raw_ocr_lines()"
-    },
-    {
-      "label": "extract_fields()",
-      "file_type": "code",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L111",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_extract_fields",
-      "community": 5,
-      "norm_label": "extract_fields()"
-    },
-    {
-      "label": "ExtractedField",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_py_extractedfield",
-      "community": 5,
-      "norm_label": "extractedfield"
-    },
-    {
-      "label": "Field Extractor \u2014 Robust document OCR using EasyOCR.  Extracts text boxes, confi",
+      "label": "Shared settings loaded from .env (or environment variables). Every service impor",
       "file_type": "rationale",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_file": "backend/config.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_rationale_1",
-      "community": 5,
-      "norm_label": "field extractor \u2014 robust document ocr using easyocr.  extracts text boxes, confi"
-    },
-    {
-      "label": "Singleton lazy-loader for EasyOCR reader.",
-      "file_type": "rationale",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L27",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_rationale_27",
-      "community": 5,
-      "norm_label": "singleton lazy-loader for easyocr reader."
-    },
-    {
-      "label": "Convert raw byte stream to RGB NumPy array.",
-      "file_type": "rationale",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L87",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_rationale_87",
-      "community": 15,
-      "norm_label": "convert raw byte stream to rgb numpy array."
-    },
-    {
-      "label": "Extract raw text lines and confidences using EasyOCR.",
-      "file_type": "rationale",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L93",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_rationale_93",
-      "community": 5,
-      "norm_label": "extract raw text lines and confidences using easyocr."
-    },
-    {
-      "label": "Extract structured fields from image bytes.",
-      "file_type": "rationale",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L116",
-      "_origin": "ast",
-      "id": "backend_ocr_service_core_field_extractor_rationale_116",
-      "community": 5,
-      "norm_label": "extract structured fields from image bytes."
+      "id": "backend_config_rationale_1",
+      "community": 13,
+      "norm_label": "shared settings loaded from .env (or environment variables). every service impor"
     },
     {
       "label": "llm_fallback.py",
@@ -160,7 +50,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_ocr_service_core_llm_fallback",
-      "community": 5,
+      "community": 22,
       "norm_label": "llm_fallback.py"
     },
     {
@@ -170,8 +60,18 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "community": 5,
+      "community": 28,
       "norm_label": "extract_fields_with_llm()"
+    },
+    {
+      "label": "DocumentType",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "documenttype",
+      "community": 28,
+      "norm_label": "documenttype"
     },
     {
       "label": "ExtractedField",
@@ -179,8 +79,8 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_llm_fallback_py_extractedfield",
-      "community": 5,
+      "id": "extractedfield",
+      "community": 28,
       "norm_label": "extractedfield"
     },
     {
@@ -190,7 +90,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_ocr_service_core_llm_fallback_rationale_1",
-      "community": 5,
+      "community": 22,
       "norm_label": "llm fallback \u2014 pluggable vision llm interface for non-standard documents.  conce"
     },
     {
@@ -200,8 +100,168 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_ocr_service_core_llm_fallback_rationale_34",
-      "community": 5,
+      "community": 28,
       "norm_label": "generic interface for vision-capable llm document extraction.      args:"
+    },
+    {
+      "label": "README.md",
+      "file_type": "document",
+      "source_file": "backend/README.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "community": 17,
+      "norm_label": "readme.md",
+      "id": "backend_readme"
+    },
+    {
+      "label": "main.py",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "community": 16,
+      "norm_label": "main.py",
+      "id": "backend_main"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "backend/main.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "community": 16,
+      "norm_label": "main()",
+      "id": "backend_main_main"
+    },
+    {
+      "label": "field_extractor.py",
+      "file_type": "code",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "community": 22,
+      "norm_label": "field_extractor.py",
+      "id": "backend_ocr_service_core_field_extractor"
+    },
+    {
+      "label": "get_ocr_reader()",
+      "file_type": "code",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L26",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "get_ocr_reader()",
+      "id": "backend_ocr_service_core_field_extractor_get_ocr_reader"
+    },
+    {
+      "label": "_bytes_to_numpy_image()",
+      "file_type": "code",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L86",
+      "_origin": "ast",
+      "community": 15,
+      "norm_label": "_bytes_to_numpy_image()",
+      "id": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image"
+    },
+    {
+      "label": "ndarray",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "community": 15,
+      "norm_label": "ndarray",
+      "id": "ndarray"
+    },
+    {
+      "label": "extract_raw_ocr_lines()",
+      "file_type": "code",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L92",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "extract_raw_ocr_lines()",
+      "id": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "label": "extract_fields()",
+      "file_type": "code",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L111",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "extract_fields()",
+      "id": "backend_ocr_service_core_field_extractor_extract_fields"
+    },
+    {
+      "label": "ExtractedField",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "extractedfield",
+      "id": "backend_ocr_service_core_field_extractor_py_extractedfield"
+    },
+    {
+      "label": "Field Extractor \u2014 Robust document OCR using EasyOCR.  Extracts text boxes, confi",
+      "file_type": "rationale",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "community": 22,
+      "norm_label": "field extractor \u2014 robust document ocr using easyocr.  extracts text boxes, confi",
+      "id": "backend_ocr_service_core_field_extractor_rationale_1"
+    },
+    {
+      "label": "Singleton lazy-loader for EasyOCR reader.",
+      "file_type": "rationale",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L27",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "singleton lazy-loader for easyocr reader.",
+      "id": "backend_ocr_service_core_field_extractor_rationale_27"
+    },
+    {
+      "label": "Convert raw byte stream to RGB NumPy array.",
+      "file_type": "rationale",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L87",
+      "_origin": "ast",
+      "community": 15,
+      "norm_label": "convert raw byte stream to rgb numpy array.",
+      "id": "backend_ocr_service_core_field_extractor_rationale_87"
+    },
+    {
+      "label": "Extract raw text lines and confidences using EasyOCR.",
+      "file_type": "rationale",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L93",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "extract raw text lines and confidences using easyocr.",
+      "id": "backend_ocr_service_core_field_extractor_rationale_93"
+    },
+    {
+      "label": "Extract structured fields from image bytes.",
+      "file_type": "rationale",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L116",
+      "_origin": "ast",
+      "community": 24,
+      "norm_label": "extract structured fields from image bytes.",
+      "id": "backend_ocr_service_core_field_extractor_rationale_116"
+    },
+    {
+      "label": "ExtractedField",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "community": 29,
+      "norm_label": "extractedfield",
+      "id": "backend_ocr_service_core_llm_fallback_py_extractedfield"
     },
     {
       "label": "mrz_parser.py",
@@ -209,9 +269,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser",
       "community": 6,
-      "norm_label": "mrz_parser.py"
+      "norm_label": "mrz_parser.py",
+      "id": "backend_ocr_service_core_mrz_parser"
     },
     {
       "label": "_compute_check_digit()",
@@ -219,9 +279,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L26",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "community": 6,
-      "norm_label": "_compute_check_digit()"
+      "community": 26,
+      "norm_label": "_compute_check_digit()",
+      "id": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "label": "_validate_check_digit()",
@@ -229,9 +289,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "community": 6,
-      "norm_label": "_validate_check_digit()"
+      "community": 26,
+      "norm_label": "_validate_check_digit()",
+      "id": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "label": "parse_mrz_from_text_lines()",
@@ -239,9 +299,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L49",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
       "community": 6,
-      "norm_label": "parse_mrz_from_text_lines()"
+      "norm_label": "parse_mrz_from_text_lines()",
+      "id": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines"
     },
     {
       "label": "parse_mrz()",
@@ -249,9 +309,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L132",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_parse_mrz",
       "community": 6,
-      "norm_label": "parse_mrz()"
+      "norm_label": "parse_mrz()",
+      "id": "backend_ocr_service_core_mrz_parser_parse_mrz"
     },
     {
       "label": "MRZ Parser \u2014 Robust MRZ line detection and ICAO 9303 checksum validation.  Works",
@@ -259,9 +319,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_rationale_1",
       "community": 6,
-      "norm_label": "mrz parser \u2014 robust mrz line detection and icao 9303 checksum validation.  works"
+      "norm_label": "mrz parser \u2014 robust mrz line detection and icao 9303 checksum validation.  works",
+      "id": "backend_ocr_service_core_mrz_parser_rationale_1"
     },
     {
       "label": "Compute ICAO 9303 check digit using repeating weights [7, 3, 1].",
@@ -269,9 +329,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L27",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_rationale_27",
-      "community": 6,
-      "norm_label": "compute icao 9303 check digit using repeating weights [7, 3, 1]."
+      "community": 26,
+      "norm_label": "compute icao 9303 check digit using repeating weights [7, 3, 1].",
+      "id": "backend_ocr_service_core_mrz_parser_rationale_27"
     },
     {
       "label": "Return True if the computed check digit matches the expected one.",
@@ -279,9 +339,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L36",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_rationale_36",
-      "community": 6,
-      "norm_label": "return true if the computed check digit matches the expected one."
+      "community": 26,
+      "norm_label": "return true if the computed check digit matches the expected one.",
+      "id": "backend_ocr_service_core_mrz_parser_rationale_36"
     },
     {
       "label": "Directly parse MRZ lines from extracted OCR text lines.     This guarantees 100%",
@@ -289,9 +349,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L50",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_rationale_50",
       "community": 6,
-      "norm_label": "directly parse mrz lines from extracted ocr text lines.     this guarantees 100%"
+      "norm_label": "directly parse mrz lines from extracted ocr text lines.     this guarantees 100%",
+      "id": "backend_ocr_service_core_mrz_parser_rationale_50"
     },
     {
       "label": "Parse MRZ from OCR text lines first, falling back to PassportEye if available.",
@@ -299,9 +359,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L133",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_mrz_parser_rationale_133",
       "community": 6,
-      "norm_label": "parse mrz from ocr text lines first, falling back to passporteye if available."
+      "norm_label": "parse mrz from ocr text lines first, falling back to passporteye if available.",
+      "id": "backend_ocr_service_core_mrz_parser_rationale_133"
     },
     {
       "label": "extraction.py",
@@ -309,9 +369,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_routers_extraction",
-      "community": 5,
-      "norm_label": "extraction.py"
+      "community": 22,
+      "norm_label": "extraction.py",
+      "id": "backend_ocr_service_routers_extraction"
     },
     {
       "label": "extract_document()",
@@ -319,9 +379,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L44",
       "_origin": "ast",
-      "id": "backend_ocr_service_routers_extraction_extract_document",
-      "community": 5,
-      "norm_label": "extract_document()"
+      "community": 24,
+      "norm_label": "extract_document()",
+      "id": "backend_ocr_service_routers_extraction_extract_document"
     },
     {
       "label": "UploadFile",
@@ -329,9 +389,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "uploadfile",
-      "community": 5,
-      "norm_label": "uploadfile"
+      "community": 24,
+      "norm_label": "uploadfile",
+      "id": "uploadfile"
     },
     {
       "label": "Extraction Router \u2014 FastAPI endpoint for document OCR extraction.  FLOW:   1. Re",
@@ -339,9 +399,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_routers_extraction_rationale_1",
-      "community": 5,
-      "norm_label": "extraction router \u2014 fastapi endpoint for document ocr extraction.  flow:   1. re"
+      "community": 22,
+      "norm_label": "extraction router \u2014 fastapi endpoint for document ocr extraction.  flow:   1. re",
+      "id": "backend_ocr_service_routers_extraction_rationale_1"
     },
     {
       "label": "Extract structured fields and MRZ check digits from an uploaded document image.",
@@ -349,9 +409,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L51",
       "_origin": "ast",
-      "id": "backend_ocr_service_routers_extraction_rationale_51",
-      "community": 5,
-      "norm_label": "extract structured fields and mrz check digits from an uploaded document image."
+      "community": 24,
+      "norm_label": "extract structured fields and mrz check digits from an uploaded document image.",
+      "id": "backend_ocr_service_routers_extraction_rationale_51"
     },
     {
       "label": "extraction.py",
@@ -359,9 +419,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction",
-      "community": 5,
-      "norm_label": "extraction.py"
+      "community": 22,
+      "norm_label": "extraction.py",
+      "id": "backend_ocr_service_schemas_extraction"
     },
     {
       "label": "DocumentType",
@@ -369,9 +429,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L25",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_documenttype",
-      "community": 5,
-      "norm_label": "documenttype"
+      "community": 22,
+      "norm_label": "documenttype",
+      "id": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "label": "str",
@@ -379,9 +439,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "str",
-      "community": 5,
-      "norm_label": "str"
+      "community": 22,
+      "norm_label": "str",
+      "id": "str"
     },
     {
       "label": "Enum",
@@ -389,9 +449,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "enum",
-      "community": 5,
-      "norm_label": "enum"
+      "community": 22,
+      "norm_label": "enum",
+      "id": "enum"
     },
     {
       "label": "ExtractionMethod",
@@ -399,9 +459,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L39",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "community": 5,
-      "norm_label": "extractionmethod"
+      "community": 22,
+      "norm_label": "extractionmethod",
+      "id": "backend_ocr_service_schemas_extraction_extractionmethod"
     },
     {
       "label": "ExtractedField",
@@ -409,9 +469,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L49",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_extractedfield",
-      "community": 5,
-      "norm_label": "extractedfield"
+      "community": 25,
+      "norm_label": "extractedfield",
+      "id": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "label": "BaseModel",
@@ -419,9 +479,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_py_basemodel",
-      "community": 5,
-      "norm_label": "basemodel"
+      "community": 27,
+      "norm_label": "basemodel",
+      "id": "backend_ocr_service_schemas_extraction_py_basemodel"
     },
     {
       "label": "MRZResult",
@@ -429,9 +489,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L76",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_mrzresult",
       "community": 6,
-      "norm_label": "mrzresult"
+      "norm_label": "mrzresult",
+      "id": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "label": "ExtractionResponse",
@@ -439,9 +499,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L106",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "community": 5,
-      "norm_label": "extractionresponse"
+      "community": 27,
+      "norm_label": "extractionresponse",
+      "id": "backend_ocr_service_schemas_extraction_extractionresponse"
     },
     {
       "label": "ExtractionError",
@@ -449,9 +509,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L145",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_extractionerror",
-      "community": 5,
-      "norm_label": "extractionerror"
+      "community": 27,
+      "norm_label": "extractionerror",
+      "id": "backend_ocr_service_schemas_extraction_extractionerror"
     },
     {
       "label": "Pydantic schemas for the OCR Service.  CONCEPT: Pydantic schemas serve two purpo",
@@ -459,9 +519,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_1",
-      "community": 5,
-      "norm_label": "pydantic schemas for the ocr service.  concept: pydantic schemas serve two purpo"
+      "community": 22,
+      "norm_label": "pydantic schemas for the ocr service.  concept: pydantic schemas serve two purpo",
+      "id": "backend_ocr_service_schemas_extraction_rationale_1"
     },
     {
       "label": "WHY Enum instead of plain str?     If a caller sends document_type=\"pasport\" (ty",
@@ -469,9 +529,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L26",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_26",
-      "community": 5,
-      "norm_label": "why enum instead of plain str?     if a caller sends document_type=\"pasport\" (ty"
+      "community": 22,
+      "norm_label": "why enum instead of plain str?     if a caller sends document_type=\"pasport\" (ty",
+      "id": "backend_ocr_service_schemas_extraction_rationale_26"
     },
     {
       "label": "Tracks HOW a field was extracted \u2014 critical for debugging and audit.",
@@ -479,9 +539,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L40",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_40",
-      "community": 5,
-      "norm_label": "tracks how a field was extracted \u2014 critical for debugging and audit."
+      "community": 22,
+      "norm_label": "tracks how a field was extracted \u2014 critical for debugging and audit.",
+      "id": "backend_ocr_service_schemas_extraction_rationale_40"
     },
     {
       "label": "One extracted field from a document.     e.g. {\"field_name\": \"date_of_expiry\", \"",
@@ -489,9 +549,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L50",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_50",
-      "community": 5,
-      "norm_label": "one extracted field from a document.     e.g. {\"field_name\": \"date_of_expiry\", \""
+      "community": 25,
+      "norm_label": "one extracted field from a document.     e.g. {\"field_name\": \"date_of_expiry\", \"",
+      "id": "backend_ocr_service_schemas_extraction_rationale_50"
     },
     {
       "label": "The MRZ (Machine Readable Zone) is the two-line `<<<` block at the     bottom of",
@@ -499,9 +559,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L77",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_77",
       "community": 6,
-      "norm_label": "the mrz (machine readable zone) is the two-line `<<<` block at the     bottom of"
+      "norm_label": "the mrz (machine readable zone) is the two-line `<<<` block at the     bottom of",
+      "id": "backend_ocr_service_schemas_extraction_rationale_77"
     },
     {
       "label": "The complete response from POST /extract.      WHY include extraction_method at",
@@ -509,9 +569,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L107",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_107",
-      "community": 5,
-      "norm_label": "the complete response from post /extract.      why include extraction_method at"
+      "community": 27,
+      "norm_label": "the complete response from post /extract.      why include extraction_method at",
+      "id": "backend_ocr_service_schemas_extraction_rationale_107"
     },
     {
       "label": "WHY a typed error response?     The orchestrator needs to distinguish between:",
@@ -519,9 +579,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L146",
       "_origin": "ast",
-      "id": "backend_ocr_service_schemas_extraction_rationale_146",
-      "community": 5,
-      "norm_label": "why a typed error response?     the orchestrator needs to distinguish between:"
+      "community": 27,
+      "norm_label": "why a typed error response?     the orchestrator needs to distinguish between:",
+      "id": "backend_ocr_service_schemas_extraction_rationale_146"
     },
     {
       "label": "env.py",
@@ -529,9 +589,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env",
       "community": 3,
-      "norm_label": "env.py"
+      "norm_label": "env.py",
+      "id": "backend_orchestrator_db_migrations_env"
     },
     {
       "label": "get_url()",
@@ -539,9 +599,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L39",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_get_url",
       "community": 3,
-      "norm_label": "get_url()"
+      "norm_label": "get_url()",
+      "id": "backend_orchestrator_db_migrations_env_get_url"
     },
     {
       "label": "run_migrations_offline()",
@@ -549,9 +609,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L48",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_run_migrations_offline",
       "community": 3,
-      "norm_label": "run_migrations_offline()"
+      "norm_label": "run_migrations_offline()",
+      "id": "backend_orchestrator_db_migrations_env_run_migrations_offline"
     },
     {
       "label": "do_run_migrations()",
@@ -559,9 +619,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L65",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_do_run_migrations",
       "community": 3,
-      "norm_label": "do_run_migrations()"
+      "norm_label": "do_run_migrations()",
+      "id": "backend_orchestrator_db_migrations_env_do_run_migrations"
     },
     {
       "label": "run_migrations_online()",
@@ -569,9 +629,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L71",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_run_migrations_online",
       "community": 3,
-      "norm_label": "run_migrations_online()"
+      "norm_label": "run_migrations_online()",
+      "id": "backend_orchestrator_db_migrations_env_run_migrations_online"
     },
     {
       "label": "Alembic env.py \u2014 the bridge between Alembic and your SQLAlchemy models.  CONCEPT",
@@ -579,9 +639,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_rationale_1",
       "community": 3,
-      "norm_label": "alembic env.py \u2014 the bridge between alembic and your sqlalchemy models.  concept"
+      "norm_label": "alembic env.py \u2014 the bridge between alembic and your sqlalchemy models.  concept",
+      "id": "backend_orchestrator_db_migrations_env_rationale_1"
     },
     {
       "label": "Read DATABASE_URL from environment \u2014 never hardcode credentials.",
@@ -589,9 +649,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L40",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_rationale_40",
       "community": 3,
-      "norm_label": "read database_url from environment \u2014 never hardcode credentials."
+      "norm_label": "read database_url from environment \u2014 never hardcode credentials.",
+      "id": "backend_orchestrator_db_migrations_env_rationale_40"
     },
     {
       "label": "Offline mode: generate SQL scripts without connecting to DB.     Useful when you",
@@ -599,9 +659,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L49",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_rationale_49",
       "community": 3,
-      "norm_label": "offline mode: generate sql scripts without connecting to db.     useful when you"
+      "norm_label": "offline mode: generate sql scripts without connecting to db.     useful when you",
+      "id": "backend_orchestrator_db_migrations_env_rationale_49"
     },
     {
       "label": "Online mode: connect to DB and apply migrations directly.     This is the normal",
@@ -609,9 +669,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L72",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_env_rationale_72",
       "community": 3,
-      "norm_label": "online mode: connect to db and apply migrations directly.     this is the normal"
+      "norm_label": "online mode: connect to db and apply migrations directly.     this is the normal",
+      "id": "backend_orchestrator_db_migrations_env_rationale_72"
     },
     {
       "label": "001_initial_schema.py",
@@ -619,9 +679,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema",
       "community": 14,
-      "norm_label": "001_initial_schema.py"
+      "norm_label": "001_initial_schema.py",
+      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema"
     },
     {
       "label": "upgrade()",
@@ -629,9 +689,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L24",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_upgrade",
       "community": 14,
-      "norm_label": "upgrade()"
+      "norm_label": "upgrade()",
+      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_upgrade"
     },
     {
       "label": "downgrade()",
@@ -639,9 +699,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L122",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade",
       "community": 14,
-      "norm_label": "downgrade()"
+      "norm_label": "downgrade()",
+      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade"
     },
     {
       "label": "Roll back: drop all tables in reverse dependency order.",
@@ -649,9 +709,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L123",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_rationale_123",
       "community": 14,
-      "norm_label": "roll back: drop all tables in reverse dependency order."
+      "norm_label": "roll back: drop all tables in reverse dependency order.",
+      "id": "backend_orchestrator_db_migrations_versions_001_initial_schema_rationale_123"
     },
     {
       "label": "models.py",
@@ -659,9 +719,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models",
       "community": 3,
-      "norm_label": "models.py"
+      "norm_label": "models.py",
+      "id": "backend_orchestrator_db_models"
     },
     {
       "label": "Base",
@@ -669,9 +729,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L31",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_base",
       "community": 3,
-      "norm_label": "base"
+      "norm_label": "base",
+      "id": "backend_orchestrator_db_models_base"
     },
     {
       "label": "DeclarativeBase",
@@ -679,9 +739,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "declarativebase",
       "community": 3,
-      "norm_label": "declarativebase"
+      "norm_label": "declarativebase",
+      "id": "declarativebase"
     },
     {
       "label": "Document",
@@ -689,9 +749,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L43",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_document",
       "community": 3,
-      "norm_label": "document"
+      "norm_label": "document",
+      "id": "backend_orchestrator_db_models_document"
     },
     {
       "label": "ExtractedField",
@@ -699,9 +759,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L90",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_extractedfield",
       "community": 3,
-      "norm_label": "extractedfield"
+      "norm_label": "extractedfield",
+      "id": "backend_orchestrator_db_models_extractedfield"
     },
     {
       "label": "ValidationResult",
@@ -709,9 +769,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L115",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_validationresult",
       "community": 3,
-      "norm_label": "validationresult"
+      "norm_label": "validationresult",
+      "id": "backend_orchestrator_db_models_validationresult"
     },
     {
       "label": "TamperingResult",
@@ -719,9 +779,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L138",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_tamperingresult",
       "community": 3,
-      "norm_label": "tamperingresult"
+      "norm_label": "tamperingresult",
+      "id": "backend_orchestrator_db_models_tamperingresult"
     },
     {
       "label": "FaceEmbedding",
@@ -729,9 +789,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L161",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_faceembedding",
       "community": 3,
-      "norm_label": "faceembedding"
+      "norm_label": "faceembedding",
+      "id": "backend_orchestrator_db_models_faceembedding"
     },
     {
       "label": "RiskScore",
@@ -739,9 +799,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L190",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_riskscore",
       "community": 3,
-      "norm_label": "riskscore"
+      "norm_label": "riskscore",
+      "id": "backend_orchestrator_db_models_riskscore"
     },
     {
       "label": "AuditLedgerEntry",
@@ -749,9 +809,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L214",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_auditledgerentry",
       "community": 3,
-      "norm_label": "auditledgerentry"
+      "norm_label": "auditledgerentry",
+      "id": "backend_orchestrator_db_models_auditledgerentry"
     },
     {
       "label": "DB Models \u2014 SQLAlchemy ORM definitions for all Phase 1\u20134 tables.  CONCEPT: Each",
@@ -759,9 +819,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_rationale_1",
       "community": 3,
-      "norm_label": "db models \u2014 sqlalchemy orm definitions for all phase 1\u20134 tables.  concept: each"
+      "norm_label": "db models \u2014 sqlalchemy orm definitions for all phase 1\u20134 tables.  concept: each",
+      "id": "backend_orchestrator_db_models_rationale_1"
     },
     {
       "label": "All models inherit from this.     When Alembic runs migrations, it scans every s",
@@ -769,9 +829,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L32",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_models_rationale_32",
       "community": 3,
-      "norm_label": "all models inherit from this.     when alembic runs migrations, it scans every s"
+      "norm_label": "all models inherit from this.     when alembic runs migrations, it scans every s",
+      "id": "backend_orchestrator_db_models_rationale_32"
     },
     {
       "label": "session.py",
@@ -779,9 +839,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_session",
       "community": 13,
-      "norm_label": "session.py"
+      "norm_label": "session.py",
+      "id": "backend_orchestrator_db_session"
     },
     {
       "label": "get_db()",
@@ -789,9 +849,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L48",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_session_get_db",
       "community": 13,
-      "norm_label": "get_db()"
+      "norm_label": "get_db()",
+      "id": "backend_orchestrator_db_session_get_db"
     },
     {
       "label": "AsyncSession",
@@ -799,9 +859,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "asyncsession",
       "community": 13,
-      "norm_label": "asyncsession"
+      "norm_label": "asyncsession",
+      "id": "asyncsession"
     },
     {
       "label": "DB Session \u2014 async SQLAlchemy session factory.  CONCEPT: A \"session\" is a unit o",
@@ -809,9 +869,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_session_rationale_1",
       "community": 13,
-      "norm_label": "db session \u2014 async sqlalchemy session factory.  concept: a \"session\" is a unit o"
+      "norm_label": "db session \u2014 async sqlalchemy session factory.  concept: a \"session\" is a unit o",
+      "id": "backend_orchestrator_db_session_rationale_1"
     },
     {
       "label": "FastAPI dependency \u2014 yields a DB session for the duration of a request.      The",
@@ -819,9 +879,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L49",
       "_origin": "ast",
-      "id": "backend_orchestrator_db_session_rationale_49",
       "community": 13,
-      "norm_label": "fastapi dependency \u2014 yields a db session for the duration of a request.      the"
+      "norm_label": "fastapi dependency \u2014 yields a db session for the duration of a request.      the",
+      "id": "backend_orchestrator_db_session_rationale_49"
     },
     {
       "label": "backend",
@@ -832,9 +892,9 @@
       "source_location": "L1",
       "version": "0.1.0",
       "_origin": "ast",
-      "id": "pkg_backend",
       "community": 18,
-      "norm_label": "backend"
+      "norm_label": "backend",
+      "id": "pkg_backend"
     },
     {
       "label": "test_phase1.py",
@@ -842,9 +902,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1",
-      "community": 5,
-      "norm_label": "test_phase1.py"
+      "community": 25,
+      "norm_label": "test_phase1.py",
+      "id": "backend_tests_test_phase1"
     },
     {
       "label": "test_icao_mrz_checksum_calculation()",
@@ -852,9 +912,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L15",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation",
-      "community": 6,
-      "norm_label": "test_icao_mrz_checksum_calculation()"
+      "community": 26,
+      "norm_label": "test_icao_mrz_checksum_calculation()",
+      "id": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation"
     },
     {
       "label": "test_validation_engine_valid_passport()",
@@ -862,9 +922,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L27",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_test_validation_engine_valid_passport",
-      "community": 5,
-      "norm_label": "test_validation_engine_valid_passport()"
+      "community": 25,
+      "norm_label": "test_validation_engine_valid_passport()",
+      "id": "backend_tests_test_phase1_test_validation_engine_valid_passport"
     },
     {
       "label": "test_validation_engine_expired_passport()",
@@ -872,9 +932,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L41",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_test_validation_engine_expired_passport",
-      "community": 5,
-      "norm_label": "test_validation_engine_expired_passport()"
+      "community": 25,
+      "norm_label": "test_validation_engine_expired_passport()",
+      "id": "backend_tests_test_phase1_test_validation_engine_expired_passport"
     },
     {
       "label": "Phase 1 Smoke Tests \u2014 Validation Service & MRZ checksum testing.",
@@ -882,9 +942,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_rationale_1",
-      "community": 5,
-      "norm_label": "phase 1 smoke tests \u2014 validation service & mrz checksum testing."
+      "community": 25,
+      "norm_label": "phase 1 smoke tests \u2014 validation service & mrz checksum testing.",
+      "id": "backend_tests_test_phase1_rationale_1"
     },
     {
       "label": "Test ICAO 9303 checksum computation with standard test vectors.     Example DOB:",
@@ -892,9 +952,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L16",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_rationale_16",
-      "community": 6,
-      "norm_label": "test icao 9303 checksum computation with standard test vectors.     example dob:"
+      "community": 26,
+      "norm_label": "test icao 9303 checksum computation with standard test vectors.     example dob:",
+      "id": "backend_tests_test_phase1_rationale_16"
     },
     {
       "label": "Test valid passport fields passing all YAML rules.",
@@ -902,9 +962,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L28",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_rationale_28",
-      "community": 5,
-      "norm_label": "test valid passport fields passing all yaml rules."
+      "community": 25,
+      "norm_label": "test valid passport fields passing all yaml rules.",
+      "id": "backend_tests_test_phase1_rationale_28"
     },
     {
       "label": "Test expired passport failing expiry_not_passed rule.",
@@ -912,9 +972,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L42",
       "_origin": "ast",
-      "id": "backend_tests_test_phase1_rationale_42",
-      "community": 5,
-      "norm_label": "test expired passport failing expiry_not_passed rule."
+      "community": 25,
+      "norm_label": "test expired passport failing expiry_not_passed rule.",
+      "id": "backend_tests_test_phase1_rationale_42"
     },
     {
       "label": "date_logic.py",
@@ -922,9 +982,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic",
       "community": 10,
-      "norm_label": "date_logic.py"
+      "norm_label": "date_logic.py",
+      "id": "backend_validation_service_core_date_logic"
     },
     {
       "label": "parse_date()",
@@ -932,9 +992,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_parse_date",
       "community": 10,
-      "norm_label": "parse_date()"
+      "norm_label": "parse_date()",
+      "id": "backend_validation_service_core_date_logic_parse_date"
     },
     {
       "label": "date",
@@ -942,9 +1002,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "date",
       "community": 10,
-      "norm_label": "date"
+      "norm_label": "date",
+      "id": "date"
     },
     {
       "label": "evaluate_date_condition()",
@@ -952,9 +1012,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L74",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_evaluate_date_condition",
       "community": 10,
-      "norm_label": "evaluate_date_condition()"
+      "norm_label": "evaluate_date_condition()",
+      "id": "backend_validation_service_core_date_logic_evaluate_date_condition"
     },
     {
       "label": "evaluate_cross_document_dates()",
@@ -962,9 +1022,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L120",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
       "community": 10,
-      "norm_label": "evaluate_cross_document_dates()"
+      "norm_label": "evaluate_cross_document_dates()",
+      "id": "backend_validation_service_core_date_logic_evaluate_cross_document_dates"
     },
     {
       "label": "Date Logic \u2014 Parsing, Normalization, and Evaluation for Validation Rules.  CONCE",
@@ -972,9 +1032,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_rationale_1",
       "community": 10,
-      "norm_label": "date logic \u2014 parsing, normalization, and evaluation for validation rules.  conce"
+      "norm_label": "date logic \u2014 parsing, normalization, and evaluation for validation rules.  conce",
+      "id": "backend_validation_service_core_date_logic_rationale_1"
     },
     {
       "label": "Parse arbitrary date strings into a standard datetime.date object.      Handles:",
@@ -982,9 +1042,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L36",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_rationale_36",
       "community": 10,
-      "norm_label": "parse arbitrary date strings into a standard datetime.date object.      handles:"
+      "norm_label": "parse arbitrary date strings into a standard datetime.date object.      handles:",
+      "id": "backend_validation_service_core_date_logic_rationale_36"
     },
     {
       "label": "Evaluate condition string against a parsed date.      Supported conditions:",
@@ -992,9 +1052,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L75",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_rationale_75",
       "community": 10,
-      "norm_label": "evaluate condition string against a parsed date.      supported conditions:"
+      "norm_label": "evaluate condition string against a parsed date.      supported conditions:",
+      "id": "backend_validation_service_core_date_logic_rationale_75"
     },
     {
       "label": "Cross-document check: A visa's valid stay/expiry must not exceed     the underly",
@@ -1002,9 +1062,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L124",
       "_origin": "ast",
-      "id": "backend_validation_service_core_date_logic_rationale_124",
       "community": 10,
-      "norm_label": "cross-document check: a visa's valid stay/expiry must not exceed     the underly"
+      "norm_label": "cross-document check: a visa's valid stay/expiry must not exceed     the underly",
+      "id": "backend_validation_service_core_date_logic_rationale_124"
     },
     {
       "label": "rules_engine.py",
@@ -1012,9 +1072,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine",
       "community": 5,
-      "norm_label": "rules_engine.py"
+      "norm_label": "rules_engine.py",
+      "id": "backend_validation_service_core_rules_engine"
     },
     {
       "label": "load_rules_for_doctype()",
@@ -1022,9 +1082,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L39",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
       "community": 5,
-      "norm_label": "load_rules_for_doctype()"
+      "norm_label": "load_rules_for_doctype()",
+      "id": "backend_validation_service_core_rules_engine_load_rules_for_doctype"
     },
     {
       "label": "Any",
@@ -1032,9 +1092,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "any",
       "community": 5,
-      "norm_label": "any"
+      "norm_label": "any",
+      "id": "any"
     },
     {
       "label": "validate_document()",
@@ -1042,9 +1102,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L69",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_validate_document",
       "community": 5,
-      "norm_label": "validate_document()"
+      "norm_label": "validate_document()",
+      "id": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "label": "ExtractedField",
@@ -1052,9 +1112,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_py_extractedfield",
       "community": 5,
-      "norm_label": "extractedfield"
+      "norm_label": "extractedfield",
+      "id": "backend_validation_service_core_rules_engine_py_extractedfield"
     },
     {
       "label": "Rules Engine \u2014 Generic YAML-driven rule interpreter for document validation.  CO",
@@ -1062,9 +1122,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_rationale_1",
       "community": 5,
-      "norm_label": "rules engine \u2014 generic yaml-driven rule interpreter for document validation.  co"
+      "norm_label": "rules engine \u2014 generic yaml-driven rule interpreter for document validation.  co",
+      "id": "backend_validation_service_core_rules_engine_rationale_1"
     },
     {
       "label": "Dynamically load YAML rule configuration for a document type.     Re-reading on",
@@ -1072,9 +1132,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L40",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_rationale_40",
       "community": 5,
-      "norm_label": "dynamically load yaml rule configuration for a document type.     re-reading on"
+      "norm_label": "dynamically load yaml rule configuration for a document type.     re-reading on",
+      "id": "backend_validation_service_core_rules_engine_rationale_40"
     },
     {
       "label": "Evaluate all YAML-configured rules against extracted document fields.",
@@ -1082,9 +1142,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L74",
       "_origin": "ast",
-      "id": "backend_validation_service_core_rules_engine_rationale_74",
       "community": 5,
-      "norm_label": "evaluate all yaml-configured rules against extracted document fields."
+      "norm_label": "evaluate all yaml-configured rules against extracted document fields.",
+      "id": "backend_validation_service_core_rules_engine_rationale_74"
     },
     {
       "label": "validation.py",
@@ -1092,9 +1152,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_routers_validation",
       "community": 5,
-      "norm_label": "validation.py"
+      "norm_label": "validation.py",
+      "id": "backend_validation_service_routers_validation"
     },
     {
       "label": "validate_extracted_fields()",
@@ -1102,9 +1162,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L28",
       "_origin": "ast",
-      "id": "backend_validation_service_routers_validation_validate_extracted_fields",
       "community": 5,
-      "norm_label": "validate_extracted_fields()"
+      "norm_label": "validate_extracted_fields()",
+      "id": "backend_validation_service_routers_validation_validate_extracted_fields"
     },
     {
       "label": "Validation Router \u2014 FastAPI endpoint for document validation.  Accepts extracted",
@@ -1112,9 +1172,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_routers_validation_rationale_1",
       "community": 5,
-      "norm_label": "validation router \u2014 fastapi endpoint for document validation.  accepts extracted"
+      "norm_label": "validation router \u2014 fastapi endpoint for document validation.  accepts extracted",
+      "id": "backend_validation_service_routers_validation_rationale_1"
     },
     {
       "label": "Evaluate OCR-extracted fields against configured document rules (dates, formats,",
@@ -1122,9 +1182,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L29",
       "_origin": "ast",
-      "id": "backend_validation_service_routers_validation_rationale_29",
       "community": 5,
-      "norm_label": "evaluate ocr-extracted fields against configured document rules (dates, formats,"
+      "norm_label": "evaluate ocr-extracted fields against configured document rules (dates, formats,",
+      "id": "backend_validation_service_routers_validation_rationale_29"
     },
     {
       "label": "validation.py",
@@ -1132,9 +1192,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation",
       "community": 5,
-      "norm_label": "validation.py"
+      "norm_label": "validation.py",
+      "id": "backend_validation_service_schemas_validation"
     },
     {
       "label": "RuleResult",
@@ -1142,9 +1202,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L11",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_ruleresult",
       "community": 5,
-      "norm_label": "ruleresult"
+      "norm_label": "ruleresult",
+      "id": "backend_validation_service_schemas_validation_ruleresult"
     },
     {
       "label": "BaseModel",
@@ -1152,9 +1212,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_py_basemodel",
       "community": 5,
-      "norm_label": "basemodel"
+      "norm_label": "basemodel",
+      "id": "backend_validation_service_schemas_validation_py_basemodel"
     },
     {
       "label": "ValidationRequest",
@@ -1162,9 +1222,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L18",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_validationrequest",
       "community": 5,
-      "norm_label": "validationrequest"
+      "norm_label": "validationrequest",
+      "id": "backend_validation_service_schemas_validation_validationrequest"
     },
     {
       "label": "ValidationResponse",
@@ -1172,9 +1232,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L31",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_validationresponse",
       "community": 5,
-      "norm_label": "validationresponse"
+      "norm_label": "validationresponse",
+      "id": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "label": "Pydantic Schemas for Validation Service.  Defines the structure for input valida",
@@ -1182,9 +1242,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_rationale_1",
       "community": 5,
-      "norm_label": "pydantic schemas for validation service.  defines the structure for input valida"
+      "norm_label": "pydantic schemas for validation service.  defines the structure for input valida",
+      "id": "backend_validation_service_schemas_validation_rationale_1"
     },
     {
       "label": "Result of evaluating a single rule.",
@@ -1192,9 +1252,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L12",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_rationale_12",
       "community": 5,
-      "norm_label": "result of evaluating a single rule."
+      "norm_label": "result of evaluating a single rule.",
+      "id": "backend_validation_service_schemas_validation_rationale_12"
     },
     {
       "label": "Validation request body.     Accepts the extracted fields from OCR and an option",
@@ -1202,9 +1262,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L19",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_rationale_19",
       "community": 5,
-      "norm_label": "validation request body.     accepts the extracted fields from ocr and an option"
+      "norm_label": "validation request body.     accepts the extracted fields from ocr and an option",
+      "id": "backend_validation_service_schemas_validation_rationale_19"
     },
     {
       "label": "Overall document validation report.",
@@ -1212,9 +1272,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L32",
       "_origin": "ast",
-      "id": "backend_validation_service_schemas_validation_rationale_32",
       "community": 5,
-      "norm_label": "overall document validation report."
+      "norm_label": "overall document validation report.",
+      "id": "backend_validation_service_schemas_validation_rationale_32"
     },
     {
       "label": "__init__.py",
@@ -1315,46 +1375,6 @@
       "community": 11,
       "norm_label": "phase 4a stub \u2014 chain integrity verification. full implementation in phase 4.",
       "id": "backend_audit_ledger_routers_ledger_rationale_12"
-    },
-    {
-      "label": "config.py",
-      "file_type": "code",
-      "source_file": "backend/config.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 13,
-      "norm_label": "config.py",
-      "id": "backend_config"
-    },
-    {
-      "label": "Settings",
-      "file_type": "code",
-      "source_file": "backend/config.py",
-      "source_location": "L9",
-      "_origin": "ast",
-      "community": 13,
-      "norm_label": "settings",
-      "id": "backend_config_settings"
-    },
-    {
-      "label": "BaseSettings",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "community": 13,
-      "norm_label": "basesettings",
-      "id": "basesettings"
-    },
-    {
-      "label": "Shared settings loaded from .env (or environment variables). Every service impor",
-      "file_type": "rationale",
-      "source_file": "backend/config.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 13,
-      "norm_label": "shared settings loaded from .env (or environment variables). every service impor",
-      "id": "backend_config_rationale_1"
     },
     {
       "label": "main.py",
@@ -2574,300 +2594,33 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "backend/main.py",
+      "source_file": "backend/config.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "backend_config",
+      "target": "backend_config_settings",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/config.py",
       "source_location": "L1",
       "weight": 1.0,
-      "source": "backend_main",
-      "target": "backend_main_main",
+      "source": "backend_config_rationale_1",
+      "target": "backend_config",
       "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L13",
+      "source_file": "backend/logging_config.py",
+      "source_location": "L8",
       "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L86",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L111",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_core_field_extractor_extract_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L92",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L26",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_rationale_1",
-      "target": "backend_ocr_service_core_field_extractor",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/llm_fallback.py",
-      "source_location": "L19",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_core_field_extractor",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/routers/extraction.py",
-      "source_location": "L16",
-      "weight": 1.0,
-      "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_field_extractor",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L95",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L27",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_rationale_27",
-      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "context": "return_type",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L86",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
-      "target": "ndarray",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L94",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L87",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_rationale_87",
-      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L120",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_fields",
-      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L93",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_rationale_93",
-      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/routers/extraction.py",
-      "source_location": "L16",
-      "weight": 1.0,
-      "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
       "confidence_score": 1.0,
-      "source_file": "backend/ocr_service/routers/extraction.py",
-      "source_location": "L79",
-      "weight": 1.0,
-      "source": "backend_ocr_service_routers_extraction_extract_document",
-      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
-    },
-    {
-      "relation": "references",
-      "context": "generic_arg",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L111",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_fields",
-      "target": "backend_ocr_service_core_field_extractor_py_extractedfield",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L111",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_fields",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L129",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_extract_fields",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/field_extractor.py",
-      "source_location": "L116",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_field_extractor_rationale_116",
-      "target": "backend_ocr_service_core_field_extractor_extract_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/routers/extraction.py",
-      "source_location": "L16",
-      "weight": 1.0,
-      "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_field_extractor_extract_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/ocr_service/routers/extraction.py",
-      "source_location": "L102",
-      "weight": 1.0,
-      "source": "backend_ocr_service_routers_extraction_extract_document",
-      "target": "backend_ocr_service_core_field_extractor_extract_fields"
+      "source": "backend_logging_config",
+      "target": "backend_config"
     },
     {
       "relation": "imports_from",
@@ -2884,11 +2637,43 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/session.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_session",
+      "target": "backend_config"
+    },
+    {
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/config.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "backend_config_settings",
+      "target": "basesettings",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L18",
       "weight": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
       "target": "backend_logging_config",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/llm_fallback.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "backend_ocr_service_core_llm_fallback",
+      "target": "backend_ocr_service_core_field_extractor",
       "confidence_score": 1.0
     },
     {
@@ -2910,39 +2695,6 @@
       "weight": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
       "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/llm_fallback.py",
-      "source_location": "L20",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/llm_fallback.py",
-      "source_location": "L20",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/llm_fallback.py",
-      "source_location": "L20",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
       "confidence_score": 1.0
     },
     {
@@ -2962,8 +2714,19 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_llm_fallback",
+      "target": "backend_ocr_service_core_llm_fallback"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/llm_fallback.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
+      "target": "documenttype",
       "confidence_score": 1.0
     },
     {
@@ -2974,18 +2737,7 @@
       "source_location": "L29",
       "weight": 1.0,
       "source": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "target": "backend_ocr_service_core_llm_fallback_py_extractedfield",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/ocr_service/core/llm_fallback.py",
-      "source_location": "L29",
-      "weight": 1.0,
-      "source": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
+      "target": "extractedfield",
       "confidence_score": 1.0
     },
     {
@@ -3005,9 +2757,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm"
     },
     {
       "relation": "calls",
@@ -3021,15 +2773,302 @@
       "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/main.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_main",
+      "target": "backend_main_main"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_logging_config"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L111",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_core_field_extractor_extract_fields"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L92",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_schemas_extraction"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor",
+      "target": "backend_ocr_service_schemas_extraction_extractionmethod"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_rationale_1",
+      "target": "backend_ocr_service_core_field_extractor"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/routers/extraction.py",
+      "source_location": "L16",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_routers_extraction",
+      "target": "backend_ocr_service_core_field_extractor"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L95",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
+      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_rationale_27",
+      "target": "backend_ocr_service_core_field_extractor_get_ocr_reader"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image",
+      "target": "ndarray"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L94",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines",
+      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_rationale_87",
+      "target": "backend_ocr_service_core_field_extractor_bytes_to_numpy_image"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L120",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_fields",
+      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L93",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_rationale_93",
+      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/routers/extraction.py",
+      "source_location": "L16",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_routers_extraction",
+      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/ocr_service/routers/extraction.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "source": "backend_ocr_service_routers_extraction_extract_document",
+      "target": "backend_ocr_service_core_field_extractor_extract_raw_ocr_lines"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L111",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_fields",
+      "target": "backend_ocr_service_core_field_extractor_py_extractedfield"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L111",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_fields",
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L129",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_extract_fields",
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/core/field_extractor.py",
+      "source_location": "L116",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_core_field_extractor_rationale_116",
+      "target": "backend_ocr_service_core_field_extractor_extract_fields"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/ocr_service/routers/extraction.py",
+      "source_location": "L16",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_ocr_service_routers_extraction",
+      "target": "backend_ocr_service_core_field_extractor_extract_fields"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/ocr_service/routers/extraction.py",
+      "source_location": "L102",
+      "weight": 1.0,
+      "source": "backend_ocr_service_routers_extraction_extract_document",
+      "target": "backend_ocr_service_core_field_extractor_extract_fields"
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "contains",
@@ -3037,9 +3076,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "relation": "contains",
@@ -3047,9 +3086,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L132",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz"
     },
     {
       "relation": "contains",
@@ -3057,9 +3096,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines"
     },
     {
       "relation": "contains",
@@ -3067,9 +3106,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "relation": "imports_from",
@@ -3078,9 +3117,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "imports",
@@ -3089,9 +3128,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "rationale_for",
@@ -3099,9 +3138,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_rationale_1",
-      "target": "backend_ocr_service_core_mrz_parser",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser"
     },
     {
       "relation": "imports_from",
@@ -3110,9 +3149,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_mrz_parser",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser"
     },
     {
       "relation": "imports_from",
@@ -3121,9 +3160,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_core_mrz_parser",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser"
     },
     {
       "relation": "rationale_for",
@@ -3131,9 +3170,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_rationale_27",
-      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "relation": "calls",
@@ -3142,9 +3181,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "relation": "imports",
@@ -3153,9 +3192,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "relation": "calls",
@@ -3164,9 +3203,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation",
-      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_compute_check_digit"
     },
     {
       "relation": "calls",
@@ -3175,9 +3214,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L104",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
-      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "relation": "rationale_for",
@@ -3185,9 +3224,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_rationale_36",
-      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "relation": "imports",
@@ -3196,9 +3235,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "relation": "calls",
@@ -3207,9 +3246,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation",
-      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_validate_check_digit"
     },
     {
       "relation": "calls",
@@ -3218,9 +3257,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_parse_mrz",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines"
     },
     {
       "relation": "references",
@@ -3229,9 +3268,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "rationale_for",
@@ -3239,9 +3278,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_rationale_50",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz_from_text_lines"
     },
     {
       "relation": "references",
@@ -3250,9 +3289,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L132",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_parse_mrz",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "rationale_for",
@@ -3260,9 +3299,9 @@
       "source_file": "backend/ocr_service/core/mrz_parser.py",
       "source_location": "L133",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_mrz_parser_rationale_133",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz"
     },
     {
       "relation": "imports",
@@ -3271,9 +3310,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_core_mrz_parser_parse_mrz",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_mrz_parser_parse_mrz"
     },
     {
       "relation": "calls",
@@ -3304,9 +3343,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "contains",
@@ -3314,9 +3353,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_routers_extraction_extract_document",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_routers_extraction_extract_document"
     },
     {
       "relation": "imports_from",
@@ -3325,9 +3364,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "imports",
@@ -3336,9 +3375,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "imports",
@@ -3347,9 +3386,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "imports",
@@ -3358,9 +3397,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionerror",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionerror"
     },
     {
       "relation": "imports",
@@ -3369,9 +3408,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionmethod"
     },
     {
       "relation": "imports",
@@ -3380,9 +3419,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionresponse"
     },
     {
       "relation": "imports",
@@ -3391,9 +3430,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "rationale_for",
@@ -3401,9 +3440,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction_rationale_1",
-      "target": "backend_ocr_service_routers_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_routers_extraction"
     },
     {
       "relation": "references",
@@ -3412,9 +3451,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction_extract_document",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "calls",
@@ -3434,9 +3473,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction_extract_document",
-      "target": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionresponse"
     },
     {
       "relation": "references",
@@ -3445,9 +3484,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction_extract_document",
-      "target": "uploadfile",
-      "confidence_score": 1.0
+      "target": "uploadfile"
     },
     {
       "relation": "rationale_for",
@@ -3455,9 +3494,9 @@
       "source_file": "backend/ocr_service/routers/extraction.py",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_routers_extraction_rationale_51",
-      "target": "backend_ocr_service_routers_extraction_extract_document",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_routers_extraction_extract_document"
     },
     {
       "relation": "contains",
@@ -3465,9 +3504,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "contains",
@@ -3475,9 +3514,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "contains",
@@ -3485,9 +3524,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionerror",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionerror"
     },
     {
       "relation": "contains",
@@ -3495,9 +3534,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionmethod"
     },
     {
       "relation": "contains",
@@ -3505,9 +3544,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L106",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionresponse"
     },
     {
       "relation": "contains",
@@ -3515,9 +3554,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L76",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "imports_from",
@@ -3526,9 +3565,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction",
-      "target": "enum",
-      "confidence_score": 1.0
+      "target": "enum"
     },
     {
       "relation": "rationale_for",
@@ -3536,9 +3575,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_1",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "imports_from",
@@ -3547,9 +3586,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "imports_from",
@@ -3558,9 +3597,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "imports_from",
@@ -3569,9 +3608,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "inherits",
@@ -3579,9 +3618,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_documenttype",
-      "target": "enum",
-      "confidence_score": 1.0
+      "target": "enum"
     },
     {
       "relation": "inherits",
@@ -3589,9 +3628,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_documenttype",
-      "target": "str",
-      "confidence_score": 1.0
+      "target": "str"
     },
     {
       "relation": "rationale_for",
@@ -3599,9 +3638,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_26",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "imports",
@@ -3610,9 +3649,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "imports",
@@ -3621,9 +3660,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "references",
@@ -3632,9 +3671,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "references",
@@ -3643,9 +3682,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "imports",
@@ -3654,9 +3693,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "uses",
@@ -3664,9 +3703,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_ruleresult",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "uses",
@@ -3674,9 +3713,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_validationrequest",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "uses",
@@ -3684,9 +3723,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_validationresponse",
-      "target": "backend_ocr_service_schemas_extraction_documenttype",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_documenttype"
     },
     {
       "relation": "inherits",
@@ -3694,9 +3733,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "target": "str",
-      "confidence_score": 1.0
+      "target": "str"
     },
     {
       "relation": "inherits",
@@ -3704,9 +3743,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "target": "enum",
-      "confidence_score": 1.0
+      "target": "enum"
     },
     {
       "relation": "rationale_for",
@@ -3714,9 +3753,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_40",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionmethod"
     },
     {
       "relation": "imports",
@@ -3725,9 +3764,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_schemas_extraction_extractionmethod",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionmethod"
     },
     {
       "relation": "inherits",
@@ -3735,9 +3774,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_extractedfield",
-      "target": "backend_ocr_service_schemas_extraction_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_py_basemodel"
     },
     {
       "relation": "rationale_for",
@@ -3745,9 +3784,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_50",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "imports",
@@ -3756,9 +3795,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "calls",
@@ -3767,9 +3806,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_validation_engine_expired_passport",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "calls",
@@ -3778,9 +3817,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_validation_engine_valid_passport",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "imports",
@@ -3789,9 +3828,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "imports",
@@ -3800,9 +3839,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "uses",
@@ -3810,9 +3849,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_ruleresult",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "uses",
@@ -3820,9 +3859,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_validationrequest",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "uses",
@@ -3830,9 +3869,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L8",
       "weight": 0.8,
+      "confidence_score": 0.5,
       "source": "backend_validation_service_schemas_validation_validationresponse",
-      "target": "backend_ocr_service_schemas_extraction_extractedfield",
-      "confidence_score": 0.5
+      "target": "backend_ocr_service_schemas_extraction_extractedfield"
     },
     {
       "relation": "inherits",
@@ -3840,9 +3879,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_extractionerror",
-      "target": "backend_ocr_service_schemas_extraction_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_py_basemodel"
     },
     {
       "relation": "inherits",
@@ -3850,9 +3889,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L106",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "target": "backend_ocr_service_schemas_extraction_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_py_basemodel"
     },
     {
       "relation": "inherits",
@@ -3860,9 +3899,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L76",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_mrzresult",
-      "target": "backend_ocr_service_schemas_extraction_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_py_basemodel"
     },
     {
       "relation": "rationale_for",
@@ -3870,9 +3909,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_77",
-      "target": "backend_ocr_service_schemas_extraction_mrzresult",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_mrzresult"
     },
     {
       "relation": "rationale_for",
@@ -3880,9 +3919,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L107",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_107",
-      "target": "backend_ocr_service_schemas_extraction_extractionresponse",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionresponse"
     },
     {
       "relation": "rationale_for",
@@ -3890,71 +3929,9 @@
       "source_file": "backend/ocr_service/schemas/extraction.py",
       "source_location": "L146",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_schemas_extraction_rationale_146",
-      "target": "backend_ocr_service_schemas_extraction_extractionerror",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L65",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_migrations_env_do_run_migrations",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L39",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_migrations_env_get_url",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L48",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_migrations_env_run_migrations_offline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L71",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_migrations_env_run_migrations_online",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L27",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_models",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/migrations/env.py",
-      "source_location": "L27",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction_extractionerror"
     },
     {
       "relation": "imports_from",
@@ -3963,9 +3940,71 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L65",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_migrations_env_do_run_migrations"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L39",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_migrations_env_get_url"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L48",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_migrations_env_run_migrations_offline"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_migrations_env_run_migrations_online"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_models"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/orchestrator/db/migrations/env.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_orchestrator_db_migrations_env",
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "rationale_for",
@@ -3973,9 +4012,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_rationale_1",
-      "target": "backend_orchestrator_db_migrations_env",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env"
     },
     {
       "relation": "rationale_for",
@@ -3983,9 +4022,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_rationale_40",
-      "target": "backend_orchestrator_db_migrations_env_get_url",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env_get_url"
     },
     {
       "relation": "calls",
@@ -3994,9 +4033,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_run_migrations_offline",
-      "target": "backend_orchestrator_db_migrations_env_get_url",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env_get_url"
     },
     {
       "relation": "calls",
@@ -4005,9 +4044,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_run_migrations_online",
-      "target": "backend_orchestrator_db_migrations_env_get_url",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env_get_url"
     },
     {
       "relation": "rationale_for",
@@ -4015,9 +4054,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_rationale_49",
-      "target": "backend_orchestrator_db_migrations_env_run_migrations_offline",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env_run_migrations_offline"
     },
     {
       "relation": "indirect_call",
@@ -4026,9 +4065,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L86",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "backend_orchestrator_db_migrations_env_run_migrations_online",
-      "target": "backend_orchestrator_db_migrations_env_do_run_migrations",
-      "confidence_score": 0.5
+      "target": "backend_orchestrator_db_migrations_env_do_run_migrations"
     },
     {
       "relation": "rationale_for",
@@ -4036,9 +4075,9 @@
       "source_file": "backend/orchestrator/db/migrations/env.py",
       "source_location": "L72",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_env_rationale_72",
-      "target": "backend_orchestrator_db_migrations_env_run_migrations_online",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_env_run_migrations_online"
     },
     {
       "relation": "contains",
@@ -4046,9 +4085,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L122",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_versions_001_initial_schema",
-      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade"
     },
     {
       "relation": "contains",
@@ -4056,9 +4095,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_versions_001_initial_schema",
-      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_upgrade",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_upgrade"
     },
     {
       "relation": "rationale_for",
@@ -4066,9 +4105,9 @@
       "source_file": "backend/orchestrator/db/migrations/versions/001_initial_schema.py",
       "source_location": "L123",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_migrations_versions_001_initial_schema_rationale_123",
-      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_migrations_versions_001_initial_schema_downgrade"
     },
     {
       "relation": "contains",
@@ -4076,9 +4115,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L214",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_auditledgerentry",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_auditledgerentry"
     },
     {
       "relation": "contains",
@@ -4086,9 +4125,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "contains",
@@ -4096,9 +4135,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_document",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_document"
     },
     {
       "relation": "contains",
@@ -4106,9 +4145,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L90",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_extractedfield"
     },
     {
       "relation": "contains",
@@ -4116,9 +4155,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L161",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_faceembedding",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_faceembedding"
     },
     {
       "relation": "contains",
@@ -4126,9 +4165,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L190",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_riskscore",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_riskscore"
     },
     {
       "relation": "contains",
@@ -4136,9 +4175,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L138",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_tamperingresult",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_tamperingresult"
     },
     {
       "relation": "contains",
@@ -4146,9 +4185,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models",
-      "target": "backend_orchestrator_db_models_validationresult",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_validationresult"
     },
     {
       "relation": "rationale_for",
@@ -4156,9 +4195,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_rationale_1",
-      "target": "backend_orchestrator_db_models",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models"
     },
     {
       "relation": "inherits",
@@ -4166,9 +4205,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L214",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_auditledgerentry",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4176,9 +4215,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_base",
-      "target": "declarativebase",
-      "confidence_score": 1.0
+      "target": "declarativebase"
     },
     {
       "relation": "inherits",
@@ -4186,9 +4225,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_document",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4196,9 +4235,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L90",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_extractedfield",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4206,9 +4245,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L161",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_faceembedding",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "rationale_for",
@@ -4216,9 +4255,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_rationale_32",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4226,9 +4265,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L190",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_riskscore",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4236,9 +4275,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L138",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_tamperingresult",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "inherits",
@@ -4246,20 +4285,9 @@
       "source_file": "backend/orchestrator/db/models.py",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_models_validationresult",
-      "target": "backend_orchestrator_db_models_base",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/orchestrator/db/session.py",
-      "source_location": "L27",
-      "weight": 1.0,
-      "source": "backend_orchestrator_db_session",
-      "target": "backend_config",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_models_base"
     },
     {
       "relation": "contains",
@@ -4267,9 +4295,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_session",
-      "target": "backend_orchestrator_db_session_get_db",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_session_get_db"
     },
     {
       "relation": "rationale_for",
@@ -4277,9 +4305,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_session_rationale_1",
-      "target": "backend_orchestrator_db_session",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_session"
     },
     {
       "relation": "references",
@@ -4288,9 +4316,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_session_get_db",
-      "target": "asyncsession",
-      "confidence_score": 1.0
+      "target": "asyncsession"
     },
     {
       "relation": "rationale_for",
@@ -4298,9 +4326,9 @@
       "source_file": "backend/orchestrator/db/session.py",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_orchestrator_db_session_rationale_49",
-      "target": "backend_orchestrator_db_session_get_db",
-      "confidence_score": 1.0
+      "target": "backend_orchestrator_db_session_get_db"
     },
     {
       "relation": "contains",
@@ -4308,9 +4336,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation"
     },
     {
       "relation": "contains",
@@ -4318,9 +4346,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_tests_test_phase1_test_validation_engine_expired_passport",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_validation_engine_expired_passport"
     },
     {
       "relation": "contains",
@@ -4328,9 +4356,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_tests_test_phase1_test_validation_engine_valid_passport",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_validation_engine_valid_passport"
     },
     {
       "relation": "imports_from",
@@ -4339,9 +4367,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_validation_service_core_rules_engine",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine"
     },
     {
       "relation": "imports",
@@ -4350,9 +4378,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "rationale_for",
@@ -4360,9 +4388,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_rationale_1",
-      "target": "backend_tests_test_phase1",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1"
     },
     {
       "relation": "rationale_for",
@@ -4370,9 +4398,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_rationale_16",
-      "target": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_icao_mrz_checksum_calculation"
     },
     {
       "relation": "rationale_for",
@@ -4380,9 +4408,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_rationale_28",
-      "target": "backend_tests_test_phase1_test_validation_engine_valid_passport",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_validation_engine_valid_passport"
     },
     {
       "relation": "calls",
@@ -4391,9 +4419,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_validation_engine_valid_passport",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "rationale_for",
@@ -4401,9 +4429,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L42",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_rationale_42",
-      "target": "backend_tests_test_phase1_test_validation_engine_expired_passport",
-      "confidence_score": 1.0
+      "target": "backend_tests_test_phase1_test_validation_engine_expired_passport"
     },
     {
       "relation": "calls",
@@ -4412,9 +4440,9 @@
       "source_file": "backend/tests/test_phase1.py",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_tests_test_phase1_test_validation_engine_expired_passport",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "imports_from",
@@ -4423,9 +4451,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "contains",
@@ -4433,9 +4461,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L120",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic",
-      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates"
     },
     {
       "relation": "contains",
@@ -4443,9 +4471,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic",
-      "target": "backend_validation_service_core_date_logic_evaluate_date_condition",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_date_condition"
     },
     {
       "relation": "contains",
@@ -4453,9 +4481,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic",
-      "target": "backend_validation_service_core_date_logic_parse_date",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_parse_date"
     },
     {
       "relation": "rationale_for",
@@ -4463,9 +4491,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_rationale_1",
-      "target": "backend_validation_service_core_date_logic",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic"
     },
     {
       "relation": "imports_from",
@@ -4474,9 +4502,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_core_date_logic",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic"
     },
     {
       "relation": "calls",
@@ -4485,9 +4513,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L131",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
-      "target": "backend_validation_service_core_date_logic_parse_date",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_parse_date"
     },
     {
       "relation": "calls",
@@ -4496,9 +4524,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L87",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_evaluate_date_condition",
-      "target": "backend_validation_service_core_date_logic_parse_date",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_parse_date"
     },
     {
       "relation": "references",
@@ -4507,9 +4535,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_parse_date",
-      "target": "date",
-      "confidence_score": 1.0
+      "target": "date"
     },
     {
       "relation": "rationale_for",
@@ -4517,9 +4545,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_rationale_36",
-      "target": "backend_validation_service_core_date_logic_parse_date",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_parse_date"
     },
     {
       "relation": "rationale_for",
@@ -4527,9 +4555,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L75",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_rationale_75",
-      "target": "backend_validation_service_core_date_logic_evaluate_date_condition",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_date_condition"
     },
     {
       "relation": "imports",
@@ -4538,9 +4566,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_core_date_logic_evaluate_date_condition",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_date_condition"
     },
     {
       "relation": "calls",
@@ -4549,9 +4577,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L104",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_core_date_logic_evaluate_date_condition",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_date_condition"
     },
     {
       "relation": "rationale_for",
@@ -4559,9 +4587,9 @@
       "source_file": "backend/validation_service/core/date_logic.py",
       "source_location": "L124",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_date_logic_rationale_124",
-      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates"
     },
     {
       "relation": "imports",
@@ -4570,9 +4598,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates"
     },
     {
       "relation": "calls",
@@ -4581,9 +4609,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L140",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_date_logic_evaluate_cross_document_dates"
     },
     {
       "relation": "imports_from",
@@ -4592,9 +4620,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "contains",
@@ -4602,9 +4630,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype"
     },
     {
       "relation": "contains",
@@ -4612,9 +4640,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "imports_from",
@@ -4623,9 +4651,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_schemas_validation",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation"
     },
     {
       "relation": "imports",
@@ -4634,9 +4662,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_schemas_validation_ruleresult",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_ruleresult"
     },
     {
       "relation": "imports",
@@ -4645,9 +4673,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "rationale_for",
@@ -4655,9 +4683,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_rationale_1",
-      "target": "backend_validation_service_core_rules_engine",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine"
     },
     {
       "relation": "imports_from",
@@ -4666,9 +4694,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_core_rules_engine",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine"
     },
     {
       "relation": "references",
@@ -4677,9 +4705,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "rationale_for",
@@ -4687,9 +4715,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_rationale_40",
-      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype"
     },
     {
       "relation": "calls",
@@ -4698,9 +4726,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L89",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_load_rules_for_doctype"
     },
     {
       "relation": "rationale_for",
@@ -4708,9 +4736,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_rationale_74",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "references",
@@ -4719,9 +4747,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_core_rules_engine_py_extractedfield",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_py_extractedfield"
     },
     {
       "relation": "calls",
@@ -4730,9 +4758,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L107",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_schemas_validation_ruleresult",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_ruleresult"
     },
     {
       "relation": "references",
@@ -4741,9 +4769,9 @@
       "source_file": "backend/validation_service/core/rules_engine.py",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_core_rules_engine_validate_document",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "imports",
@@ -4752,9 +4780,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_core_rules_engine_validate_document",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_core_rules_engine_validate_document"
     },
     {
       "relation": "calls",
@@ -4785,9 +4813,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "contains",
@@ -4795,9 +4823,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_routers_validation_validate_extracted_fields",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_routers_validation_validate_extracted_fields"
     },
     {
       "relation": "imports_from",
@@ -4806,9 +4834,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_schemas_validation",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation"
     },
     {
       "relation": "imports",
@@ -4817,9 +4845,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_schemas_validation_validationrequest",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationrequest"
     },
     {
       "relation": "imports",
@@ -4828,9 +4856,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "rationale_for",
@@ -4838,9 +4866,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation_rationale_1",
-      "target": "backend_validation_service_routers_validation",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_routers_validation"
     },
     {
       "relation": "rationale_for",
@@ -4848,9 +4876,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation_rationale_29",
-      "target": "backend_validation_service_routers_validation_validate_extracted_fields",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_routers_validation_validate_extracted_fields"
     },
     {
       "relation": "references",
@@ -4859,9 +4887,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation_validate_extracted_fields",
-      "target": "backend_validation_service_schemas_validation_validationrequest",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationrequest"
     },
     {
       "relation": "references",
@@ -4870,9 +4898,9 @@
       "source_file": "backend/validation_service/routers/validation.py",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_routers_validation_validate_extracted_fields",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "contains",
@@ -4880,9 +4908,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_validation_service_schemas_validation_ruleresult",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_ruleresult"
     },
     {
       "relation": "contains",
@@ -4890,9 +4918,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_validation_service_schemas_validation_validationrequest",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationrequest"
     },
     {
       "relation": "contains",
@@ -4900,9 +4928,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "rationale_for",
@@ -4910,9 +4938,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_rationale_1",
-      "target": "backend_validation_service_schemas_validation",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation"
     },
     {
       "relation": "rationale_for",
@@ -4920,9 +4948,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_rationale_12",
-      "target": "backend_validation_service_schemas_validation_ruleresult",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_ruleresult"
     },
     {
       "relation": "inherits",
@@ -4930,9 +4958,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_ruleresult",
-      "target": "backend_validation_service_schemas_validation_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_py_basemodel"
     },
     {
       "relation": "inherits",
@@ -4940,9 +4968,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_validationrequest",
-      "target": "backend_validation_service_schemas_validation_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_py_basemodel"
     },
     {
       "relation": "inherits",
@@ -4950,9 +4978,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_validationresponse",
-      "target": "backend_validation_service_schemas_validation_py_basemodel",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_py_basemodel"
     },
     {
       "relation": "rationale_for",
@@ -4960,9 +4988,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_rationale_19",
-      "target": "backend_validation_service_schemas_validation_validationrequest",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationrequest"
     },
     {
       "relation": "rationale_for",
@@ -4970,9 +4998,9 @@
       "source_file": "backend/validation_service/schemas/validation.py",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_validation_service_schemas_validation_rationale_32",
-      "target": "backend_validation_service_schemas_validation_validationresponse",
-      "confidence_score": 1.0
+      "target": "backend_validation_service_schemas_validation_validationresponse"
     },
     {
       "relation": "contains",
@@ -5087,47 +5115,6 @@
       "confidence_score": 1.0,
       "source": "backend_audit_ledger_routers_ledger_rationale_12",
       "target": "backend_audit_ledger_routers_ledger_verify_chain"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/config.py",
-      "source_location": "L9",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "backend_config",
-      "target": "backend_config_settings"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/config.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "backend_config_rationale_1",
-      "target": "backend_config"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/logging_config.py",
-      "source_location": "L8",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "backend_logging_config",
-      "target": "backend_config"
-    },
-    {
-      "relation": "inherits",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/config.py",
-      "source_location": "L9",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "backend_config_settings",
-      "target": "basesettings"
     },
     {
       "relation": "contains",
@@ -6406,5 +6393,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "24a61959f61ab6b3ab0bb40cb25d3c677bc5f8c8"
+  "built_at_commit": "cd3b6a40d453433960b47ea6085293e546fef309"
 }

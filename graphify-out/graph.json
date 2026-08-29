@@ -9,9 +9,9 @@
       "source_file": "backend/config.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_config",
       "community": 13,
-      "norm_label": "config.py"
+      "norm_label": "config.py",
+      "id": "backend_config"
     },
     {
       "label": "Settings",
@@ -19,9 +19,9 @@
       "source_file": "backend/config.py",
       "source_location": "L9",
       "_origin": "ast",
-      "id": "backend_config_settings",
       "community": 13,
-      "norm_label": "settings"
+      "norm_label": "settings",
+      "id": "backend_config_settings"
     },
     {
       "label": "BaseSettings",
@@ -29,9 +29,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "basesettings",
       "community": 13,
-      "norm_label": "basesettings"
+      "norm_label": "basesettings",
+      "id": "basesettings"
     },
     {
       "label": "Shared settings loaded from .env (or environment variables). Every service impor",
@@ -39,9 +39,9 @@
       "source_file": "backend/config.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_config_rationale_1",
       "community": 13,
-      "norm_label": "shared settings loaded from .env (or environment variables). every service impor"
+      "norm_label": "shared settings loaded from .env (or environment variables). every service impor",
+      "id": "backend_config_rationale_1"
     },
     {
       "label": "llm_fallback.py",
@@ -49,9 +49,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_llm_fallback",
       "community": 22,
-      "norm_label": "llm_fallback.py"
+      "norm_label": "llm_fallback.py",
+      "id": "backend_ocr_service_core_llm_fallback"
     },
     {
       "label": "extract_fields_with_llm()",
@@ -59,9 +59,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L29",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
       "community": 28,
-      "norm_label": "extract_fields_with_llm()"
+      "norm_label": "extract_fields_with_llm()",
+      "id": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm"
     },
     {
       "label": "DocumentType",
@@ -69,9 +69,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "documenttype",
       "community": 28,
-      "norm_label": "documenttype"
+      "norm_label": "documenttype",
+      "id": "documenttype"
     },
     {
       "label": "ExtractedField",
@@ -79,9 +79,9 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "extractedfield",
       "community": 28,
-      "norm_label": "extractedfield"
+      "norm_label": "extractedfield",
+      "id": "extractedfield"
     },
     {
       "label": "LLM Fallback \u2014 Pluggable Vision LLM interface for non-standard documents.  CONCE",
@@ -89,9 +89,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_llm_fallback_rationale_1",
       "community": 22,
-      "norm_label": "llm fallback \u2014 pluggable vision llm interface for non-standard documents.  conce"
+      "norm_label": "llm fallback \u2014 pluggable vision llm interface for non-standard documents.  conce",
+      "id": "backend_ocr_service_core_llm_fallback_rationale_1"
     },
     {
       "label": "Generic interface for vision-capable LLM document extraction.      Args:",
@@ -99,9 +99,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L34",
       "_origin": "ast",
-      "id": "backend_ocr_service_core_llm_fallback_rationale_34",
       "community": 28,
-      "norm_label": "generic interface for vision-capable llm document extraction.      args:"
+      "norm_label": "generic interface for vision-capable llm document extraction.      args:",
+      "id": "backend_ocr_service_core_llm_fallback_rationale_34"
     },
     {
       "label": "README.md",
@@ -2575,19 +2575,6 @@
       "community": 7,
       "norm_label": "node_modules",
       "id": "ref_node_modules"
-    },
-    {
-      "label": "BorderGuard-AI",
-      "file_type": "concept",
-      "source_file": "readme.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 8,
-      "norm_label": "borderguard-ai",
-      "id": "readme_md_borderguard_ai"
     }
   ],
   "links": [
@@ -2597,9 +2584,9 @@
       "source_file": "backend/config.py",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_config",
-      "target": "backend_config_settings",
-      "confidence_score": 1.0
+      "target": "backend_config_settings"
     },
     {
       "relation": "rationale_for",
@@ -2607,9 +2594,9 @@
       "source_file": "backend/config.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_config_rationale_1",
-      "target": "backend_config",
-      "confidence_score": 1.0
+      "target": "backend_config"
     },
     {
       "relation": "imports_from",
@@ -2629,9 +2616,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_config",
-      "confidence_score": 1.0
+      "target": "backend_config"
     },
     {
       "relation": "imports_from",
@@ -2650,9 +2637,9 @@
       "source_file": "backend/config.py",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_config_settings",
-      "target": "basesettings",
-      "confidence_score": 1.0
+      "target": "basesettings"
     },
     {
       "relation": "imports_from",
@@ -2661,9 +2648,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_logging_config",
-      "confidence_score": 1.0
+      "target": "backend_logging_config"
     },
     {
       "relation": "imports_from",
@@ -2672,9 +2659,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_core_field_extractor",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_field_extractor"
     },
     {
       "relation": "contains",
@@ -2682,9 +2669,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm"
     },
     {
       "relation": "imports_from",
@@ -2693,9 +2680,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback",
-      "target": "backend_ocr_service_schemas_extraction",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_schemas_extraction"
     },
     {
       "relation": "rationale_for",
@@ -2703,9 +2690,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback_rationale_1",
-      "target": "backend_ocr_service_core_llm_fallback",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_llm_fallback"
     },
     {
       "relation": "imports_from",
@@ -2725,9 +2712,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "target": "documenttype",
-      "confidence_score": 1.0
+      "target": "documenttype"
     },
     {
       "relation": "references",
@@ -2736,9 +2723,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "target": "extractedfield",
-      "confidence_score": 1.0
+      "target": "extractedfield"
     },
     {
       "relation": "rationale_for",
@@ -2746,9 +2733,9 @@
       "source_file": "backend/ocr_service/core/llm_fallback.py",
       "source_location": "L34",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "backend_ocr_service_core_llm_fallback_rationale_34",
-      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm",
-      "confidence_score": 1.0
+      "target": "backend_ocr_service_core_llm_fallback_extract_fields_with_llm"
     },
     {
       "relation": "imports",
@@ -6393,5 +6380,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "cd3b6a40d453433960b47ea6085293e546fef309"
+  "built_at_commit": "1d0dfda4f66bf748f3fb0358d80bb16bd639aabe"
 }

@@ -114,6 +114,22 @@ def evaluate_date_condition(target_date_str: str | None, condition: str) -> tupl
         )
         return passed, detail
 
+    # Check "< today - Ny" offset (e.g. "< today - 18y" for adult age check)
+    match_minus_years = re.match(r"<\s*today\s*-\s*(\d+)y", cond)
+    if match_minus_years:
+        years_offset = int(match_minus_years.group(1))
+        try:
+            cutoff_date = today.replace(year=today.year - years_offset)
+        except ValueError:  # Leap year handling (Feb 29)
+            cutoff_date = today.replace(year=today.year - years_offset, day=28)
+        passed = parsed_target <= cutoff_date
+        detail = (
+            f"Date {parsed_target.isoformat()} meets minimum age requirement (at least {years_offset} years ago)."
+            if passed
+            else f"Date {parsed_target.isoformat()} does not meet age threshold (must be before {cutoff_date.isoformat()})."
+        )
+        return passed, detail
+
     return False, f"Unsupported date condition: '{condition}'"
 
 

@@ -80,11 +80,19 @@ def validate_document(
     field_map: dict[str, str | None] = {
         f.field_name.lower(): f.field_value for f in fields
     }
-    # Also support alias keys (e.g. doc_number <-> passport_number)
+    # Alias: doc_number <-> passport_number (MRZ vs visual zone naming)
     if "doc_number" in field_map and "passport_number" not in field_map:
         field_map["passport_number"] = field_map["doc_number"]
     if "passport_number" in field_map and "doc_number" not in field_map:
         field_map["doc_number"] = field_map["passport_number"]
+
+    # Alias: date_of_expiry <-> expiry_date
+    # field_extractor.py (OCR path) emits "date_of_expiry"
+    # mrz_parser.py (MRZ path) and passport_rules.yaml both use "expiry_date"
+    if "date_of_expiry" in field_map and "expiry_date" not in field_map:
+        field_map["expiry_date"] = field_map["date_of_expiry"]
+    if "expiry_date" in field_map and "date_of_expiry" not in field_map:
+        field_map["date_of_expiry"] = field_map["expiry_date"]
 
     rules = load_rules_for_doctype(document_type)
     results: list[RuleResult] = []
