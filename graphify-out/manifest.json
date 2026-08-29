@@ -290,8 +290,8 @@
     "semantic_hash": "02fc19ad21338c2ab820a70136310db4"
   },
   "backend/requirements.txt": {
-    "mtime": 1787944093.8970466,
-    "ast_hash": "248c4192129b62b0a5beb17da7dd518d",
+    "mtime": 1788021723.7941678,
+    "ast_hash": "c9431eb350fce139fa4841983656f7df",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
@@ -420,8 +420,8 @@
     "semantic_hash": ""
   },
   "backend/requirements-core.txt": {
-    "mtime": 1787944069.214822,
-    "ast_hash": "e08cd9a41edab7b9f7d8ddbbbe709bdc",
+    "mtime": 1788021719.7367456,
+    "ast_hash": "bb1e92628982bd57eab82ce1a3d2cbdf",
     "semantic_hash": ""
   },
   "backend/requirements-ml.txt": {

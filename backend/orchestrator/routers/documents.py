@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import DocumentType
+from backend.orchestrator.auth.dependencies import require_roles
+from backend.orchestrator.auth.security import UserTokenData
 from backend.orchestrator.core.pipeline import run_pipeline
 from backend.orchestrator.core.service_clients import call_audit_ledger
 from backend.orchestrator.db.models import (
@@ -44,6 +46,9 @@ from backend.orchestrator.storage.minio_client import get_document_image_url
 logger = get_logger("orchestrator.router")
 
 router = APIRouter(prefix="/api/v1", tags=["Documents & Screening"])
+
+STANDARD_ROLES = ["officer", "supervisor", "admin"]
+AUDIT_ROLES = ["supervisor", "admin"]
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +89,7 @@ async def upload_and_screen_document(
     live_photo: UploadFile | None = File(None, description="Optional live traveler face photo"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> UploadResponse:
     """
     Ingest a document scan, run all four AI modules + risk scoring + audit logging,
@@ -112,7 +118,7 @@ async def upload_and_screen_document(
         image_bytes=image_bytes,
         document_type=document_type,
         live_image_bytes=live_bytes,
-        checkpoint_id=checkpoint_id,
+        checkpoint_id=checkpoint_id or current_user.checkpoint_id,
         db=db,
     )
 
@@ -135,6 +141,7 @@ async def upload_and_screen_document(
 async def get_document_extraction(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
     doc = await _get_document_or_404(document_id, db)
     stmt = select(ExtractedField).where(ExtractedField.document_id == doc.id)
@@ -167,6 +174,7 @@ async def get_document_extraction(
 async def get_document_validation(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
     doc = await _get_document_or_404(document_id, db)
     stmt = select(ValidationResult).where(ValidationResult.document_id == doc.id)
@@ -201,6 +209,7 @@ async def get_document_validation(
 async def get_document_tampering(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
     doc = await _get_document_or_404(document_id, db)
     stmt = select(TamperingResult).where(TamperingResult.document_id == doc.id)
@@ -235,6 +244,7 @@ async def get_document_tampering(
 async def get_document_face(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
     doc = await _get_document_or_404(document_id, db)
     stmt = select(FaceEmbedding).where(FaceEmbedding.document_id == doc.id)
@@ -258,6 +268,7 @@ async def get_document_face(
 async def get_document_risk(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
     doc = await _get_document_or_404(document_id, db)
     stmt = select(RiskScore).where(RiskScore.document_id == doc.id)
@@ -291,6 +302,7 @@ async def record_officer_decision(
     document_id: str,
     body: DecisionRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> DecisionResponse:
     """Record an officer's final decision for a document scan."""
     doc = await _get_document_or_404(document_id, db)
@@ -299,13 +311,13 @@ async def record_officer_decision(
     ledger_payload = {
         "decision": body.decision,
         "notes": body.notes,
-        "officer_id": body.officer_id,
+        "officer_id": body.officer_id or current_user.user_id,
     }
     ledger_res = await call_audit_ledger(
         event_type="officer_decision",
         document_id=str(doc.id),
         payload=ledger_payload,
-        officer_id=body.officer_id,
+        officer_id=body.officer_id or current_user.user_id,
     )
 
     seq_num = ledger_res.get("sequence_num") if ledger_res else None
@@ -313,7 +325,7 @@ async def record_officer_decision(
     logger.info(
         "officer_decision_recorded",
         document_id=document_id,
-        officer_id=body.officer_id,
+        officer_id=body.officer_id or current_user.user_id,
         decision=body.decision,
         sequence_num=seq_num,
     )
@@ -336,6 +348,7 @@ async def record_officer_decision(
 async def get_document_audit_trail(
     document_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(AUDIT_ROLES)),
 ):
     """Fetch complete immutable audit history for a document."""
     doc = await _get_document_or_404(document_id, db)

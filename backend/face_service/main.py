@@ -13,6 +13,16 @@ logger = get_logger("face-service")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("service_starting", port=8004, message="Pre-warming face recognition models...")
+    try:
+        from backend.face_service.core.embedding import _get_insightface_app
+        app_instance = _get_insightface_app()
+        if app_instance is not None:
+            logger.info("InsightFace ArcFace+RetinaFace model ready")
+        else:
+            logger.warning("InsightFace unavailable — DeepFace fallback will be used")
+    except Exception as exc:
+        logger.warning("Model pre-warm failed", error=str(exc))
     logger.info("service_started", port=8004)
     yield
 

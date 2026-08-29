@@ -114,7 +114,7 @@ def extract_fields(
     raw_lines: list[tuple[str, float]] | None = None,
 ) -> list[ExtractedField]:
     """
-    Extract structured fields from image bytes.
+    Extract structured fields from image bytes using contextual OCR line analysis.
     """
     if raw_lines is None:
         raw_lines = extract_raw_ocr_lines(image_bytes)
@@ -122,7 +122,7 @@ def extract_fields(
     extracted: dict[str, ExtractedField] = {}
 
     # 1. Look for Passport / ID Number
-    for text, conf in raw_lines:
+    for i, (text, conf) in enumerate(raw_lines):
         if "passport_number" not in extracted:
             match = PATTERNS["passport_num"].search(text)
             if match:
@@ -132,28 +132,102 @@ def extract_fields(
                     confidence=conf,
                     extraction_method=ExtractionMethod.OCR,
                 )
+            elif any(k in text.upper() for k in ["PASSPORT NO", "PASSPORT N", "पासपोर्ट", "DOC NO"]):
+                # Check current or next line for 8-char token
+                candidates = re.findall(r"\b[A-Z0-9]{8}\b", text.upper())
+                if not candidates and i + 1 < len(raw_lines):
+                    candidates = re.findall(r"\b[A-Z0-9]{8}\b", raw_lines[i + 1][0].upper())
+                for cand in candidates:
+                    if cand[0] == "2":
+                        cand = "Z" + cand[1:]
+                    elif cand[0] == "0":
+                        cand = "O" + cand[1:]
+                    if re.match(r"^[A-Z][0-9]{7,8}$", cand):
+                        extracted["passport_number"] = ExtractedField(
+                            field_name="passport_number",
+                            field_value=cand,
+                            confidence=conf,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+                        break
 
-    # 2. Look for Dates (DOB, Expiry)
-    found_dates = []
-    for text, conf in raw_lines:
-        for match in PATTERNS["date"].finditer(text):
-            found_dates.append((match.group(0), conf))
+    # 2. Contextual Date Extraction (DOB vs Issue vs Expiry)
+    found_labeled_dates: dict[str, tuple[str, float]] = {}
+    unlabeled_dates: list[tuple[str, float]] = []
 
-    if found_dates:
-        if len(found_dates) >= 1 and "date_of_birth" not in extracted:
-            extracted["date_of_birth"] = ExtractedField(
-                field_name="date_of_birth",
-                field_value=found_dates[0][0],
-                confidence=found_dates[0][1],
-                extraction_method=ExtractionMethod.OCR,
-            )
-        if len(found_dates) >= 2 and "date_of_expiry" not in extracted:
-            extracted["date_of_expiry"] = ExtractedField(
-                field_name="date_of_expiry",
-                field_value=found_dates[1][0],
-                confidence=found_dates[1][1],
-                extraction_method=ExtractionMethod.OCR,
-            )
+    for i, (text, conf) in enumerate(raw_lines):
+        text_upper = text.upper()
+        date_matches = list(PATTERNS["date"].finditer(text))
+        
+        # Check if date is on this line or the immediate next line
+        dates_on_line = [m.group(0) for m in date_matches]
+        next_line_date = None
+        if i + 1 < len(raw_lines):
+            next_m = PATTERNS["date"].search(raw_lines[i + 1][0])
+            if next_m:
+                next_line_date = (next_m.group(0), raw_lines[i + 1][1])
+
+        target_date = (dates_on_line[0], conf) if dates_on_line else next_line_date
+
+        if target_date:
+            if any(k in text_upper for k in ["EXPIRY", "समाप्ति", "VALID UNTIL", "EXPIRATION"]):
+                found_labeled_dates["date_of_expiry"] = target_date
+            elif any(k in text_upper for k in ["BIRTH", "जन्म", "DOB", "NAISSANCE"]):
+                found_labeled_dates["date_of_birth"] = target_date
+            elif any(k in text_upper for k in ["ISSUE", "जारी"]):
+                found_labeled_dates["date_of_issue"] = target_date
+            elif dates_on_line:
+                unlabeled_dates.append((dates_on_line[0], conf))
+
+    # Apply labeled dates
+    if "date_of_birth" in found_labeled_dates:
+        d, c = found_labeled_dates["date_of_birth"]
+        extracted["date_of_birth"] = ExtractedField(
+            field_name="date_of_birth",
+            field_value=d,
+            confidence=c,
+            extraction_method=ExtractionMethod.OCR,
+        )
+    if "date_of_expiry" in found_labeled_dates:
+        d, c = found_labeled_dates["date_of_expiry"]
+        extracted["date_of_expiry"] = ExtractedField(
+            field_name="date_of_expiry",
+            field_value=d,
+            confidence=c,
+            extraction_method=ExtractionMethod.OCR,
+        )
+
+    # Fallback to date sorting if labels weren't explicitly matched
+    if ("date_of_birth" not in extracted or "date_of_expiry" not in extracted) and unlabeled_dates:
+        # Sort dates chronologically if possible
+        parsed_dates = []
+        for d_str, c in unlabeled_dates:
+            parts = re.split(r"[/-]", d_str)
+            if len(parts) == 3:
+                try:
+                    # heuristic for YYYY at end vs beginning
+                    yr = int(parts[2]) if len(parts[2]) == 4 else int(parts[0])
+                    parsed_dates.append((yr, d_str, c))
+                except ValueError:
+                    pass
+        
+        parsed_dates.sort(key=lambda x: x[0])
+        if parsed_dates:
+            if "date_of_birth" not in extracted:
+                extracted["date_of_birth"] = ExtractedField(
+                    field_name="date_of_birth",
+                    field_value=parsed_dates[0][1],
+                    confidence=parsed_dates[0][2],
+                    extraction_method=ExtractionMethod.OCR,
+                )
+            if "date_of_expiry" not in extracted and len(parsed_dates) > 1:
+                # Latest date is expiry
+                extracted["date_of_expiry"] = ExtractedField(
+                    field_name="date_of_expiry",
+                    field_value=parsed_dates[-1][1],
+                    confidence=parsed_dates[-1][2],
+                    extraction_method=ExtractionMethod.OCR,
+                )
 
     # 3. Look for Gender/Sex
     for text, conf in raw_lines:
@@ -167,16 +241,50 @@ def extract_fields(
                 extraction_method=ExtractionMethod.OCR,
             )
 
-    # 4. Search for Name / other labeled fields
+    # 4. Search for Name / Given Name / Surname
+    surname_val = ""
+    given_val = ""
+    for i, (text, conf) in enumerate(raw_lines):
+        text_upper = text.upper()
+        if "SURNAME" in text_upper or "उपनाम" in text_upper:
+            # check inline or next line
+            clean = re.sub(r"(SURNAME|उपनाम|/|:)", "", text, flags=re.IGNORECASE).strip()
+            if clean and len(clean) > 1 and not re.search(r"^[A-Z0-9<]{9}", clean):
+                surname_val = clean
+            elif i + 1 < len(raw_lines):
+                next_t = raw_lines[i + 1][0].strip()
+                if next_t and not any(k in next_t.upper() for k in ["NAME", "GIVEN", "BIRTH", "DATE"]):
+                    surname_val = next_t
+
+        if "GIVEN NAME" in text_upper or "दिया गया नाम" in text_upper:
+            clean = re.sub(r"(GIVEN NAME\(S\)|GIVEN NAME|दिया गया नाम|/|:|\(S\))", "", text, flags=re.IGNORECASE).strip()
+            if clean and len(clean) > 1:
+                given_val = clean
+            elif i + 1 < len(raw_lines):
+                next_t = raw_lines[i + 1][0].strip()
+                if next_t and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
+                    given_val = next_t
+
+    if surname_val or given_val:
+        full = f"{given_val} {surname_val}".strip() or surname_val or given_val
+        extracted["name"] = ExtractedField(
+            field_name="name",
+            field_value=full,
+            confidence=0.90,
+            extraction_method=ExtractionMethod.OCR,
+        )
+
+    # 5. Look for Nationality
     for text, conf in raw_lines:
-        if "name" not in extracted and any(kw in text.upper() for kw in ["GIVEN NAME", "SURNAME", "NAME"]):
-            parts = re.split(r"[:\-\s]{2,}", text)
-            val = parts[-1] if len(parts) > 1 else text
-            extracted["name"] = ExtractedField(
-                field_name="name",
-                field_value=val,
-                confidence=conf,
-                extraction_method=ExtractionMethod.OCR,
-            )
+        text_upper = text.upper()
+        if "INDIAN" in text_upper or "IND " in text_upper or "BHARATIYA" in text_upper:
+            if "nationality" not in extracted:
+                extracted["nationality"] = ExtractedField(
+                    field_name="nationality",
+                    field_value="INDIAN",
+                    confidence=conf,
+                    extraction_method=ExtractionMethod.OCR,
+                )
+                break
 
     return list(extracted.values())

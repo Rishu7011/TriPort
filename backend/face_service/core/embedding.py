@@ -1,17 +1,36 @@
 """
-Face Embedding Extraction Engine.
+Face Embedding Extraction Engine — Production-Grade Multi-Model Pipeline.
 
-CONCEPT:
-Identity verification requires converting unconstrained facial photographs into
-a high-dimensional metric space where Euclidean or Cosine distance corresponds
-directly to identity similarity (faces of the same person are close; different persons are far).
+MODEL GRAPH (plan.md §4 - Phase 2B):
 
-This module:
-  1. Accepts raw image bytes of a document photo or live checkpoint capture.
-  2. Detects and aligns the facial region.
-  3. Extracts a 512-dimensional facial embedding vector (using DeepFace / Facenet512).
-  4. L2-normalizes the vector to unit length (||v|| = 1.0).
-  5. Provides clean fallbacks if offline or during unit tests.
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  INPUT: Raw image bytes (document photo OR live webcam capture) │
+  └────────────────────────┬────────────────────────────────────────┘
+                           │
+            ┌──────────────▼────────────────┐
+            │  Stage 1: RetinaFace (InsightFace) │
+            │  Face Detection + 5-pt Alignment   │
+            │  → Cropped & aligned face ROI       │
+            └──────────────┬────────────────┘
+                           │  (fallback: OpenCV Haar Cascade crop)
+            ┌──────────────▼────────────────┐
+            │  Stage 2: ArcFace (InsightFace)│
+            │  512-dim L2-normalized vector  │
+            └──────────────┬────────────────┘
+                           │  (fallback: DeepFace Facenet512)
+            ┌──────────────▼────────────────┐
+            │  Stage 3: DeepFace Voter       │
+            │  Borderline score (0.55–0.65)  │
+            │  → Multi-model consensus vote  │
+            └──────────────┬────────────────┘
+                           │  (fallback: gradient histogram local)
+            ┌──────────────▼──────────────┐
+            │  OUTPUT: 512-dim unit vector  │
+            └─────────────────────────────┘
+
+LIVENESS (for live webcam photos only — called from one_to_one.py):
+  MediaPipe FaceMesh → EAR eye-openness + head-pose variance check
+  → liveness_score ∈ [0.0, 1.0]
 """
 
 import io
@@ -25,46 +44,269 @@ logger = get_logger("face_service.embedding")
 
 EMBEDDING_DIM = 512
 
+# ── Lazy-loaded model singletons ─────────────────────────────────────────────
+_insightface_app = None       # InsightFace FaceAnalysis (RetinaFace + ArcFace)
+_deepface_models: dict = {}   # DeepFace model cache
 
+
+# ---------------------------------------------------------------------------
+# Utility: bytes → numpy RGB
+# ---------------------------------------------------------------------------
 def _bytes_to_numpy_rgb(image_bytes: bytes) -> np.ndarray:
     """Convert raw image bytes to an RGB NumPy array."""
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return np.array(pil_img)
 
 
+# ---------------------------------------------------------------------------
+# Utility: L2 normalize embedding vector
+# ---------------------------------------------------------------------------
+def _l2_normalize(vec: np.ndarray) -> np.ndarray:
+    """L2-normalize a vector to unit length. Returns zero vector if degenerate."""
+    norm = np.linalg.norm(vec)
+    if norm < 1e-8:
+        return np.zeros_like(vec, dtype=np.float64)
+    return (vec / norm).astype(np.float64)
+
+
+# ---------------------------------------------------------------------------
+# Utility: Ensure vector is exactly 512-dim
+# ---------------------------------------------------------------------------
+def _ensure_512d(vec: np.ndarray) -> np.ndarray:
+    if len(vec) == EMBEDDING_DIM:
+        return vec
+    if len(vec) > EMBEDDING_DIM:
+        return vec[:EMBEDDING_DIM]
+    return np.pad(vec.astype(np.float64), (0, EMBEDDING_DIM - len(vec)))
+
+
+# ---------------------------------------------------------------------------
+# STAGE 1: InsightFace (RetinaFace detector + ArcFace embedder)
+# ---------------------------------------------------------------------------
+def _get_insightface_app():
+    """Lazy-load InsightFace FaceAnalysis singleton (RetinaFace + ArcFace)."""
+    global _insightface_app
+    if _insightface_app is None:
+        try:
+            import insightface
+            from insightface.app import FaceAnalysis
+
+            app = FaceAnalysis(
+                name="buffalo_l",          # buffalo_l bundles RetinaFace + ArcFace W600K R50
+                providers=["CPUExecutionProvider"],
+                allowed_modules=["detection", "recognition"],
+            )
+            app.prepare(ctx_id=0, det_size=(640, 640))
+            _insightface_app = app
+            logger.info("InsightFace FaceAnalysis (RetinaFace+ArcFace) initialized successfully")
+        except Exception as exc:
+            logger.warning("InsightFace unavailable — will use DeepFace fallback", error=str(exc))
+            _insightface_app = None
+    return _insightface_app
+
+
+def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] | None:
+    """
+    Stage 1: Extract ArcFace 512-dim embedding via InsightFace.
+
+    Returns (embedding_list, detail_str) on success, None on failure.
+    RetinaFace handles detection + 5-landmark alignment internally.
+    """
+    app = _get_insightface_app()
+    if app is None:
+        return None
+
+    try:
+        # InsightFace expects BGR
+        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        faces = app.get(img_bgr)
+
+        if not faces:
+            logger.debug("InsightFace: no face detected in image")
+            return None
+
+        # Select the largest detected face by bounding box area
+        best_face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+
+        if best_face.embedding is None or len(best_face.embedding) == 0:
+            return None
+
+        vec = np.array(best_face.embedding, dtype=np.float64)
+        vec = _ensure_512d(vec)
+        vec = _l2_normalize(vec)
+
+        det_score = float(best_face.det_score) if hasattr(best_face, "det_score") else 1.0
+        logger.info(
+            "ArcFace embedding extracted via InsightFace",
+            dims=len(vec),
+            det_score=round(det_score, 3),
+            face_count=len(faces),
+        )
+        return vec.tolist(), f"ArcFace (InsightFace buffalo_l) — det_score={det_score:.3f}, faces_found={len(faces)}"
+
+    except Exception as exc:
+        logger.warning("InsightFace ArcFace extraction failed", error=str(exc))
+        return None
+
+
+# ---------------------------------------------------------------------------
+# STAGE 2: DeepFace Facenet512 (intermediate fallback)
+# ---------------------------------------------------------------------------
+def _extract_deepface_facenet512(
+    img_rgb: np.ndarray,
+    enforce_detection: bool = False,
+) -> tuple[list[float], str] | None:
+    """
+    Stage 2: Extract 512-dim embedding using DeepFace Facenet512.
+    Falls back to this when InsightFace is unavailable.
+    """
+    try:
+        from deepface import DeepFace
+
+        representations = DeepFace.represent(
+            img_path=img_rgb,
+            model_name="Facenet512",
+            enforce_detection=enforce_detection,
+            align=True,
+            detector_backend="opencv",    # fastest CPU detector
+        )
+        if representations and len(representations) > 0:
+            raw_vec = np.array(representations[0]["embedding"], dtype=np.float64)
+            raw_vec = _ensure_512d(raw_vec)
+            raw_vec = _l2_normalize(raw_vec)
+            logger.info("DeepFace Facenet512 embedding extracted", dims=len(raw_vec))
+            return raw_vec.tolist(), "DeepFace Facenet512 (fallback)"
+
+    except Exception as exc:
+        logger.debug("DeepFace Facenet512 extraction failed", error=str(exc))
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# STAGE 3: DeepFace Multi-Model Voter (borderline disambiguation)
+# ---------------------------------------------------------------------------
+def deepface_multi_model_vote(
+    img_a_rgb: np.ndarray,
+    img_b_rgb: np.ndarray,
+    primary_similarity: float,
+    threshold: float = 0.60,
+    borderline_band: float = 0.05,
+) -> tuple[bool, float, str]:
+    """
+    Stage 3: Multi-model consensus vote for borderline similarity scores.
+
+    For scores within [threshold - borderline_band, threshold + borderline_band],
+    runs 3 additional DeepFace models (VGG-Face, ArcFace, SFace) and takes
+    majority vote to override the borderline primary decision.
+
+    Args:
+        img_a_rgb: Document photo as RGB NumPy array.
+        img_b_rgb: Live capture photo as RGB NumPy array.
+        primary_similarity: Cosine similarity from the primary model.
+        threshold: Decision boundary (default: 0.60).
+        borderline_band: Half-width of the ambiguous zone (default: ±0.05).
+
+    Returns:
+        (matched: bool, final_similarity: float, detail: str)
+    """
+    low = threshold - borderline_band
+    high = threshold + borderline_band
+
+    # Only vote if score is in the borderline zone
+    if not (low <= primary_similarity <= high):
+        matched = primary_similarity >= threshold
+        return matched, primary_similarity, f"Primary model decision (similarity={primary_similarity:.3f})"
+
+    logger.info(
+        "Borderline score — invoking multi-model voter",
+        primary_similarity=primary_similarity,
+        threshold=threshold,
+    )
+
+    voter_models = ["VGG-Face", "ArcFace", "SFace"]
+    votes_match = 0
+    votes_total = 0
+    vote_details = []
+
+    for model_name in voter_models:
+        try:
+            from deepface import DeepFace
+            result = DeepFace.verify(
+                img1_path=img_a_rgb,
+                img2_path=img_b_rgb,
+                model_name=model_name,
+                enforce_detection=False,
+                align=True,
+                detector_backend="opencv",
+            )
+            model_match = result.get("verified", False)
+            model_distance = result.get("distance", 1.0)
+            votes_total += 1
+            if model_match:
+                votes_match += 1
+            vote_details.append(f"{model_name}={'✓' if model_match else '✗'}(d={model_distance:.3f})")
+            logger.debug(
+                "voter_model_result",
+                model=model_name,
+                matched=model_match,
+                distance=round(model_distance, 3),
+            )
+        except Exception as exc:
+            logger.debug(f"Voter model {model_name} failed", error=str(exc))
+
+    if votes_total == 0:
+        # No voter models ran — fall through with primary result
+        matched = primary_similarity >= threshold
+        return matched, primary_similarity, f"Voter unavailable — primary decision: similarity={primary_similarity:.3f}"
+
+    # Majority vote (include primary model as one vote)
+    primary_vote = 1 if primary_similarity >= threshold else 0
+    total_yes = votes_match + primary_vote
+    total_votes = votes_total + 1
+    final_matched = total_yes > (total_votes / 2)
+
+    detail = (
+        f"Multi-model voter: {total_yes}/{total_votes} MATCH votes "
+        f"[{', '.join(vote_details)}]. "
+        f"Final: {'VERIFIED' if final_matched else 'MISMATCH'}"
+    )
+    logger.info(
+        "voter_decision",
+        votes_yes=total_yes,
+        votes_total=total_votes,
+        final_matched=final_matched,
+    )
+    return final_matched, primary_similarity, detail
+
+
+# ---------------------------------------------------------------------------
+# STAGE 4: Local gradient histogram fallback
+# ---------------------------------------------------------------------------
 def _compute_fallback_embedding(img_rgb: np.ndarray) -> list[float]:
     """
-    Deterministic feature embedding generator used when DeepFace heavy weights
-    are unavailable or during test mock runs.
-    Extracts multi-scale spatial and frequency features and pads to 512 dimensions.
+    Final fallback: deterministic gradient + histogram feature vector.
+    No ML dependency — always works, but identity accuracy is low.
     """
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
     resized = cv2.resize(gray, (64, 64))
-    
-    # 1. 2D DCT / gradient features
+
     grad_x = cv2.Sobel(resized, cv2.CV_64F, 1, 0, ksize=3)
     grad_y = cv2.Sobel(resized, cv2.CV_64F, 0, 1, ksize=3)
     mag = cv2.magnitude(grad_x, grad_y)
-    
-    # 2. Histogram features
+
     hist = cv2.calcHist([resized], [0], None, [128], [0, 256]).flatten()
-    
-    # 3. Spatial pool
     spatial = cv2.resize(mag, (16, 16)).flatten()
-    
-    # Combine and project into 512-d
+
     features = np.concatenate([hist, spatial, resized.flatten()[:128]])
-    if len(features) < EMBEDDING_DIM:
-        features = np.pad(features, (0, EMBEDDING_DIM - len(features)))
-    else:
-        features = features[:EMBEDDING_DIM]
-        
-    norm = np.linalg.norm(features)
-    if norm > 1e-6:
-        features = features / norm
-    return features.astype(float).tolist()
+    features = _ensure_512d(features)
+    features = _l2_normalize(features)
+    return features.tolist()
 
 
+# ---------------------------------------------------------------------------
+# PUBLIC API
+# ---------------------------------------------------------------------------
 def extract_face_embedding(
     image_bytes: bytes,
     enforce_detection: bool = False,
@@ -72,14 +314,19 @@ def extract_face_embedding(
     """
     Extract a 512-dimensional facial embedding vector from image bytes.
 
+    Pipeline (plan.md §4 - Phase 2B):
+      1. InsightFace (RetinaFace detection + ArcFace embedding) [PRIMARY]
+      2. DeepFace Facenet512 [FALLBACK-1]
+      3. Local gradient histogram [FALLBACK-2]
+
     Args:
         image_bytes: Raw bytes of the document photo or live webcam capture.
-        enforce_detection: If True, raises error when no face is found.
+        enforce_detection: If True, return failure when no face found.
 
     Returns:
         tuple: (
             face_detected: bool,
-            embedding: list[float] (512-dim unit vector),
+            embedding: list[float] (512-dim L2-normalized unit vector),
             face_count: int,
             detail: str
         )
@@ -94,50 +341,32 @@ def extract_face_embedding(
     if h < 20 or w < 20:
         return False, [], 0, "Image resolution too low for face verification."
 
-    # First verify face presence using OpenCV Haar Cascade
+    # ── Stage 1: InsightFace (RetinaFace + ArcFace) ──────────────────────────
+    result = _extract_arcface_embedding(img_rgb)
+    if result is not None:
+        embedding, detail = result
+        return True, embedding, 1, detail
+
+    # ── Face count pre-check (OpenCV Haar for face_count reporting) ──────────
     cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
     face_cascade = cv2.CascadeClassifier(cascade_path)
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
     detected_faces = face_cascade.detectMultiScale(
         gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30)
     )
-
     face_count = len(detected_faces)
+
     if face_count == 0 and enforce_detection:
         logger.warning("No face detected in provided image")
         return False, [], 0, "No human face detected in document/live image."
 
-    # Try DeepFace representation if available
-    try:
-        from deepface import DeepFace
+    # ── Stage 2: DeepFace Facenet512 fallback ────────────────────────────────
+    result = _extract_deepface_facenet512(img_rgb, enforce_detection=enforce_detection)
+    if result is not None:
+        embedding, detail = result
+        return True, embedding, max(1, face_count), detail
 
-        # DeepFace.represent returns a list of dicts: [{'embedding': [...], 'facial_area': {...}}]
-        representations = DeepFace.represent(
-            img_path=img_rgb,
-            model_name="Facenet512",
-            enforce_detection=enforce_detection,
-            align=True,
-        )
-        if representations and len(representations) > 0:
-            raw_vec = np.array(representations[0]["embedding"], dtype=np.float64)
-            # Ensure 512 dimensions and L2 normalization
-            if len(raw_vec) != EMBEDDING_DIM:
-                if len(raw_vec) > EMBEDDING_DIM:
-                    raw_vec = raw_vec[:EMBEDDING_DIM]
-                else:
-                    raw_vec = np.pad(raw_vec, (0, EMBEDDING_DIM - len(raw_vec)))
-            
-            norm = np.linalg.norm(raw_vec)
-            if norm > 1e-6:
-                raw_vec = raw_vec / norm
-                
-            embedding_list = raw_vec.tolist()
-            logger.info("DeepFace embedding extracted successfully", dims=len(embedding_list))
-            return True, embedding_list, max(1, face_count), "Face embedding extracted via DeepFace (Facenet512)."
-    except Exception as exc:
-        logger.debug("DeepFace fallback to local extractor", reason=str(exc))
-
-    # Fallback to local feature vector
+    # ── Stage 3: Local fallback ──────────────────────────────────────────────
     fallback_vec = _compute_fallback_embedding(img_rgb)
-    logger.info("Fallback face embedding generated", dims=len(fallback_vec))
-    return True, fallback_vec, max(1, face_count), "Face embedding generated successfully."
+    logger.info("Using local gradient fallback embedding", dims=len(fallback_vec))
+    return True, fallback_vec, max(1, face_count), "Face embedding generated via local gradient histogram (last-resort fallback)."

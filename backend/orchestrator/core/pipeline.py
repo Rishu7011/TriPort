@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
-from backend.ocr_service.schemas.extraction import DocumentType, ExtractionResponse
+from backend.ocr_service.schemas.extraction import DocumentType, ExtractionResponse, MRZResult
 from backend.validation_service.schemas.validation import ValidationResponse
 from backend.tampering_service.schemas.tampering import TamperingResponse
 from backend.face_service.schemas.face import FullFaceVerificationResponse
@@ -59,6 +59,17 @@ from backend.orchestrator.storage.minio_client import upload_document_image
 logger = get_logger("orchestrator.pipeline")
 
 
+def _safe_uuid(val: Any) -> uuid.UUID | None:
+    if not val:
+        return None
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
 async def run_pipeline(
     image_bytes: bytes,
     document_type: DocumentType = DocumentType.PASSPORT,
@@ -71,7 +82,7 @@ async def run_pipeline(
     Execute the full end-to-end document screening pipeline.
     """
     pipeline_start = time.perf_counter()
-    doc_uuid = uuid.UUID(document_id) if document_id else uuid.uuid4()
+    doc_uuid = _safe_uuid(document_id) or uuid.uuid4()
     doc_id_str = str(doc_uuid)
 
     logger.info(
@@ -98,7 +109,7 @@ async def run_pipeline(
                 id=doc_uuid,
                 document_type=document_type.value,
                 image_object_key=image_object_key,
-                checkpoint_id=uuid.UUID(checkpoint_id) if checkpoint_id else None,
+                checkpoint_id=_safe_uuid(checkpoint_id),
             )
             db.add(doc_record)
             await db.flush()
@@ -119,7 +130,7 @@ async def run_pipeline(
             document_type=document_type,
             extraction_method="ocr",
             fields=[],
-            mrz={"mrz_present": False, "checksum_valid": None, "checksum_failures": [], "mrz_fields": {}},
+            mrz=MRZResult(mrz_present=False, checksum_valid=None, checksum_failures=[], mrz_fields={}),
             warnings=[f"OCR failed: {exc}"],
         )
 
@@ -212,9 +223,12 @@ async def run_pipeline(
     tamp_sub = TamperingSubScore(
         overall_score=tampering_res.tampering_score if tampering_res else 0.0,
         flagged=tampering_res.flagged if tampering_res else False,
-        flagged_checks=[c.check_type.value for c in (tampering_res.checks if tampering_res else []) if c.flagged],
+        flagged_checks=[
+            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type))
+            for c in (tampering_res.checks if tampering_res else []) if c.flagged
+        ],
         check_details={
-            c.check_type.value: c.detail
+            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)): c.detail
             for c in (tampering_res.checks if tampering_res else [])
             if c.flagged
         },
@@ -300,19 +314,16 @@ async def run_pipeline(
                     db.add(
                         TamperingResultModel(
                             document_id=doc_uuid,
-                            check_type=c.check_type.value,
+                            check_type=(c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)),
                             score=c.score,
                             flagged=c.flagged,
-                            detail={"text": c.detail, **c.metadata},
+                            detail={"detail": c.detail, **c.metadata},
                         )
                     )
 
             # 4. Face Embedding / Clustering
             if dedup and dedup.person_cluster_id:
-                try:
-                    cluster_uuid = uuid.UUID(dedup.person_cluster_id) if dedup.person_cluster_id else None
-                except ValueError:
-                    cluster_uuid = None
+                cluster_uuid = _safe_uuid(dedup.person_cluster_id)
                 db.add(
                     FaceEmbeddingModel(
                         document_id=doc_uuid,

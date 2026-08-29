@@ -51,5 +51,13 @@ class Settings(BaseSettings):
     # ── Logging ─────────────────────────────────────────────
     log_level: str = "INFO"
 
+    @property
+    def jwt_secret(self) -> str:
+        return self.secret_key
+
+    @property
+    def jwt_expiry_minutes(self) -> int:
+        return self.jwt_expire_minutes
+
 
 settings = Settings()

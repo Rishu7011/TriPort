@@ -123,78 +123,166 @@ def generate_baseline_passport(doc_id: str, surname: str, given_name: str, doc_n
 
 
 def generate_all_samples():
-    """Generate genuine and 3 categories of synthetic tampered documents."""
+    """Generate 5+ genuine and 5+ samples per tampering category (photo-swap, text-edit, stamp-duplicate)."""
     manifest = {
-        "dataset_name": "BorderGuard-AI Synthetic Tampered Dataset",
+        "dataset_name": "BorderGuard-AI Synthetic Tampered Dataset (Expanded)",
         "samples": [],
     }
 
-    # 1. Genuine Baseline Document
-    genuine_img = generate_baseline_passport("doc_001", "SINGH", "GURPREET", "A1234567", seed=101)
-    genuine_path = OUTPUT_DIR / "doc_001_genuine.jpg"
-    genuine_img.save(genuine_path, quality=95)
-    manifest["samples"].append({
-        "filename": "doc_001_genuine.jpg",
-        "is_tampered": False,
-        "tampering_type": "none",
-        "details": "Clean genuine baseline passport scan",
-    })
+    identities = [
+        ("SINGH", "GURPREET", "A1234567", 101, "15/05/1990", "31/12/2030"),
+        ("KUMAR", "RAJESH", "B9876543", 202, "20/08/1985", "15/06/2029"),
+        ("SHARMA", "PRIYA", "Z5544332", 303, "10/11/1992", "22/04/2031"),
+        ("PATEL", "AMIT", "K4433221", 404, "05/03/1988", "10/10/2028"),
+        ("VERMA", "NEHA", "M8877665", 505, "18/09/1995", "01/01/2032"),
+    ]
 
-    # 2. Photo-Swap Tampered Document
-    tampered_photo_img = generate_baseline_passport("doc_002", "SINGH", "GURPREET", "A1234567", seed=101)
-    # Paste a completely different face with different noise/lighting onto the photo region
-    different_face = _draw_mock_face(size=(140, 180), seed=999)
-    # Add localized noise
-    noise = np.random.normal(0, 15, different_face.shape).astype(np.uint8)
-    different_face = cv2.add(different_face, noise)
-    different_face_pil = Image.fromarray(different_face)
-    tampered_photo_img.paste(different_face_pil, (40, 90))
+    # ─────────────────────────────────────────────────────────────────────────
+    # 1. Genuine Baseline Documents (5 samples)
+    # ─────────────────────────────────────────────────────────────────────────
+    for idx, (surname, given_name, doc_num, seed, dob, exp) in enumerate(identities, 1):
+        filename = f"doc_{idx:03d}_genuine.jpg"
+        img = generate_baseline_passport(f"doc_{idx:03d}", surname, given_name, doc_num, seed=seed)
+        path = OUTPUT_DIR / filename
+        # Vary quality slightly
+        quality = 90 + (idx % 3) * 3
+        img.save(path, quality=quality)
+        manifest["samples"].append({
+            "filename": filename,
+            "is_tampered": False,
+            "tampering_type": "none",
+            "document_number": doc_num,
+            "surname": surname,
+            "given_name": given_name,
+            "quality": quality,
+            "details": f"Clean genuine baseline passport scan #{idx}",
+        })
 
-    tampered_photo_path = OUTPUT_DIR / "doc_002_tampered_photoswap.jpg"
-    tampered_photo_img.save(tampered_photo_path, quality=85)
-    manifest["samples"].append({
-        "filename": "doc_002_tampered_photoswap.jpg",
-        "is_tampered": True,
-        "tampering_type": "photo_swap",
-        "tampered_region": {"x": 40, "y": 90, "w": 140, "h": 180},
-        "details": "Substituted photo portrait with distinct noise profile and spliced boundary",
-    })
+    # ─────────────────────────────────────────────────────────────────────────
+    # 2. Photo-Swap Tampered Documents (5 samples)
+    # ─────────────────────────────────────────────────────────────────────────
+    for idx, (surname, given_name, doc_num, seed, _, _) in enumerate(identities, 1):
+        filename = f"doc_{idx+10:03d}_tampered_photoswap_{idx}.jpg"
+        base_img = generate_baseline_passport(f"doc_{idx+10:03d}", surname, given_name, doc_num, seed=seed)
+        
+        # Vary face size, replacement seed, noise level, and splice region
+        w_crop = 135 + (idx * 2)
+        h_crop = 175 + (idx * 2)
+        diff_face = _draw_mock_face(size=(w_crop, h_crop), seed=900 + idx * 37)
+        
+        # Add localized gaussian noise with varying variance
+        noise_sigma = 12.0 + idx * 3.0
+        noise = np.random.normal(0, noise_sigma, diff_face.shape).astype(np.float32)
+        noisy_face = np.clip(diff_face.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        
+        # Splice with distinct border artifact
+        x_pos = 38 + (idx % 3)
+        y_pos = 88 + (idx % 3)
+        diff_face_pil = Image.fromarray(noisy_face)
+        base_img.paste(diff_face_pil, (x_pos, y_pos))
+        
+        draw = ImageDraw.Draw(base_img)
+        draw.rectangle([(x_pos - 1, y_pos - 1), (x_pos + w_crop, y_pos + h_crop)], outline=(190 + idx * 10, 140, 110), width=1)
 
-    # 3. Text-Edit Tampered Document (Expiry date modified)
-    tampered_text_img = generate_baseline_passport("doc_003", "SINGH", "GURPREET", "A1234567", seed=101)
-    draw = ImageDraw.Draw(tampered_text_img)
-    # White-out old date of expiry and overwrite with forged date
-    draw.rectangle([(450, 240), (620, 260)], fill=(248, 245, 235))
-    draw.text((450, 240), "31/12/2039", fill=(10, 10, 10))
+        path = OUTPUT_DIR / filename
+        quality = 80 + idx * 2
+        base_img.save(path, quality=quality)
+        manifest["samples"].append({
+            "filename": filename,
+            "is_tampered": True,
+            "tampering_type": "photo_swap",
+            "tampered_region": {"x": x_pos, "y": y_pos, "w": w_crop, "h": h_crop},
+            "noise_sigma": noise_sigma,
+            "quality": quality,
+            "details": f"Substituted portrait #{idx} with noise sigma {noise_sigma} and boundary splice",
+        })
 
-    tampered_text_path = OUTPUT_DIR / "doc_003_tampered_textedit.jpg"
-    # Resaving at quality 65 creates localized ELA artifact discrepancy
-    tampered_text_img.save(tampered_text_path, quality=65)
-    manifest["samples"].append({
-        "filename": "doc_003_tampered_textedit.jpg",
-        "is_tampered": True,
-        "tampering_type": "text_edit",
-        "tampered_region": {"x": 450, "y": 240, "w": 170, "h": 20},
-        "details": "Date of expiry modified with altered compression artifacts",
-    })
+    # Legacy alias for backward compatibility with fixture names
+    legacy_photo = OUTPUT_DIR / "doc_002_tampered_photoswap.jpg"
+    if (OUTPUT_DIR / "doc_011_tampered_photoswap_1.jpg").exists():
+        Image.open(OUTPUT_DIR / "doc_011_tampered_photoswap_1.jpg").save(legacy_photo, quality=85)
 
-    # 4. Stamp Duplication Document
-    stamp_dup_img = generate_baseline_passport("doc_004", "KUMAR", "RAJESH", "B9876543", seed=202)
-    stamp_dup_path = OUTPUT_DIR / "doc_004_stamp_duplicate.jpg"
-    stamp_dup_img.save(stamp_dup_path, quality=95)
-    manifest["samples"].append({
-        "filename": "doc_004_stamp_duplicate.jpg",
-        "is_tampered": True,
-        "tampering_type": "stamp_duplicate",
-        "details": "Document with exact duplicate digital stamp impression from doc_001",
-    })
+    # ─────────────────────────────────────────────────────────────────────────
+    # 3. Text-Edit Tampered Documents (5 samples, varying fields altered)
+    # ─────────────────────────────────────────────────────────────────────────
+    text_tamper_configs = [
+        # (field_name, box, fake_text, quality)
+        ("date_of_expiry", [(450, 240), (620, 260)], "31/12/2039", 65),
+        ("date_of_birth", [(450, 105), (620, 125)], "01/01/2005", 70),
+        ("passport_number", [(210, 105), (380, 125)], "X9988776", 60),
+        ("surname", [(210, 150), (380, 170)], "FORGERY", 75),
+        ("nationality", [(210, 240), (380, 260)], "CANADIAN", 62),
+    ]
+
+    for idx, (field_name, box, fake_text, quality) in enumerate(text_tamper_configs, 1):
+        filename = f"doc_{idx+20:03d}_tampered_textedit_{idx}.jpg"
+        surname, given_name, doc_num, seed, _, _ = identities[idx - 1]
+        base_img = generate_baseline_passport(f"doc_{idx+20:03d}", surname, given_name, doc_num, seed=seed)
+        
+        draw = ImageDraw.Draw(base_img)
+        # White-out region with slight tone mismatch to trigger ELA
+        draw.rectangle(box, fill=(244, 241, 230))
+        draw.text((box[0][0] + 2, box[0][1] + 1), fake_text, fill=(5, 5, 5))
+
+        path = OUTPUT_DIR / filename
+        base_img.save(path, quality=quality)
+        manifest["samples"].append({
+            "filename": filename,
+            "is_tampered": True,
+            "tampering_type": "text_edit",
+            "altered_field": field_name,
+            "forged_value": fake_text,
+            "tampered_region": {
+                "x": box[0][0],
+                "y": box[0][1],
+                "w": box[1][0] - box[0][0],
+                "h": box[1][1] - box[0][1],
+            },
+            "quality": quality,
+            "details": f"Altered field {field_name} -> {fake_text} saved at JPEG quality {quality}",
+        })
+
+    # Legacy alias for backward compatibility
+    legacy_text = OUTPUT_DIR / "doc_003_tampered_textedit.jpg"
+    if (OUTPUT_DIR / "doc_021_tampered_textedit_1.jpg").exists():
+        Image.open(OUTPUT_DIR / "doc_021_tampered_textedit_1.jpg").save(legacy_text, quality=65)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 4. Stamp Duplication Documents (5 samples)
+    # ─────────────────────────────────────────────────────────────────────────
+    for idx in range(1, 6):
+        filename = f"doc_{idx+30:03d}_stamp_duplicate_{idx}.jpg"
+        surname, given_name, doc_num, seed, _, _ = identities[idx - 1]
+        # Uses exact duplicate stamp impression from baseline
+        base_img = generate_baseline_passport(f"doc_{idx+30:03d}", surname, given_name, doc_num, seed=seed)
+        
+        path = OUTPUT_DIR / filename
+        quality = 92 + (idx % 2) * 3
+        base_img.save(path, quality=quality)
+        manifest["samples"].append({
+            "filename": filename,
+            "is_tampered": True,
+            "tampering_type": "stamp_duplicate",
+            "source_stamp_reference": "doc_001_genuine.jpg",
+            "quality": quality,
+            "details": f"Document #{idx} using identical reused digital stamp impression",
+        })
+
+    # Legacy alias for backward compatibility
+    legacy_stamp = OUTPUT_DIR / "doc_004_stamp_duplicate.jpg"
+    if (OUTPUT_DIR / "doc_031_stamp_duplicate_1.jpg").exists():
+        Image.open(OUTPUT_DIR / "doc_031_stamp_duplicate_1.jpg").save(legacy_stamp, quality=95)
 
     # Write manifest JSON
     manifest_path = OUTPUT_DIR / "manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
-    print(f"Generated {len(manifest['samples'])} synthetic samples into {OUTPUT_DIR}")
+    print(f"✅ Generated {len(manifest['samples'])} synthetic samples into {OUTPUT_DIR}")
+    print(f"   - Genuine: 5 samples")
+    print(f"   - Photo-swap: 5 samples")
+    print(f"   - Text-edit: 5 samples")
+    print(f"   - Stamp-duplicate: 5 samples")
 
 
 if __name__ == "__main__":

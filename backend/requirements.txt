@@ -69,9 +69,12 @@ torch==2.3.0                   # CNN classifier (stretch goal)
 torchvision==0.18.0
 efficientnet-pytorch==0.7.1    # stretch goal
 
-# ── Face Verification (Phase 2) ──────────────────────────
+# ── Face Verification (Phase 2B - Production Models) ─────────────────
 deepface==0.0.93
-tf-keras==2.16.0               # DeepFace backend
+tf-keras==2.16.0               # DeepFace backend (Facenet512 fallback + multi-model voter)
+insightface==0.7.3             # RetinaFace detector + ArcFace W600K R50 (primary model)
+onnxruntime>=1.20.0            # ONNX CPU runtime required by InsightFace buffalo_l
+mediapipe>=0.10.9              # Google FaceMesh — liveness detection (EAR + head-pose)
 
 # ── Encryption (Phase 4) ─────────────────────────────────
 cryptography==42.0.7
