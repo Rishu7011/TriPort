@@ -1,46 +1,54 @@
 """
-Pydantic schemas for the OCR Service.
+Pydantic schemas for the OCR Service — Multi-Modal TriPort Document Extraction.
 
-CONCEPT: Pydantic schemas serve two purposes:
-  1. VALIDATION — FastAPI automatically rejects requests that don't match
-     the schema, with a clear error message. No manual if/else needed.
-  2. DOCUMENTATION — FastAPI generates OpenAPI docs (Swagger UI at /docs)
-     from these schemas automatically. Every field gets a description.
-
-TWO TYPES of schemas here:
-  - Request schemas (what comes IN to our API)
-  - Response schemas (what goes OUT from our API)
-
-We keep them in separate files per service so each service is self-contained.
+Covers:
+  - Checkpoint Types: Airport, Land Border, Sea (Passenger)
+  - Document Types: Passport, Visa, National ID, Driving License, Permit, Ferry Ticket
+  - Extraction Methods: OCR, MRZ, LLM Fallback
+  - Classification, Single Extraction, and Batch Mode Schemas
 """
 
 from enum import Enum
-
 from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
 # Enums — fixed allowed values
 # ---------------------------------------------------------------------------
+class CheckpointType(str, Enum):
+    """The 3 Port types handled by TriPort."""
+    AIRPORT = "airport"
+    LAND_BORDER = "land_border"
+    SEA = "sea"
+
+
 class DocumentType(str, Enum):
-    """
-    WHY Enum instead of plain str?
-    If a caller sends document_type="pasport" (typo), Pydantic rejects it
-    immediately with a clear error. With plain str, the typo silently
-    flows through and causes confusing bugs deep in the OCR pipeline.
-    """
+    """Supported document types across all 3 checkpoint domains."""
     PASSPORT = "passport"
     VISA = "visa"
     NATIONAL_ID = "national_id"
     DRIVING_LICENSE = "driving_license"
     PERMIT = "permit"
+    FERRY_TICKET = "ferry_ticket"
 
 
 class ExtractionMethod(str, Enum):
     """Tracks HOW a field was extracted — critical for debugging and audit."""
-    OCR = "ocr"          # PaddleOCR extracted this field
-    MRZ = "mrz"          # PassportEye extracted this from the Machine Readable Zone
-    LLM = "llm_fallback" # Claude API was used (OCR confidence too low, or no MRZ)
+    OCR = "ocr"          # Primary OCR engine
+    MRZ = "mrz"          # Machine Readable Zone (ICAO 9303 standard)
+    LLM = "llm_fallback" # Vision LLM Fallback (for degraded/non-standard docs)
+
+
+# ---------------------------------------------------------------------------
+# Classification Result
+# ---------------------------------------------------------------------------
+class ClassificationResult(BaseModel):
+    """Result of document type pre-classification."""
+    document_type: DocumentType = Field(..., description="Predicted document type")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Classification confidence")
+    scores: dict[str, float] = Field(default_factory=dict, description="Raw category scores")
+    matched_features: list[str] = Field(default_factory=list, description="Visual / text features matched")
+    provider: str = Field(default="local", description="Provider used ('local' or 'api')")
 
 
 # ---------------------------------------------------------------------------
@@ -50,19 +58,14 @@ class ExtractedField(BaseModel):
     """
     One extracted field from a document.
     e.g. {"field_name": "date_of_expiry", "field_value": "2028-10-15", "confidence": 0.97}
-
-    WHY confidence?
-    OCR models output a probability alongside each text detection.
-    A confidence of 0.4 means the model is unsure — we might want to flag
-    this field for human review or re-route to the LLM fallback.
     """
     field_name: str = Field(..., description="e.g. 'name', 'passport_number', 'date_of_expiry'")
     field_value: str | None = Field(None, description="Extracted text value, None if not found")
     confidence: float | None = Field(
         None,
-        ge=0.0,   # ge = greater than or equal — Pydantic enforces this bound
-        le=1.0,   # le = less than or equal
-        description="OCR model confidence, 0.0–1.0. None for MRZ/LLM extractions.",
+        ge=0.0,
+        le=1.0,
+        description="OCR model confidence, 0.0–1.0.",
     )
     extraction_method: ExtractionMethod = Field(
         ExtractionMethod.OCR,
@@ -75,17 +78,11 @@ class ExtractedField(BaseModel):
 # ---------------------------------------------------------------------------
 class MRZResult(BaseModel):
     """
-    The MRZ (Machine Readable Zone) is the two-line `<<<` block at the
-    bottom of passports. PassportEye reads it and validates the ICAO
-    checksum digits embedded in each field.
-
-    WHY this matters:
-    The checksum is a mathematical property of the document — you can't
-    forge the DOB without also changing the check digit. If mrz_present
-    is True but checksum_valid is False, that's an instant red flag
-    requiring no ML model at all.
+    The MRZ (Machine Readable Zone) parsing result.
+    Validates ICAO 9303 check digits embedded in fields.
     """
     mrz_present: bool = Field(..., description="Was an MRZ zone detected in the image?")
+    mrz_format: str | None = Field(None, description="MRZ format detected: TD3, TD2, TD1, or None")
     checksum_valid: bool | None = Field(
         None,
         description="Did ALL MRZ check digits pass? None if no MRZ was found.",
@@ -104,23 +101,20 @@ class MRZResult(BaseModel):
 # Full extraction response
 # ---------------------------------------------------------------------------
 class ExtractionResponse(BaseModel):
-    """
-    The complete response from POST /extract.
-
-    WHY include extraction_method at the top level?
-    When an officer reviews a flagged document, they should know if fields
-    came from reliable OCR or from the LLM fallback (which is less precise).
-    The audit ledger also records this for traceability.
-
-    WHY include warnings?
-    Low-confidence fields shouldn't silently pass. We surface them here so
-    the orchestrator (and eventually the risk engine) can weight them correctly.
-    """
+    """Complete response from POST /extract."""
     document_id: str | None = Field(
         None,
         description="UUID of the document row created in Postgres, if persisted",
     )
     document_type: DocumentType
+    checkpoint_type: CheckpointType = Field(
+        default=CheckpointType.AIRPORT,
+        description="Checkpoint context: airport, land_border, or sea",
+    )
+    provider_used: str = Field(
+        default="local",
+        description="ML Provider used ('local' or 'api')",
+    )
     extraction_method: ExtractionMethod = Field(
         ...,
         description="Primary method used (ocr/mrz/llm_fallback). Fields may mix methods.",
@@ -140,16 +134,31 @@ class ExtractionResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Batch Extraction Schemas (For Bulk Bus & Ferry Passenger Queues)
+# ---------------------------------------------------------------------------
+class BatchItemResult(BaseModel):
+    """Result for an individual document scan in a batch queue."""
+    index: int
+    filename: str | None = None
+    success: bool
+    result: ExtractionResponse | None = None
+    error: str | None = None
+
+
+class BatchExtractionResponse(BaseModel):
+    """Aggregated response for bulk batch arrival processing."""
+    total_processed: int
+    successful_count: int
+    failed_count: int
+    checkpoint_type: CheckpointType
+    items: list[BatchItemResult]
+
+
+# ---------------------------------------------------------------------------
 # Error response (returned on 422 / 500)
 # ---------------------------------------------------------------------------
 class ExtractionError(BaseModel):
-    """
-    WHY a typed error response?
-    The orchestrator needs to distinguish between:
-      - extraction_failed: image unreadable, no fields at all
-      - partial_extraction: some fields extracted, some missing
-    Both are different signals for the risk engine.
-    """
+    """Typed error response for unreadable or invalid image uploads."""
     error: str = Field(..., description="'extraction_failed' or 'partial_extraction'")
     reason: str = Field(..., description="Human-readable explanation of what went wrong")
     document_type: DocumentType | None = None

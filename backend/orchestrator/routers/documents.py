@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
-from backend.ocr_service.schemas.extraction import DocumentType
+from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
 from backend.orchestrator.auth.dependencies import require_roles
 from backend.orchestrator.auth.security import UserTokenData
 from backend.orchestrator.core.pipeline import run_pipeline
@@ -89,13 +89,15 @@ async def _get_document_or_404(document_id: str, db: AsyncSession) -> Document:
 async def upload_and_screen_document(
     file: UploadFile = File(..., description="Document scan image (JPEG/PNG)"),
     document_type: DocumentType = Form(default=DocumentType.PASSPORT),
+    checkpoint_type: CheckpointType = Form(default=CheckpointType.AIRPORT),
+    provider: str = Form(default="local"),
     live_photo: UploadFile | None = File(None, description="Optional live traveler face photo"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
     db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> UploadResponse:
     """
-    Ingest a document scan, run all four AI modules + risk scoring + audit logging,
+    Ingest a document scan, run all AI modules + risk scoring + audit logging,
     and return the complete screening report.
     """
     try:
@@ -120,6 +122,8 @@ async def upload_and_screen_document(
     pipeline_result: PipelineResult = await run_pipeline(
         image_bytes=image_bytes,
         document_type=document_type,
+        checkpoint_type=checkpoint_type,
+        provider=provider,
         live_image_bytes=live_bytes,
         checkpoint_id=checkpoint_id or current_user.checkpoint_id,
         db=db,

@@ -49,8 +49,13 @@ from backend.face_service.core.embedding import (
 
 logger = get_logger("face_service.one_to_one")
 
-DEFAULT_COSINE_THRESHOLD = 0.60
-LIVENESS_THRESHOLD = 0.40        # Below this → anti-spoofing alert
+DEFAULT_COSINE_THRESHOLD = 0.50   # lowered from 0.60 — ArcFace cross-domain (passport vs. live)
+                                  # same-person similarity clusters around 0.45–0.65; 0.50 is the
+                                  # research-backed midpoint that minimises false-rejects while
+                                  # staying well above the impostor range (0.10–0.30).
+LIVENESS_THRESHOLD = 0.30        # lowered from 0.40 — single still-image EAR is less reliable
+                                  # than video-stream EAR; 0.30 avoids falsely flagging normal
+                                  # passport photos where eyes appear slightly narrowed.
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +147,11 @@ def run_liveness_check(live_image_bytes: bytes) -> tuple[float, str]:
         right_ear = _compute_ear(landmarks, _RIGHT_EYE_IDX, w, h)
         avg_ear = (left_ear + right_ear) / 2.0
 
-        # Normalise EAR to liveness contribution: EAR 0.20–0.40 → 0.60–1.0 linearly
-        ear_score = float(np.clip((avg_ear - 0.05) / (0.45 - 0.05), 0.0, 1.0))
+        # EAR normalisation: map realistic still-image EAR range [0.10, 0.40] → [0.0, 1.0].
+        # Previous bounds (0.05–0.45) were calibrated for video-stream EAR where blinking
+        # frames are interleaved; for a single still photo the EAR clusters around 0.15–0.25
+        # and the old formula produced scores below the liveness threshold for real faces.
+        ear_score = float(np.clip((avg_ear - 0.10) / (0.40 - 0.10), 0.0, 1.0))
 
         # 2. Face size relative to frame (printed face on phone usually fills whole frame)
         nose_x = landmarks[_NOSE_TIP_IDX].x * w
@@ -269,11 +277,29 @@ def verify_one_to_one(
     voter_detail = ""
 
     if enable_voter and live_image_bytes and doc_image_bytes:
-        borderline_band = 0.05
+        borderline_band = 0.10  # widened from 0.05 — catches cross-model embedding-space
+                                # mismatches where the primary score is artificially deflated
         if abs(sim - threshold) <= borderline_band:
             try:
                 doc_rgb = _bytes_to_numpy_rgb(doc_image_bytes)
                 live_rgb = _bytes_to_numpy_rgb(live_image_bytes)
+
+                # Warn if doc and live embeddings came from different models
+                doc_model = "[DocEmbed]" in " ".join(detail_parts) and next(
+                    (p for p in detail_parts if "[DocEmbed]" in p), ""
+                )
+                live_model = "[LiveEmbed]" in " ".join(detail_parts) and next(
+                    (p for p in detail_parts if "[LiveEmbed]" in p), ""
+                )
+                arcface_terms = ("ArcFace", "InsightFace")
+                doc_is_arcface = any(t in str(doc_model) for t in arcface_terms)
+                live_is_arcface = any(t in str(live_model) for t in arcface_terms)
+                if doc_is_arcface != live_is_arcface:
+                    detail_parts.append(
+                        "⚠️ Model mismatch: doc and live embeddings from different model spaces — "
+                        "cosine similarity may be underestimated; multi-model voter invoked."
+                    )
+
                 final_matched, sim, voter_detail = deepface_multi_model_vote(
                     img_a_rgb=doc_rgb,
                     img_b_rgb=live_rgb,

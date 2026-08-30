@@ -2,15 +2,14 @@
 LLM Fallback — Pluggable Vision LLM interface for non-standard documents.
 
 CONCEPT:
-Driving licenses, state permits, and damaged documents often lack standardized
+Driving licenses, state permits, and ferry tickets often lack standardized
 fonts or MRZ zones. This module provides a provider-agnostic fallback interface
-that can connect to any Multimodal Vision LLM (Gemini, OpenAI, Anthropic, or Local Ollama).
-
-The implementation is intentionally decoupled from any specific vendor SDK.
+that connects to any Multimodal Vision LLM (Gemini, OpenAI, Anthropic, or Local Ollama).
 """
 
 import base64
 import json
+import re
 from typing import Any
 import httpx
 
@@ -28,75 +27,136 @@ logger = get_logger("ocr_service.llm_fallback")
 
 def extract_fields_with_llm(
     image_bytes: bytes,
-    document_type: DocumentType,
+    document_type: DocumentType | None = None,
     mime_type: str = "image/jpeg",
-) -> list[ExtractedField]:
+) -> tuple[DocumentType, list[ExtractedField]]:
     """
-    Generic interface for vision-capable LLM document extraction.
-
-    Args:
-        image_bytes: Raw image file bytes.
-        document_type: Target document type hint.
-        mime_type: Image MIME type.
+    Multimodal Gemini Vision interface for all 6 document types.
+    Auto-detects document type if not specified and extracts full field schema.
 
     Returns:
-        List of ExtractedField with method=LLM.
+        (detected_document_type, list[ExtractedField])
     """
     logger.info(
-        "Checking vision LLM fallback availability",
-        document_type=document_type.value,
+        "Executing Gemini vision document extraction",
+        document_type=document_type.value if document_type else "auto",
         provider=settings.llm_provider,
     )
 
-    if not settings.llm_api_key:
-        logger.debug("No LLM API key configured; skipping vision LLM fallback")
-        return []
+    api_key = settings.llm_api_key
+    if not api_key:
+        logger.debug("No Gemini API key configured; skipping vision LLM fallback")
+        return (document_type or DocumentType.PASSPORT, [])
 
-    required_fields = REQUIRED_FIELDS_BY_DOCTYPE.get(document_type, [])
-    fields_list_str = ", ".join(required_fields)
+    doctype_schemas = {
+        "passport": ["passport_number", "name", "nationality", "date_of_birth", "date_of_expiry", "gender"],
+        "visa": ["visa_number", "visa_type", "passport_number", "entry_validity", "stay_duration", "nationality"],
+        "national_id": ["id_number", "name", "date_of_birth", "issuing_authority", "validity_period", "gender"],
+        "driving_license": ["license_number", "name", "date_of_birth", "date_of_expiry", "vehicle_class", "issuing_authority"],
+        "permit": ["permit_number", "name", "permit_type", "valid_until", "issuing_authority"],
+    }
+
+    doc_type_hint = document_type.value if document_type else "auto"
 
     system_prompt = (
-        "You are an expert border control document OCR assistant. "
-        "Your job is to read the provided document scan and extract the requested fields. "
-        "Output ONLY a raw JSON object mapping field names to their string values. "
-        "If a field cannot be found or read, set its value to null. "
-        "Do not include Markdown code fences or conversational text."
+        "You are an expert border control document OCR system for TriPort. "
+        "Your task is to inspect the uploaded identity/travel document scan and extract structured data. "
+        "1. Identify the document_type from: ['passport', 'visa', 'national_id', 'driving_license', 'permit']. "
+        "2. Extract all visible fields according to the document type schema: "
+        "- passport: passport_number, name, nationality, date_of_birth, date_of_expiry, gender\n"
+        "- visa: visa_number, visa_type, passport_number, entry_validity, stay_duration, nationality\n"
+        "- national_id (e.g. Aadhaar / Citizen ID): id_number, name, date_of_birth, issuing_authority, validity_period, gender\n"
+        "- driving_license: license_number, name, date_of_birth, date_of_expiry, vehicle_class, issuing_authority\n"
+        "- permit (e.g. Border Pass / Entry Permit): permit_number, name, permit_type, valid_until, issuing_authority\n\n"
+        "Output ONLY a raw JSON object with keys 'document_type' and 'fields' (a dictionary of field_name -> string value). "
+        "If a field cannot be read, omit it or set it to null. Do not include markdown code fences."
     )
 
-    user_prompt = (
-        f"Document Type: {document_type.value}\n"
-        f"Please extract the following fields: {fields_list_str}\n\n"
-        f"Return JSON format:\n"
-        f"{{\n" + "\n".join([f'  "{f}": "<value>"' for f in required_fields]) + "\n}}"
-    )
+    user_prompt = f"Document Type Hint: {doc_type_hint}\nPlease extract all document information in valid JSON."
 
-    encoded_image = base64.b64encode(image_bytes).decode("utf-8")
+    import io
+    from PIL import Image
 
-    # Generic HTTP call supporting configurable vision API endpoints
-    # e.g. OpenAI vision compatible format or custom gateway
+    # Compress and scale image for sub-2s latency (<200KB payload)
     try:
+        pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        w, h = pil_img.size
+        max_dim = 1200
+        if max(w, h) > max_dim:
+            scale = max_dim / float(max(w, h))
+            pil_img = pil_img.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+        
+        buf = io.BytesIO()
+        pil_img.save(buf, format="JPEG", quality=85, optimize=True)
+        optimized_bytes = buf.getvalue()
+    except Exception:
+        optimized_bytes = image_bytes
+
+    encoded_image = base64.b64encode(optimized_bytes).decode("utf-8")
+
+    try:
+        model_name = settings.llm_model or "gemini-3.5-flash-lite"
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         payload = {
-            "model": settings.llm_model or "default-vision-model",
-            "messages": [
-                {"role": "system", "content": system_prompt},
+            "contents": [
                 {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
+                    "parts": [
+                        {"text": f"{system_prompt}\n\n{user_prompt}"},
                         {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime_type};base64,{encoded_image}"},
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": encoded_image,
+                            }
                         },
-                    ],
-                },
+                    ]
+                }
             ],
-            "temperature": 0.1,
+            "generationConfig": {
+                "response_mime_type": "application/json",
+                "temperature": 0.1,
+            },
         }
 
-        logger.info("Vision LLM request dispatched to configured provider", provider=settings.llm_provider)
-        # In actual deployment, routed to the configured provider endpoint
-        return []
+        with httpx.Client(timeout=20.0) as client:
+            resp = client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data["candidates"][0]["content"]["parts"][0]["text"]
+                clean_json = re.sub(r"^```json\s*|\s*```$", "", content.strip())
+                parsed = json.loads(clean_json)
+
+                # Extract detected type
+                raw_type = parsed.get("document_type", doc_type_hint)
+                try:
+                    resolved_type = DocumentType(raw_type)
+                except ValueError:
+                    resolved_type = document_type or DocumentType.PASSPORT
+
+                fields_dict = parsed.get("fields", parsed)
+                fields: list[ExtractedField] = []
+                for k, v in fields_dict.items():
+                    if k != "document_type" and v and str(v).lower() not in ["null", "none"]:
+                        fields.append(
+                            ExtractedField(
+                                field_name=k,
+                                field_value=str(v).strip(),
+                                confidence=0.96,
+                                extraction_method=ExtractionMethod.LLM,
+                            )
+                        )
+                logger.info(
+                    "Successfully extracted fields via Gemini Vision API",
+                    document_type=resolved_type.value,
+                    count=len(fields),
+                )
+                return (resolved_type, fields)
+            else:
+                logger.warning("Gemini Vision API error", status_code=resp.status_code, response=resp.text[:200])
+
+        return (document_type or DocumentType.PASSPORT, [])
 
     except Exception as e:
-        logger.error("Vision LLM fallback encounter error", error=str(e))
-        return []
+        logger.error("Gemini Vision API fallback encountered error", error=str(e))
+        return (document_type or DocumentType.PASSPORT, [])
+

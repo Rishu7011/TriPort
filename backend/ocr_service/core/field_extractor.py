@@ -1,7 +1,13 @@
 """
-Field Extractor — Robust document OCR using EasyOCR.
+Field Extractor — Robust Multi-Modal Document OCR using EasyOCR.
 
-Extracts text boxes, confidence scores, and maps key fields to document types.
+Extracts text boxes, confidence scores, and maps structured fields for:
+  1. Passport
+  2. Visa
+  3. National ID (Aadhaar, Citizen Card, Voter ID)
+  4. Driving License
+  5. Permit (Land Border Crossings & Transit Passes)
+  6. Ferry Ticket (Sea Passenger Crossings)
 """
 
 import io
@@ -58,7 +64,8 @@ REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
         "id_number",
         "name",
         "date_of_birth",
-        "address",
+        "issuing_authority",
+        "validity_period",
     ],
     DocumentType.DRIVING_LICENSE: [
         "license_number",
@@ -66,12 +73,14 @@ REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
         "date_of_birth",
         "date_of_expiry",
         "vehicle_class",
+        "issuing_authority",
     ],
     DocumentType.PERMIT: [
         "permit_number",
-        "holder_name",
-        "valid_until",
+        "name",
         "permit_type",
+        "valid_until",
+        "issuing_authority",
     ],
 }
 
@@ -80,22 +89,53 @@ PATTERNS = {
     "passport_num": re.compile(r"\b[A-Z][0-9]{7,8}\b"),
     "gender": re.compile(r"\b(SEX|GENDER)?\s*([MFX])\b", re.IGNORECASE),
     "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY)?\s*([A-Z]{3})\b", re.IGNORECASE),
+    "aadhaar": re.compile(r"\b\d{4}\s+\d{4}\s+\d{4}\b"),
+    "dl_num": re.compile(r"\b(DL[- ]?[0-9A-Z]{8,16}|[A-Z]{2}[0-9]{2}[ -]?[0-9]{11})\b"),
+    "permit_num": re.compile(r"\b(PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
+    "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
 }
 
 
-def _bytes_to_numpy_image(image_bytes: bytes) -> np.ndarray:
-    """Convert raw byte stream to RGB NumPy array."""
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+def ensure_image_bytes(raw_bytes: bytes) -> bytes:
+    """If input is a PDF byte stream (%PDF), render the first page to JPEG bytes."""
+    if raw_bytes.startswith(b"%PDF"):
+        try:
+            import pymupdf
+            pdf_doc = pymupdf.open(stream=raw_bytes, filetype="pdf")
+            if len(pdf_doc) > 0:
+                first_page = pdf_doc.load_page(0)
+                pix = first_page.get_pixmap(dpi=300)
+                logger.info("Rendered PDF page 1 to JPEG image for OCR extraction")
+                return pix.tobytes("jpeg")
+        except Exception as e:
+            logger.warning("Failed to render PDF page to image", error=str(e))
+    return raw_bytes
+
+
+def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray:
+    """Convert raw byte stream (or PDF) to RGB NumPy array with smart downscaling for fast inference."""
+    valid_bytes = ensure_image_bytes(image_bytes)
+    image = Image.open(io.BytesIO(valid_bytes)).convert("RGB")
+    
+    # Scale down oversized phone camera images to 1600px max dimension for 2x-3x faster CRAFT OCR
+    w, h = image.size
+    if max(w, h) > max_dim:
+        scale = max_dim / float(max(w, h))
+        new_w, new_h = int(w * scale), int(h * scale)
+        image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+        
     return np.array(image)
 
 
 def extract_raw_ocr_lines(image_bytes: bytes) -> list[tuple[str, float]]:
-    """Extract raw text lines and confidences using EasyOCR."""
-    img_array = _bytes_to_numpy_image(image_bytes)
+    """Extract raw text lines and confidences using EasyOCR with inference mode."""
+    valid_bytes = ensure_image_bytes(image_bytes)
+    img_array = _bytes_to_numpy_image(valid_bytes)
     reader = get_ocr_reader()
     
-    # reader.readtext() returns list of (bbox, text, prob)
-    raw_results = reader.readtext(img_array)
+    import torch
+    with torch.inference_mode():
+        raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
 
     lines_with_conf: list[tuple[str, float]] = []
     for item in raw_results:
@@ -114,44 +154,206 @@ def extract_fields(
     raw_lines: list[tuple[str, float]] | None = None,
 ) -> list[ExtractedField]:
     """
-    Extract structured fields from image bytes using contextual OCR line analysis.
+    Extract structured fields from image bytes using contextual OCR line analysis
+    tailored to the document type.
     """
     if raw_lines is None:
         raw_lines = extract_raw_ocr_lines(image_bytes)
 
     extracted: dict[str, ExtractedField] = {}
+    full_text_upper = " ".join([t.upper() for t, _ in raw_lines])
 
-    # 1. Look for Passport / ID Number
-    for i, (text, conf) in enumerate(raw_lines):
-        if "passport_number" not in extracted:
-            match = PATTERNS["passport_num"].search(text)
-            if match:
-                extracted["passport_number"] = ExtractedField(
-                    field_name="passport_number",
-                    field_value=match.group(0),
-                    confidence=conf,
-                    extraction_method=ExtractionMethod.OCR,
-                )
-            elif any(k in text.upper() for k in ["PASSPORT NO", "PASSPORT N", "पासपोर्ट", "DOC NO"]):
-                # Check current or next line for 8-char token
-                candidates = re.findall(r"\b[A-Z0-9]{8}\b", text.upper())
-                if not candidates and i + 1 < len(raw_lines):
-                    candidates = re.findall(r"\b[A-Z0-9]{8}\b", raw_lines[i + 1][0].upper())
-                for cand in candidates:
-                    if cand[0] == "2":
-                        cand = "Z" + cand[1:]
-                    elif cand[0] == "0":
-                        cand = "O" + cand[1:]
-                    if re.match(r"^[A-Z][0-9]{7,8}$", cand):
-                        extracted["passport_number"] = ExtractedField(
-                            field_name="passport_number",
-                            field_value=cand,
+    # -----------------------------------------------------------------------
+    # 1. Document-Specific ID Numbers
+    # -----------------------------------------------------------------------
+    if document_type in [DocumentType.PASSPORT, DocumentType.VISA]:
+        for i, (text, conf) in enumerate(raw_lines):
+            if "passport_number" not in extracted:
+                match = PATTERNS["passport_num"].search(text)
+                if match:
+                    extracted["passport_number"] = ExtractedField(
+                        field_name="passport_number",
+                        field_value=match.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+                elif any(k in text.upper() for k in ["PASSPORT NO", "PASSPORT N", "DOC NO"]):
+                    candidates = re.findall(r"\b[A-Z0-9]{8}\b", text.upper())
+                    if not candidates and i + 1 < len(raw_lines):
+                        candidates = re.findall(r"\b[A-Z0-9]{8}\b", raw_lines[i + 1][0].upper())
+                    for cand in candidates:
+                        if cand[0] == "2":
+                            cand = "Z" + cand[1:]
+                        elif cand[0] == "0":
+                            cand = "O" + cand[1:]
+                        if re.match(r"^[A-Z][0-9]{7,8}$", cand):
+                            extracted["passport_number"] = ExtractedField(
+                                field_name="passport_number",
+                                field_value=cand,
+                                confidence=conf,
+                                extraction_method=ExtractionMethod.OCR,
+                            )
+                            break
+
+    if document_type == DocumentType.VISA:
+        # Visa Number
+        for text, conf in raw_lines:
+            if "visa_number" not in extracted:
+                if any(k in text.upper() for k in ["VISA NO", "VISA NUMBER", "V NO", "CONTROL NO"]):
+                    nums = re.findall(r"\b[A-Z0-9]{8,12}\b", text.upper())
+                    if nums:
+                        extracted["visa_number"] = ExtractedField(
+                            field_name="visa_number",
+                            field_value=nums[0],
                             confidence=conf,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+        # Visa Type
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "visa_type" not in extracted:
+                for vtype in ["TOURIST", "BUSINESS", "TRANSIT", "EMPLOYMENT", "STUDENT", "DIPLOMATIC", "OFFICIAL"]:
+                    if vtype in text_u:
+                        extracted["visa_type"] = ExtractedField(
+                            field_name="visa_type",
+                            field_value=vtype,
+                            confidence=0.90,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+                        break
+        # Stay Duration
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "stay_duration" not in extracted:
+                m_stay = re.search(r"\b(\d{1,3}\s+(DAYS|MONTHS|YEARS))\b", text_u)
+                if m_stay:
+                    extracted["stay_duration"] = ExtractedField(
+                        field_name="stay_duration",
+                        field_value=m_stay.group(1),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+
+    elif document_type == DocumentType.NATIONAL_ID:
+        for i, (text, conf) in enumerate(raw_lines):
+            if "id_number" not in extracted:
+                # Aadhaar check
+                m_aadhaar = PATTERNS["aadhaar"].search(text)
+                if m_aadhaar:
+                    extracted["id_number"] = ExtractedField(
+                        field_name="id_number",
+                        field_value=m_aadhaar.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+                # General ID number
+                elif any(k in text.upper() for k in ["ID NO", "IDENTITY NO", "CARD NO", "CITIZEN NO", "UID"]):
+                    nums = re.findall(r"\b[A-Z0-9\-]{8,16}\b", text.upper())
+                    if nums:
+                        extracted["id_number"] = ExtractedField(
+                            field_name="id_number",
+                            field_value=nums[0],
+                            confidence=conf,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+        if "issuing_authority" not in extracted:
+            for text, conf in raw_lines:
+                if any(k in text.upper() for k in ["GOVERNMENT", "UIDAI", "ELECTION COMMISSION", "MINISTRY OF HOME"]):
+                    extracted["issuing_authority"] = ExtractedField(
+                        field_name="issuing_authority",
+                        field_value="Government of India / National Authority",
+                        confidence=0.88,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+                    break
+
+    elif document_type == DocumentType.DRIVING_LICENSE:
+        for text, conf in raw_lines:
+            if "license_number" not in extracted:
+                m_dl = PATTERNS["dl_num"].search(text)
+                if m_dl:
+                    extracted["license_number"] = ExtractedField(
+                        field_name="license_number",
+                        field_value=m_dl.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        # Vehicle class
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "vehicle_class" not in extracted:
+                for vclass in ["LMV", "MCWG", "HMV", "TRANS", "NON-TRANS", "3W-NT"]:
+                    if vclass in text_u:
+                        extracted["vehicle_class"] = ExtractedField(
+                            field_name="vehicle_class",
+                            field_value=vclass,
+                            confidence=0.90,
                             extraction_method=ExtractionMethod.OCR,
                         )
                         break
 
-    # 2. Contextual Date Extraction (DOB vs Issue vs Expiry)
+    elif document_type == DocumentType.PERMIT:
+        for text, conf in raw_lines:
+            if "permit_number" not in extracted:
+                m_per = PATTERNS["permit_num"].search(text)
+                if m_per:
+                    extracted["permit_number"] = ExtractedField(
+                        field_name="permit_number",
+                        field_value=m_per.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        # Permit Type
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "permit_type" not in extracted:
+                for ptype in ["BORDER PASS", "ENTRY PERMIT", "RESTRICTED AREA PERMIT", "LAND TRANSIT PASS"]:
+                    if ptype in text_u:
+                        extracted["permit_type"] = ExtractedField(
+                            field_name="permit_type",
+                            field_value=ptype,
+                            confidence=0.90,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+                        break
+
+    elif document_type == DocumentType.FERRY_TICKET:
+        for text, conf in raw_lines:
+            if "ticket_number" not in extracted:
+                m_tkt = PATTERNS["ticket_num"].search(text)
+                if m_tkt:
+                    extracted["ticket_number"] = ExtractedField(
+                        field_name="ticket_number",
+                        field_value=m_tkt.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        # Route
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "route" not in extracted:
+                if any(sym in text_u for sym in [" - ", " TO ", " -> ", "⇄", "->"]):
+                    extracted["route"] = ExtractedField(
+                        field_name="route",
+                        field_value=text.strip(),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        # Vessel name
+        for text, conf in raw_lines:
+            text_u = text.upper()
+            if "vessel_name" not in extracted:
+                if any(k in text_u for k in ["VESSEL", "FERRY", "CRUISE", "SHIP", "MV ", "SS "]):
+                    extracted["vessel_name"] = ExtractedField(
+                        field_name="vessel_name",
+                        field_value=text.strip(),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+
+    # -----------------------------------------------------------------------
+    # 2. Contextual Date Extraction (DOB vs Issue vs Expiry / Travel Date)
+    # -----------------------------------------------------------------------
     found_labeled_dates: dict[str, tuple[str, float]] = {}
     unlabeled_dates: list[tuple[str, float]] = []
 
@@ -159,7 +361,6 @@ def extract_fields(
         text_upper = text.upper()
         date_matches = list(PATTERNS["date"].finditer(text))
         
-        # Check if date is on this line or the immediate next line
         dates_on_line = [m.group(0) for m in date_matches]
         next_line_date = None
         if i + 1 < len(raw_lines):
@@ -170,42 +371,38 @@ def extract_fields(
         target_date = (dates_on_line[0], conf) if dates_on_line else next_line_date
 
         if target_date:
-            if any(k in text_upper for k in ["EXPIRY", "समाप्ति", "VALID UNTIL", "EXPIRATION"]):
+            if any(k in text_upper for k in ["EXPIRY", "समाप्ति", "VALID UNTIL", "EXPIRATION", "VALID TILL", "VALID UPTO"]):
                 found_labeled_dates["date_of_expiry"] = target_date
             elif any(k in text_upper for k in ["BIRTH", "जन्म", "DOB", "NAISSANCE"]):
                 found_labeled_dates["date_of_birth"] = target_date
+            elif any(k in text_upper for k in ["TRAVEL DATE", "JOURNEY DATE", "SAILING DATE", "DEPARTURE DATE"]):
+                found_labeled_dates["travel_date"] = target_date
+            elif any(k in text_upper for k in ["ENTRY VALIDITY", "VALIDITY"]):
+                found_labeled_dates["entry_validity"] = target_date
             elif any(k in text_upper for k in ["ISSUE", "जारी"]):
                 found_labeled_dates["date_of_issue"] = target_date
             elif dates_on_line:
                 unlabeled_dates.append((dates_on_line[0], conf))
 
     # Apply labeled dates
-    if "date_of_birth" in found_labeled_dates:
-        d, c = found_labeled_dates["date_of_birth"]
-        extracted["date_of_birth"] = ExtractedField(
-            field_name="date_of_birth",
-            field_value=d,
-            confidence=c,
-            extraction_method=ExtractionMethod.OCR,
-        )
-    if "date_of_expiry" in found_labeled_dates:
-        d, c = found_labeled_dates["date_of_expiry"]
-        extracted["date_of_expiry"] = ExtractedField(
-            field_name="date_of_expiry",
-            field_value=d,
-            confidence=c,
-            extraction_method=ExtractionMethod.OCR,
-        )
+    for field_key in ["date_of_birth", "date_of_expiry", "travel_date", "entry_validity", "valid_until"]:
+        target_k = "date_of_expiry" if field_key == "valid_until" and "date_of_expiry" in found_labeled_dates else field_key
+        if target_k in found_labeled_dates:
+            d, c = found_labeled_dates[target_k]
+            extracted[field_key] = ExtractedField(
+                field_name=field_key,
+                field_value=d,
+                confidence=c,
+                extraction_method=ExtractionMethod.OCR,
+            )
 
-    # Fallback to date sorting if labels weren't explicitly matched
+    # Fallback to date sorting if labels weren't matched
     if ("date_of_birth" not in extracted or "date_of_expiry" not in extracted) and unlabeled_dates:
-        # Sort dates chronologically if possible
         parsed_dates = []
         for d_str, c in unlabeled_dates:
             parts = re.split(r"[/-]", d_str)
             if len(parts) == 3:
                 try:
-                    # heuristic for YYYY at end vs beginning
                     yr = int(parts[2]) if len(parts[2]) == 4 else int(parts[0])
                     parsed_dates.append((yr, d_str, c))
                 except ValueError:
@@ -213,23 +410,31 @@ def extract_fields(
         
         parsed_dates.sort(key=lambda x: x[0])
         if parsed_dates:
-            if "date_of_birth" not in extracted:
+            if "date_of_birth" not in extracted and document_type != DocumentType.FERRY_TICKET:
                 extracted["date_of_birth"] = ExtractedField(
                     field_name="date_of_birth",
                     field_value=parsed_dates[0][1],
                     confidence=parsed_dates[0][2],
                     extraction_method=ExtractionMethod.OCR,
                 )
-            if "date_of_expiry" not in extracted and len(parsed_dates) > 1:
-                # Latest date is expiry
+            if "date_of_expiry" not in extracted and len(parsed_dates) > 1 and document_type in [DocumentType.PASSPORT, DocumentType.DRIVING_LICENSE, DocumentType.PERMIT]:
                 extracted["date_of_expiry"] = ExtractedField(
                     field_name="date_of_expiry",
                     field_value=parsed_dates[-1][1],
                     confidence=parsed_dates[-1][2],
                     extraction_method=ExtractionMethod.OCR,
                 )
+            if "travel_date" not in extracted and document_type == DocumentType.FERRY_TICKET:
+                extracted["travel_date"] = ExtractedField(
+                    field_name="travel_date",
+                    field_value=parsed_dates[0][1],
+                    confidence=parsed_dates[0][2],
+                    extraction_method=ExtractionMethod.OCR,
+                )
 
+    # -----------------------------------------------------------------------
     # 3. Look for Gender/Sex
+    # -----------------------------------------------------------------------
     for text, conf in raw_lines:
         match = PATTERNS["gender"].search(text)
         if match and "gender" not in extracted:
@@ -241,13 +446,14 @@ def extract_fields(
                 extraction_method=ExtractionMethod.OCR,
             )
 
-    # 4. Search for Name / Given Name / Surname
+    # -----------------------------------------------------------------------
+    # 4. Search for Name / Passenger Name / Holder Name
+    # -----------------------------------------------------------------------
     surname_val = ""
     given_val = ""
     for i, (text, conf) in enumerate(raw_lines):
         text_upper = text.upper()
         if "SURNAME" in text_upper or "उपनाम" in text_upper:
-            # check inline or next line
             clean = re.sub(r"(SURNAME|उपनाम|/|:)", "", text, flags=re.IGNORECASE).strip()
             if clean and len(clean) > 1 and not re.search(r"^[A-Z0-9<]{9}", clean):
                 surname_val = clean
@@ -265,6 +471,13 @@ def extract_fields(
                 if next_t and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
                     given_val = next_t
 
+        if any(k in text_upper for k in ["PASSENGER NAME", "HOLDER NAME", "NAME:"]):
+            clean_name = re.sub(r"(PASSENGER NAME|HOLDER NAME|NAME:|\bNAME\b|:)", "", text, flags=re.IGNORECASE).strip()
+            if clean_name and len(clean_name) > 2:
+                given_val = clean_name
+            elif i + 1 < len(raw_lines):
+                given_val = raw_lines[i + 1][0].strip()
+
     if surname_val or given_val:
         full = f"{given_val} {surname_val}".strip() or surname_val or given_val
         extracted["name"] = ExtractedField(
@@ -274,14 +487,21 @@ def extract_fields(
             extraction_method=ExtractionMethod.OCR,
         )
 
+    # -----------------------------------------------------------------------
     # 5. Look for Nationality
+    # -----------------------------------------------------------------------
     for text, conf in raw_lines:
         text_upper = text.upper()
-        if "INDIAN" in text_upper or "IND " in text_upper or "BHARATIYA" in text_upper:
+        if any(k in text_upper for k in ["INDIAN", "IND ", "BHARATIYA", "NEPALI", "BHUTANESE", "BANGLADESHI", "SRI LANKAN", "MYANMAR"]):
             if "nationality" not in extracted:
+                nat_val = "INDIAN"
+                for nat_check in ["NEPALI", "BHUTANESE", "BANGLADESHI", "SRI LANKAN", "MYANMAR"]:
+                    if nat_check in text_upper:
+                        nat_val = nat_check
+                        break
                 extracted["nationality"] = ExtractedField(
                     field_name="nationality",
-                    field_value="INDIAN",
+                    field_value=nat_val,
                     confidence=conf,
                     extraction_method=ExtractionMethod.OCR,
                 )

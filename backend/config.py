@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 480
 
     # ── LLM fallback (Pluggable Vision Model: Gemini / OpenAI / Anthropic / Local) ─
-    llm_provider: str = "generic"  # "gemini", "openai", "anthropic", or "generic"
+    llm_provider: str = "gemini"  # "gemini", "openai", "anthropic", or "generic"
     llm_api_key: str = ""
-    llm_model: str = ""
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_fallback_confidence_threshold: float = 0.6
 
     # ── Encryption ──────────────────────────────────────────

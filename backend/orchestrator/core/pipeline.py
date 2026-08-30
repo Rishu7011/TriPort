@@ -20,7 +20,12 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
-from backend.ocr_service.schemas.extraction import DocumentType, ExtractionResponse, MRZResult
+from backend.ocr_service.schemas.extraction import (
+    CheckpointType,
+    DocumentType,
+    ExtractionResponse,
+    MRZResult,
+)
 from backend.validation_service.schemas.validation import ValidationResponse
 from backend.tampering_service.schemas.tampering import TamperingResponse
 from backend.face_service.schemas.face import FullFaceVerificationResponse
@@ -73,6 +78,8 @@ def _safe_uuid(val: Any) -> uuid.UUID | None:
 async def run_pipeline(
     image_bytes: bytes,
     document_type: DocumentType = DocumentType.PASSPORT,
+    checkpoint_type: CheckpointType = CheckpointType.AIRPORT,
+    provider: str = "local",
     live_image_bytes: bytes | None = None,
     document_id: str | None = None,
     checkpoint_id: str | None = None,
@@ -89,6 +96,8 @@ async def run_pipeline(
         "pipeline_started",
         document_id=doc_id_str,
         document_type=document_type.value,
+        checkpoint_type=checkpoint_type.value,
+        provider=provider,
         has_live_photo=bool(live_image_bytes),
     )
 
@@ -120,7 +129,12 @@ async def run_pipeline(
     t0 = time.perf_counter()
     extraction_res: ExtractionResponse | None = None
     try:
-        extraction_res = await call_ocr_service(image_bytes, document_type)
+        extraction_res = await call_ocr_service(
+            image_bytes=image_bytes,
+            document_type=document_type,
+            checkpoint_type=checkpoint_type,
+            provider=provider,
+        )
         statuses.ocr = ServiceStatus(available=True)
     except Exception as exc:
         logger.error("OCR stage failed", error=str(exc), document_id=doc_id_str)
@@ -128,6 +142,8 @@ async def run_pipeline(
         degraded_modules.append("OCR")
         extraction_res = ExtractionResponse(
             document_type=document_type,
+            checkpoint_type=checkpoint_type,
+            provider_used=provider,
             extraction_method="ocr",
             fields=[],
             mrz=MRZResult(mrz_present=False, checksum_valid=None, checksum_failures=[], mrz_fields={}),

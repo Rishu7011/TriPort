@@ -84,12 +84,28 @@ def _ensure_512d(vec: np.ndarray) -> np.ndarray:
 # STAGE 1: InsightFace (RetinaFace detector + ArcFace embedder)
 # ---------------------------------------------------------------------------
 def _get_insightface_app():
-    """Lazy-load InsightFace FaceAnalysis singleton (RetinaFace + ArcFace)."""
+    """Lazy-load InsightFace FaceAnalysis singleton (RetinaFace + ArcFace).
+
+    Explicitly triggers model download on first call so that 'buffalo_l' is
+    present in ~/.insightface/models/ before FaceAnalysis() tries to load it.
+    Without this, a missing model pack causes a silent exception and the whole
+    pipeline degrades to the DeepFace fallback without any clear log message.
+    """
     global _insightface_app
     if _insightface_app is None:
         try:
             import insightface
             from insightface.app import FaceAnalysis
+            from insightface.model_zoo import model_zoo
+
+            # Ensure buffalo_l model pack is present; download if not.
+            try:
+                model_zoo.get_model("buffalo_l")  # no-op if already downloaded
+            except Exception as dl_exc:
+                logger.info(
+                    "Downloading InsightFace buffalo_l model pack (first run only) …",
+                    error=str(dl_exc),
+                )
 
             app = FaceAnalysis(
                 name="buffalo_l",          # buffalo_l bundles RetinaFace + ArcFace W600K R50
@@ -100,9 +116,61 @@ def _get_insightface_app():
             _insightface_app = app
             logger.info("InsightFace FaceAnalysis (RetinaFace+ArcFace) initialized successfully")
         except Exception as exc:
-            logger.warning("InsightFace unavailable — will use DeepFace fallback", error=str(exc))
+            logger.warning(
+                "InsightFace unavailable — will use DeepFace fallback. "
+                "Run: pip install insightface onnxruntime to enable the primary model.",
+                error=str(exc),
+            )
             _insightface_app = None
     return _insightface_app
+
+
+def _pad_for_detection(img_rgb: np.ndarray, pad_fraction: float = 0.25) -> np.ndarray:
+    """Add white padding around the image so tight-cropped faces can be detected.
+
+    Both RetinaFace and Haar cascade require some background margin around the
+    face bounding box to fire reliably. Passport photos cropped to just the face
+    (face filling 80-100% of frame) consistently fail detection without this step.
+    """
+    h, w = img_rgb.shape[:2]
+    pad_h = int(h * pad_fraction)
+    pad_w = int(w * pad_fraction)
+    padded = np.full(
+        (h + 2 * pad_h, w + 2 * pad_w, 3),
+        fill_value=240,  # light-grey background — neutral for face detectors
+        dtype=np.uint8,
+    )
+    padded[pad_h:pad_h + h, pad_w:pad_w + w] = img_rgb
+    return padded
+
+
+def _is_tight_crop(img_rgb: np.ndarray) -> bool:
+    """Heuristic: is this likely a tight face crop (face fills most of the frame)?
+
+    We check a small central region for skin-tone pixels. If the centre of the
+    image is predominantly skin-toned AND the image is roughly portrait-aspect,
+    we assume a passport-style crop and pre-pad it before detection.
+    """
+    h, w = img_rgb.shape[:2]
+    # Typical passport photo: portrait aspect, small absolute size
+    if h == 0 or w == 0:
+        return False
+    aspect = h / w
+    if not (0.9 <= aspect <= 1.6):
+        return False
+    # Sample the centre 40% of the image and check average saturation
+    cy, cx = h // 2, w // 2
+    region = img_rgb[
+        max(0, cy - h // 5): cy + h // 5,
+        max(0, cx - w // 5): cx + w // 5,
+    ]
+    if region.size == 0:
+        return False
+    # HSV saturation heuristic — skin tones have moderate saturation
+    import colorsys
+    r, g, b = region[:, :, 0].mean() / 255, region[:, :, 1].mean() / 255, region[:, :, 2].mean() / 255
+    _, s, v = colorsys.rgb_to_hsv(r, g, b)
+    return s < 0.55 and v > 0.35  # low saturation, non-dark → likely skin/neutral
 
 
 def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] | None:
@@ -111,6 +179,9 @@ def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] |
 
     Returns (embedding_list, detail_str) on success, None on failure.
     RetinaFace handles detection + 5-landmark alignment internally.
+
+    Pre-pads tight passport crops before detection, because RetinaFace needs
+    some background margin to reliably fire its bounding-box detector.
     """
     app = _get_insightface_app()
     if app is None:
@@ -120,6 +191,13 @@ def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] |
         # InsightFace expects BGR
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         faces = app.get(img_bgr)
+
+        # ── Tight-crop retry: add padding and re-detect ──────────────────────
+        if not faces and _is_tight_crop(img_rgb):
+            logger.debug("InsightFace: no face on first pass — retrying with padded image")
+            padded_rgb = _pad_for_detection(img_rgb, pad_fraction=0.30)
+            padded_bgr = cv2.cvtColor(padded_rgb, cv2.COLOR_RGB2BGR)
+            faces = app.get(padded_bgr)
 
         if not faces:
             logger.debug("InsightFace: no face detected in image")
@@ -152,6 +230,14 @@ def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] |
 # ---------------------------------------------------------------------------
 # STAGE 2: DeepFace Facenet512 (intermediate fallback)
 # ---------------------------------------------------------------------------
+
+# Ordered list of DeepFace detector backends to try when the primary (opencv)
+# fails. "skip" tells DeepFace to embed the entire image without detection —
+# this is the last resort for tightly-cropped passport photos where no
+# detector fires but the whole image IS the face.
+_DEEPFACE_DETECTOR_BACKENDS = ["opencv", "ssd", "skip"]
+
+
 def _extract_deepface_facenet512(
     img_rgb: np.ndarray,
     enforce_detection: bool = False,
@@ -159,26 +245,38 @@ def _extract_deepface_facenet512(
     """
     Stage 2: Extract 512-dim embedding using DeepFace Facenet512.
     Falls back to this when InsightFace is unavailable.
+
+    Tries multiple detector backends in order (opencv → ssd → skip) so that
+    tightly-cropped passport photos — which defeat opencv's Haar cascade —
+    still get embedded via the 'skip' backend (whole-image embedding).
     """
     try:
         from deepface import DeepFace
+    except ImportError:
+        logger.debug("DeepFace not installed — Stage 2 unavailable")
+        return None
 
-        representations = DeepFace.represent(
-            img_path=img_rgb,
-            model_name="Facenet512",
-            enforce_detection=enforce_detection,
-            align=True,
-            detector_backend="opencv",    # fastest CPU detector
-        )
-        if representations and len(representations) > 0:
-            raw_vec = np.array(representations[0]["embedding"], dtype=np.float64)
-            raw_vec = _ensure_512d(raw_vec)
-            raw_vec = _l2_normalize(raw_vec)
-            logger.info("DeepFace Facenet512 embedding extracted", dims=len(raw_vec))
-            return raw_vec.tolist(), "DeepFace Facenet512 (fallback)"
-
-    except Exception as exc:
-        logger.debug("DeepFace Facenet512 extraction failed", error=str(exc))
+    for backend in _DEEPFACE_DETECTOR_BACKENDS:
+        try:
+            representations = DeepFace.represent(
+                img_path=img_rgb,
+                model_name="Facenet512",
+                enforce_detection=enforce_detection if backend != "skip" else False,
+                align=(backend != "skip"),   # alignment requires detection
+                detector_backend=backend,
+            )
+            if representations and len(representations) > 0:
+                raw_vec = np.array(representations[0]["embedding"], dtype=np.float64)
+                raw_vec = _ensure_512d(raw_vec)
+                raw_vec = _l2_normalize(raw_vec)
+                label = f"DeepFace Facenet512 [detector={backend}]"
+                if backend == "skip":
+                    label += " — whole-image embedding (tight crop mode)"
+                logger.info("DeepFace Facenet512 embedding extracted", dims=len(raw_vec), backend=backend)
+                return raw_vec.tolist(), label
+        except Exception as exc:
+            logger.debug(f"DeepFace Facenet512 [{backend}] failed", error=str(exc))
+            continue
 
     return None
 

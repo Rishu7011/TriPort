@@ -14,6 +14,7 @@ from typing import Any
 from backend.config import settings
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import (
+    CheckpointType,
     DocumentType,
     ExtractedField,
     ExtractionResponse,
@@ -49,12 +50,19 @@ CLIENT_TIMEOUT = httpx.Timeout(5.0, connect=3.0)
 # ---------------------------------------------------------------------------
 async def call_ocr_service(
     image_bytes: bytes,
-    document_type: DocumentType = DocumentType.PASSPORT,
+    document_type: DocumentType | None = None,
+    checkpoint_type: CheckpointType = CheckpointType.AIRPORT,
+    provider: str = "local",
 ) -> ExtractionResponse:
     """Invoke OCR extraction via HTTP or fallback to core pipeline."""
     url = f"{settings.ocr_service_url}/api/v1/ocr/extract"
     files = {"file": ("document.jpg", image_bytes, "image/jpeg")}
-    data = {"document_type": document_type.value}
+    data = {
+        "checkpoint_type": checkpoint_type.value,
+        "provider": provider,
+    }
+    if document_type:
+        data["document_type"] = document_type.value
 
     for attempt in range(2):
         try:
@@ -66,7 +74,8 @@ async def call_ocr_service(
             logger.debug("OCR HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     # In-process direct fallback
-    logger.info("Executing OCR via internal core pipeline", document_type=document_type.value)
+    logger.info("Executing OCR via internal core pipeline", document_type=document_type.value if document_type else "auto")
+    from backend.ocr_service.core.classifier import classify_document
     from backend.ocr_service.core.field_extractor import extract_fields, extract_raw_ocr_lines
     from backend.ocr_service.core.mrz_parser import parse_mrz
     from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
@@ -81,13 +90,16 @@ async def call_ocr_service(
     except Exception as e:
         logger.warning("OCR engine internal call warning", error=str(e))
 
+    if not document_type:
+        document_type, _, _ = classify_document(image_bytes, ocr_lines=raw_ocr_lines, provider=provider)
+
     text_lines = [t for t, _ in raw_ocr_lines]
     mrz_res: MRZResult = parse_mrz(image_bytes, ocr_text_lines=text_lines)
 
     if mrz_res.mrz_present:
         primary_method = ExtractionMethod.MRZ
         for k, v in mrz_res.mrz_fields.items():
-            if v:
+            if v and k != "mrz_format":
                 extracted_dict[k] = ExtractedField(
                     field_name=k,
                     field_value=v,
@@ -103,7 +115,8 @@ async def call_ocr_service(
             extracted_dict[f.field_name] = f
 
     if (not extracted_dict and not mrz_res.mrz_present) or (
-        document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT]
+        document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
+        and len(extracted_dict) < 2
     ):
         llm_fields = extract_fields_with_llm(image_bytes, document_type)
         if llm_fields:
@@ -113,6 +126,8 @@ async def call_ocr_service(
 
     return ExtractionResponse(
         document_type=document_type,
+        checkpoint_type=checkpoint_type,
+        provider_used=provider,
         extraction_method=primary_method,
         fields=list(extracted_dict.values()),
         mrz=mrz_res,

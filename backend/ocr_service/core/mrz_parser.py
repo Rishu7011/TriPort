@@ -1,11 +1,18 @@
 """
-MRZ Parser — Robust MRZ line detection and ICAO 9303 checksum validation.
+MRZ Parser — Robust Machine Readable Zone Detection and ICAO 9303 Checksum Validation.
 
-Works seamlessly with OCR text output and PassportEye.
+Supports:
+  1. TD3 (Passports: 2 lines x 44 chars)
+  2. TD2 / MRV-B (Visas & ID cards: 2 lines x 36 chars)
+  3. MRV-A (Visas: 2 lines x 44 chars)
+  4. TD1 (National ID & Residence Cards: 3 lines x 30 chars)
+
+Includes OCR character confusion auto-correction using ICAO check digits.
 """
 
 import re
 from io import BytesIO
+from typing import Any
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import MRZResult
 
@@ -41,11 +48,6 @@ def _validate_check_digit(field: str, check_char: str) -> bool:
     return _compute_check_digit(field) == expected
 
 
-# TD3 (Standard Passport) Regex patterns for Line 1 and Line 2
-TD3_LINE1_REGEX = re.compile(r"P[A-Z<][A-Z]{3}([A-Z0-9<]{39})")
-TD3_LINE2_REGEX = re.compile(r"([A-Z0-9<]{9})([0-9])([A-Z]{3})([0-9]{6})([0-9])([MFX<])([0-9]{6})([0-9])([A-Z0-9<]{14})([0-9<])([0-9<])")
-
-
 def _mrz_date_to_dmy(yymmdd: str, is_expiry: bool = False) -> str:
     """Convert YYMMDD string to DD/MM/YYYY."""
     if len(yymmdd) != 6 or not yymmdd.isdigit():
@@ -60,85 +62,49 @@ def _mrz_date_to_dmy(yymmdd: str, is_expiry: bool = False) -> str:
     return f"{dd}/{mm}/{year}"
 
 
-def parse_mrz_from_text_lines(text_lines: list[str]) -> MRZResult:
-    """
-    Directly parse MRZ lines from extracted OCR text lines.
-    Detects TD3 Line 1 (P<...) and Line 2 (Passport number + DOB + Expiry).
-    """
-    cleaned_lines = [
-        line.replace(" ", "").upper().replace("«", "<").replace("‹", "<")
-        for line in text_lines
-        if line.strip()
-    ]
+def _clean_mrz_line(raw: str) -> str:
+    """Standardize line characters and replace typical OCR artifacts."""
+    return (
+        raw.replace(" ", "")
+        .upper()
+        .replace("«", "<")
+        .replace("‹", "<")
+        .replace("“", "<")
+        .replace("”", "<")
+    )
 
-    line1 = None
-    line2 = None
 
-    for line in cleaned_lines:
-        # Line 1: Starts with P followed by < or 3-letter country code, or contains << and P
-        if (line.startswith("P<") or (line.startswith("P") and "<<" in line) or ("<<" in line and "IND" in line)) and not line1:
-            line1 = line
-        # Line 2: Contains 6-digit DOB + check digit + M/F/< + 6-digit Expiry
-        elif re.search(r"[0-9]{6}[0-9<][MFX<][0-9]{6}", line) or re.search(r"[A-Z0-9<]{8,9}[0-9<][A-Z]{3}[0-9]{6}", line):
-            line2 = line
-
-    # Fallback search if not matched by regex
-    if not line1 or not line2:
-        for line in cleaned_lines:
-            if not line1 and len(line) >= 28 and ("<<" in line or line.startswith("P")):
-                line1 = line
-            elif not line2 and len(line) >= 28 and sum(c.isdigit() for c in line) >= 12:
-                line2 = line
-
-    if not line1 or not line2:
-        return MRZResult(mrz_present=False)
-
-    # Pad lines to 44 characters with '<' if slightly truncated
+def parse_td3(line1: str, line2: str) -> MRZResult:
+    """Parse TD3 (2 lines x 44 characters, Standard Passport / MRV-A)."""
     line1 = line1.ljust(44, "<")[:44]
     line2 = line2.ljust(44, "<")[:44]
 
-    logger.info("Found MRZ lines in text", line1=line1, line2=line2)
-
-    # Extract names from Line 1 (e.g. P<INDNEGI<<SAHIL<<<<<<<<<<<<...)
-    # Country code is at [2:5]
+    # Name section from Line 1 (P<INDNAME<<...)
     name_section = line1[5:].split("<<")
     surname = name_section[0].replace("<", " ").strip() if len(name_section) > 0 else ""
     given_names = name_section[1].replace("<", " ").strip() if len(name_section) > 1 else ""
     full_name = f"{given_names} {surname}".strip() or surname
 
-    # Parse Line 2 positions:
-    # [0:9]   Document Number (e.g. Z6720715<)
-    # [9]     Check digit for doc number (e.g. 3)
-    # [10:13] Nationality (e.g. IND)
-    # [13:19] Date of Birth (YYMMDD)
-    # [19]    Check digit for DOB
-    # [20]    Sex (M/F/<)
-    # [21:27] Expiry Date (YYMMDD)
-    # [27]    Check digit for Expiry
-    # Checksum verification & OCR Character Confusion Auto-Correction
     doc_raw_9 = line2[0:9]
     doc_check = line2[9]
     nationality = line2[10:13].replace("<", "")
     dob_raw = line2[13:19]
     dob_check = line2[19]
-    sex = line2[20] if line2[20] in ["M", "F"] else "M"
+    sex = line2[20] if line2[20] in ["M", "F", "X"] else "M"
     expiry_raw = line2[21:27]
     expiry_check = line2[27]
 
-    # Auto-correct common OCR letter/number confusion in doc_number using checksum verification
-    # e.g., '2' at position 0 misread for 'Z', '0' for 'O', '8' for 'B', '5' for 'S'
+    # Checksum auto-correction
     CHAR_CORRECTIONS = {"2": "Z", "0": "O", "1": "I", "8": "B", "5": "S", "4": "A"}
+    DIGIT_CORRECTIONS = {"O": "0", "I": "1", "Z": "2", "S": "5", "B": "8", "A": "4"}
+
     if not _validate_check_digit(doc_raw_9, doc_check):
-        # Try correcting first character to letter
         first_char = doc_raw_9[0]
         if first_char in CHAR_CORRECTIONS:
             corrected_9 = CHAR_CORRECTIONS[first_char] + doc_raw_9[1:]
             if _validate_check_digit(corrected_9, doc_check):
-                logger.info("OCR error corrected in doc_number using ICAO check digit", original=doc_raw_9, corrected=corrected_9)
                 doc_raw_9 = corrected_9
 
-    # Auto-correct common OCR digit confusion in dates
-    DIGIT_CORRECTIONS = {"O": "0", "I": "1", "Z": "2", "S": "5", "B": "8", "A": "4"}
     if not _validate_check_digit(dob_raw, dob_check):
         corrected_dob = "".join(DIGIT_CORRECTIONS.get(c, c) for c in dob_raw)
         if _validate_check_digit(corrected_dob, dob_check):
@@ -159,9 +125,8 @@ def parse_mrz_from_text_lines(text_lines: list[str]) -> MRZResult:
     if not _validate_check_digit(expiry_raw, expiry_check):
         checksum_failures.append("expiry_date")
 
-    checksum_valid = len(checksum_failures) == 0
-
     mrz_fields = {
+        "mrz_format": "TD3",
         "doc_number": doc_num,
         "passport_number": doc_num,
         "surname": surname,
@@ -178,10 +143,172 @@ def parse_mrz_from_text_lines(text_lines: list[str]) -> MRZResult:
 
     return MRZResult(
         mrz_present=True,
-        checksum_valid=checksum_valid,
+        checksum_valid=(len(checksum_failures) == 0),
         checksum_failures=checksum_failures,
         mrz_fields=mrz_fields,
     )
+
+
+def parse_td2(line1: str, line2: str) -> MRZResult:
+    """Parse TD2 / MRV-B (2 lines x 36 characters, Visas and ID cards)."""
+    line1 = line1.ljust(36, "<")[:36]
+    line2 = line2.ljust(36, "<")[:36]
+
+    # Name section from Line 1 (e.g. V<INDNEGI<<SAHIL<<<<<<<<<<)
+    name_section = line1[5:].split("<<")
+    surname = name_section[0].replace("<", " ").strip() if len(name_section) > 0 else ""
+    given_names = name_section[1].replace("<", " ").strip() if len(name_section) > 1 else ""
+    full_name = f"{given_names} {surname}".strip() or surname
+
+    doc_raw_9 = line2[0:9]
+    doc_check = line2[9]
+    nationality = line2[10:13].replace("<", "")
+    dob_raw = line2[13:19]
+    dob_check = line2[19]
+    sex = line2[20] if line2[20] in ["M", "F", "X"] else "M"
+    expiry_raw = line2[21:27]
+    expiry_check = line2[27]
+
+    checksum_failures = []
+    if not _validate_check_digit(doc_raw_9, doc_check):
+        checksum_failures.append("doc_number")
+    if not _validate_check_digit(dob_raw, dob_check):
+        checksum_failures.append("date_of_birth")
+    if not _validate_check_digit(expiry_raw, expiry_check):
+        checksum_failures.append("expiry_date")
+
+    doc_num = doc_raw_9.replace("<", "")
+    mrz_fields = {
+        "mrz_format": "TD2",
+        "doc_number": doc_num,
+        "visa_number": doc_num,
+        "passport_number": doc_num,
+        "surname": surname,
+        "given_names": given_names,
+        "name": full_name,
+        "nationality": nationality,
+        "date_of_birth": _mrz_date_to_dmy(dob_raw, is_expiry=False),
+        "raw_dob": dob_raw,
+        "sex": sex,
+        "gender": sex,
+        "date_of_expiry": _mrz_date_to_dmy(expiry_raw, is_expiry=True),
+        "raw_expiry": expiry_raw,
+    }
+
+    return MRZResult(
+        mrz_present=True,
+        checksum_valid=(len(checksum_failures) == 0),
+        checksum_failures=checksum_failures,
+        mrz_fields=mrz_fields,
+    )
+
+
+def parse_td1(line1: str, line2: str, line3: str) -> MRZResult:
+    """Parse TD1 (3 lines x 30 characters, National ID cards)."""
+    line1 = line1.ljust(30, "<")[:30]
+    line2 = line2.ljust(30, "<")[:30]
+    line3 = line3.ljust(30, "<")[:30]
+
+    # Line 1: [0:2] Doc Type, [2:5] Country, [5:14] Doc Number, [14] Doc Number Check
+    country = line1[2:5].replace("<", "")
+    doc_raw_9 = line1[5:14]
+    doc_check = line1[14]
+
+    # Line 2: [0:6] DOB, [6] DOB Check, [7] Sex, [8:14] Expiry, [14] Expiry Check, [15:18] Nationality
+    dob_raw = line2[0:6]
+    dob_check = line2[6]
+    sex = line2[7] if line2[7] in ["M", "F", "X"] else "M"
+    expiry_raw = line2[8:14]
+    expiry_check = line2[14]
+    nationality = line2[15:18].replace("<", "") or country
+
+    # Line 3: Name section
+    name_section = line3.split("<<")
+    surname = name_section[0].replace("<", " ").strip() if len(name_section) > 0 else ""
+    given_names = name_section[1].replace("<", " ").strip() if len(name_section) > 1 else ""
+    full_name = f"{given_names} {surname}".strip() or surname
+
+    checksum_failures = []
+    if not _validate_check_digit(doc_raw_9, doc_check):
+        checksum_failures.append("doc_number")
+    if not _validate_check_digit(dob_raw, dob_check):
+        checksum_failures.append("date_of_birth")
+    if not _validate_check_digit(expiry_raw, expiry_check):
+        checksum_failures.append("expiry_date")
+
+    doc_num = doc_raw_9.replace("<", "")
+    mrz_fields = {
+        "mrz_format": "TD1",
+        "doc_number": doc_num,
+        "id_number": doc_num,
+        "surname": surname,
+        "given_names": given_names,
+        "name": full_name,
+        "nationality": nationality,
+        "date_of_birth": _mrz_date_to_dmy(dob_raw, is_expiry=False),
+        "raw_dob": dob_raw,
+        "sex": sex,
+        "gender": sex,
+        "date_of_expiry": _mrz_date_to_dmy(expiry_raw, is_expiry=True),
+        "raw_expiry": expiry_raw,
+    }
+
+    return MRZResult(
+        mrz_present=True,
+        checksum_valid=(len(checksum_failures) == 0),
+        checksum_failures=checksum_failures,
+        mrz_fields=mrz_fields,
+    )
+
+
+def parse_mrz_from_text_lines(text_lines: list[str]) -> MRZResult:
+    """
+    Detect and parse MRZ zone from OCR text lines.
+    Automatically identifies whether it is TD3 (2x44), TD2 (2x36), or TD1 (3x30).
+    """
+    cleaned_lines = [_clean_mrz_line(l) for l in text_lines if l.strip()]
+
+    # Check for 3-line TD1 ID format
+    td1_candidates = [
+        l for l in cleaned_lines
+        if len(l) >= 24 and ("<<" in l or l.startswith("I<") or l.startswith("A<") or l.startswith("C<"))
+    ]
+    if len(td1_candidates) >= 3:
+        # Check if line 2 has DOB/Expiry pattern
+        if any(re.search(r"[0-9]{6}[0-9<][MFX<][0-9]{6}", c) for c in td1_candidates):
+            return parse_td1(td1_candidates[0], td1_candidates[1], td1_candidates[2])
+
+    # Check for 2-line TD3 / TD2 format
+    line1 = None
+    line2 = None
+
+    for line in cleaned_lines:
+        # Line 1: Starts with P, V, or contains << with country code
+        if (
+            (line.startswith("P<") or line.startswith("V<") or (line.startswith("P") and "<<" in line) or (line.startswith("V") and "<<" in line) or ("<<" in line and "IND" in line))
+            and not line1
+        ):
+            line1 = line
+        # Line 2: Contains 6-digit DOB + check digit + M/F/< + 6-digit Expiry
+        elif re.search(r"[0-9]{6}[0-9<][MFX<][0-9]{6}", line) or re.search(r"[A-Z0-9<]{8,9}[0-9<][A-Z]{3}[0-9]{6}", line):
+            line2 = line
+
+    # Fallback search if strict regex didn't catch both
+    if not line1 or not line2:
+        for line in cleaned_lines:
+            if not line1 and len(line) >= 28 and ("<<" in line or line.startswith("P") or line.startswith("V")):
+                line1 = line
+            elif not line2 and len(line) >= 28 and sum(c.isdigit() for c in line) >= 12:
+                line2 = line
+
+    if not line1 or not line2:
+        return MRZResult(mrz_present=False)
+
+    # Distinguish TD2 (36 chars) vs TD3 (44 chars)
+    if len(line1) <= 38 and len(line2) <= 38:
+        return parse_td2(line1, line2)
+    else:
+        return parse_td3(line1, line2)
 
 
 def parse_mrz(image_bytes: bytes, ocr_text_lines: list[str] | None = None) -> MRZResult:

@@ -18,9 +18,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="BorderGuard-AI — OCR Service",
-    description="Extracts structured fields via OCR and MRZ parsing.",
-    version="0.1.0",
+    title="TriPort — OCR & Document Classification Service",
+    description="Multi-Modal OCR, MRZ parsing, and classification across Airport, Land Border, and Sea checkpoints.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
