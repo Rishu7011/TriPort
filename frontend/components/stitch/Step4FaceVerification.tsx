@@ -34,10 +34,24 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
   const [capturedFrame, setCapturedFrame] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<FaceMatchResult | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  // Auto-capture detection state
+  const [faceDetected, setFaceDetected] = useState<boolean>(false);
+  const [faceAligned, setFaceAligned] = useState<boolean>(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [autoCapSupported, setAutoCapSupported] = useState<boolean>(true);
+  // Testing: capture mode toggle
+  const [captureMode, setCaptureMode] = useState<"camera" | "upload">("camera");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const detectionRef = useRef<{ stableFrames: number; rafId: number; active: boolean }>({
+    stableFrames: 0,
+    rafId: 0,
+    active: false,
+  });
 
   // ID photo: cropped face from passport > full scan
   const idPhoto = faceCropUrl || documentPhoto;
@@ -67,8 +81,120 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
     };
   }, [verifyState]);
 
+  // ── Auto-capture: FaceDetector API detection loop ───────────────────────────
+  const handleCaptureRef = useRef<() => void>(() => { });
+
+  useEffect(() => {
+    if (verifyState !== "idle") {
+      detectionRef.current.active = false;
+      return;
+    }
+
+    // FaceDetector is available in Chrome 74+
+    if (!("FaceDetector" in window)) {
+      setAutoCapSupported(false);
+      return;
+    }
+
+    const det = detectionRef.current;
+    det.active = true;
+    det.stableFrames = 0;
+    // Frames needed at ~8fps for 2.5s countdown
+    const FRAMES_PER_TICK = 1;
+    const STABLE_FOR_AUTO = 20; // ~2.5s
+
+    let faceDetector: any;
+    try {
+      faceDetector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+    } catch {
+      setAutoCapSupported(false);
+      return;
+    }
+
+    const runDetection = async () => {
+      if (!det.active || verifyState !== "idle") return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) {
+        det.rafId = window.setTimeout(runDetection, 150) as unknown as number;
+        return;
+      }
+
+      try {
+        const faces = await faceDetector.detect(video);
+        if (!det.active) return;
+
+        if (faces.length > 0) {
+          const face = faces[0];
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 480;
+          const bb = face.boundingBox;
+
+          // Map oval zone: center ~50% x, ~43% y; width ~60% frame, height ~59%
+          const ovalCX = vw * 0.50;
+          const ovalCY = vh * 0.43;
+          const ovalRX = vw * 0.30;
+          const ovalRY = vh * 0.295;
+
+          const faceCX = bb.x + bb.width / 2;
+          const faceCY = bb.y + bb.height / 2;
+
+          // Normalized ellipse distance (should be < 0.75 to be "inside")
+          const dx = (faceCX - ovalCX) / ovalRX;
+          const dy = (faceCY - ovalCY) / ovalRY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          // Face should occupy at least 30% of frame width
+          const faceSizeOk = bb.width / vw > 0.28;
+
+          const aligned = dist < 0.80 && faceSizeOk;
+
+          setFaceDetected(true);
+          setFaceAligned(aligned);
+
+          if (aligned) {
+            det.stableFrames = Math.min(det.stableFrames + FRAMES_PER_TICK, STABLE_FOR_AUTO);
+            const remaining = Math.ceil((STABLE_FOR_AUTO - det.stableFrames) / (STABLE_FOR_AUTO / 3));
+            setCountdown(Math.max(1, remaining));
+
+            if (det.stableFrames >= STABLE_FOR_AUTO) {
+              det.active = false;
+              setCountdown(0);
+              // Small delay so user sees "0" flash, then auto-capture
+              setTimeout(() => handleCaptureRef.current(), 200);
+              return;
+            }
+          } else {
+            det.stableFrames = Math.max(0, det.stableFrames - 2);
+            setCountdown(null);
+          }
+        } else {
+          setFaceDetected(false);
+          setFaceAligned(false);
+          setCountdown(null);
+          det.stableFrames = Math.max(0, det.stableFrames - 1);
+        }
+      } catch {
+        // Detection failed this frame — skip
+      }
+
+      det.rafId = window.setTimeout(runDetection, 120) as unknown as number;
+    };
+
+    runDetection();
+
+    return () => {
+      det.active = false;
+      clearTimeout(det.rafId);
+      setFaceDetected(false);
+      setFaceAligned(false);
+      setCountdown(null);
+    };
+  }, [verifyState]);
+
   // ── Capture + Verify ────────────────────────────────────────────────────────
   const handleCapture = async () => {
+    // Stop detection loop
+    detectionRef.current.active = false;
     setVerifyState("capturing");
     setVerifyError(null);
     setShowFlash(true);
@@ -85,16 +211,8 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
         setCapturedFrame(dataUrl);
-        // Convert canvas to Blob for API
         await new Promise<void>((resolve) => {
-          canvas.toBlob(
-            (blob) => {
-              frameBlob = blob;
-              resolve();
-            },
-            "image/jpeg",
-            0.92
-          );
+          canvas.toBlob((blob) => { frameBlob = blob; resolve(); }, "image/jpeg", 0.92);
         });
       }
     }
@@ -126,11 +244,13 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
     if (backendFace) {
       setMatchResult(backendFace);
     } else {
-      // Both backend and onVerifyFace failed — show error
       setVerifyError("Face verification service unavailable. Please retry or escalate.");
     }
     setVerifyState("done");
   };
+
+  // Keep handleCaptureRef in sync so the detection loop can call it
+  handleCaptureRef.current = handleCapture;
 
   const handleRetake = () => {
     setVerifyState("idle");
@@ -138,6 +258,44 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
     setMatchResult(null);
     setVerifyError(null);
     setShowFlash(false);
+    setUploadedImage(null);
+  };
+
+  // ── Upload mode: file selected ─────────────────────────────────────────
+  const handleUploadFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const dataUrl = URL.createObjectURL(file);
+    setUploadedImage(dataUrl);
+    setCapturedFrame(dataUrl);
+    setVerifyError(null);
+    setVerifyState("verifying");
+
+    if (onVerifyFace) {
+      try {
+        const result = await onVerifyFace(file);
+        if (result) { setMatchResult(result); setVerifyState("done"); return; }
+      } catch (err) {
+        console.error("[Step4/upload] verifyFace error:", err);
+      }
+    }
+    const backendFace = pipelineData?.face?.one_to_one ?? null;
+    if (backendFace) { setMatchResult(backendFace); }
+    else { setVerifyError("Face verification service unavailable."); }
+    setVerifyState("done");
+  };
+
+  // ── Mode switch: stop camera when switching to upload ─────────────────────
+  const switchMode = (mode: "camera" | "upload") => {
+    if (mode === "upload") {
+      detectionRef.current.active = false;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    }
+    setCaptureMode(mode);
+    setVerifyState("idle");
+    setCapturedFrame(null);
+    setMatchResult(null);
+    setVerifyError(null);
+    setUploadedImage(null);
   };
 
   // ── Derived match values ────────────────────────────────────────────────────
@@ -192,18 +350,88 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
               </div>
             </div>
 
-            {/* Right: Live camera / captured frame */}
+            {/* Right: Live camera / upload — with mode toggle */}
             <div className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#655d54]">
-                <span className="material-symbols-outlined !text-[16px]">videocam</span>
+
+              {/* Mode toggle — shown only before capture */}
+              {verifyState === "idle" && (
+                <div className="flex items-center gap-2 w-full">
+                  <button
+                    id="mode-camera"
+                    onClick={() => switchMode("camera")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      captureMode === "camera"
+                        ? "bg-[#d97757] border-[#d97757] text-white shadow-sm"
+                        : "bg-white border-[#E8E2D9] text-[#655d54] hover:border-[#d97757]/50"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined !text-[14px]">videocam</span>
+                    Live Camera
+                  </button>
+                  <button
+                    id="mode-upload"
+                    onClick={() => switchMode("upload")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      captureMode === "upload"
+                        ? "bg-[#B8860B] border-[#B8860B] text-white shadow-sm"
+                        : "bg-white border-[#E8E2D9] text-[#655d54] hover:border-[#B8860B]/50"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined !text-[14px]">upload_file</span>
+                    Upload Image
+                    <span className="bg-white/20 text-[8px] px-1 py-0.5 rounded font-extrabold">TEST</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Panel label */}
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#655d54] w-full">
+                <span className="material-symbols-outlined !text-[16px]">
+                  {verifyState === "done" ? "photo_camera" : captureMode === "upload" ? "upload_file" : "videocam"}
+                </span>
                 <span>
-                  {verifyState === "done" ? "Captured Frame" : "Live Camera Feed"}
+                  {verifyState === "done" ? "Captured Frame" : captureMode === "upload" ? "Upload Face Image" : "Live Camera Feed"}
                 </span>
               </div>
               <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden border-2 border-[#d97757]/50 bg-[#1c1c19] shadow-sm relative flex items-center justify-center">
 
-                {/* Live video — shown before capture */}
-                {verifyState === "idle" && (
+                {/* Idle state: Live Camera OR Image Upload (Test Mode) */}
+                {verifyState === "idle" && captureMode === "upload" && (
+                  <div
+                    onClick={() => uploadInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleUploadFile(file);
+                    }}
+                    className="w-full h-full flex flex-col items-center justify-center p-6 text-center cursor-pointer border-2 border-dashed border-[#B8860B]/40 hover:border-[#B8860B] hover:bg-[#B8860B]/5 transition-all group"
+                  >
+                    <input
+                      ref={uploadInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadFile(file);
+                      }}
+                    />
+                    <div className="w-16 h-16 rounded-2xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B] mb-3 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-3xl">upload_file</span>
+                    </div>
+                    <p className="text-sm font-bold text-[#2B2622]">Upload Traveler Face Photo</p>
+                    <p className="text-xs text-[#88726c] mt-1 max-w-[200px]">
+                      Drag and drop image here, or click to browse (Test Mode)
+                    </p>
+                    <span className="mt-4 px-3 py-1 bg-[#B8860B] text-white text-[10px] font-bold rounded-full">
+                      Select Image
+                    </span>
+                  </div>
+                )}
+
+                {/* Idle state: Live video */}
+                {verifyState === "idle" && captureMode === "camera" && (
                   <>
                     <video
                       ref={videoRef}
@@ -223,69 +451,132 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
 
                     {/* ── Biometric Face Alignment Overlay ── */}
                     <div className="absolute inset-0 z-10 pointer-events-none">
-                      {/* Dark vignette mask outside the oval */}
-                      <svg
-                        className="absolute inset-0 w-full h-full"
-                        viewBox="0 0 300 400"
-                        preserveAspectRatio="xMidYMid slice"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <defs>
-                          <mask id="face-oval-mask">
-                            <rect width="300" height="400" fill="white" />
-                            <ellipse cx="150" cy="175" rx="90" ry="118" fill="black" />
-                          </mask>
-                        </defs>
-                        {/* Darkened surround */}
-                        <rect
-                          width="300"
-                          height="400"
-                          fill="rgba(0,0,0,0.55)"
-                          mask="url(#face-oval-mask)"
-                        />
-                        {/* Animated oval border — normal */}
-                        <ellipse
-                          cx="150" cy="175" rx="90" ry="118"
-                          fill="none"
-                          stroke="rgba(217,119,87,0.9)"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeDasharray="20 8"
-                        >
-                          <animateTransform
-                            attributeName="transform"
-                            type="rotate"
-                            from="0 150 175"
-                            to="360 150 175"
-                            dur="8s"
-                            repeatCount="indefinite"
-                          />
-                        </ellipse>
-                        {/* Inner glow ring */}
-                        <ellipse
-                          cx="150" cy="175" rx="90" ry="118"
-                          fill="none"
-                          stroke="rgba(217,119,87,0.25)"
-                          strokeWidth="6"
-                        />
-                        {/* Corner scan brackets — top-left */}
-                        <path d="M 62 100 L 62 80 L 82 80" fill="none" stroke="#d97757" strokeWidth="3" strokeLinecap="round" />
-                        {/* top-right */}
-                        <path d="M 218 100 L 218 80 L 198 80" fill="none" stroke="#d97757" strokeWidth="3" strokeLinecap="round" />
-                        {/* bottom-left */}
-                        <path d="M 62 280 L 62 300 L 82 300" fill="none" stroke="#d97757" strokeWidth="3" strokeLinecap="round" />
-                        {/* bottom-right */}
-                        <path d="M 218 280 L 218 300 L 198 300" fill="none" stroke="#d97757" strokeWidth="3" strokeLinecap="round" />
-                        {/* Horizontal center crosshair line */}
-                        <line x1="60" y1="175" x2="88" y2="175" stroke="rgba(217,119,87,0.5)" strokeWidth="1" />
-                        <line x1="212" y1="175" x2="240" y2="175" stroke="rgba(217,119,87,0.5)" strokeWidth="1" />
-                      </svg>
+                      {/* Dynamic SVG — color changes based on detection state */}
+                      {(() => {
+                        const ovalColor = faceAligned
+                          ? "rgba(47,143,91,1)"      // green — aligned
+                          : faceDetected
+                          ? "rgba(184,134,11,1)"     // amber — face found, not centred
+                          : "rgba(217,119,87,0.9)";  // orange — no face
 
-                      {/* Instruction text at bottom */}
+                        const glowColor = faceAligned
+                          ? "rgba(47,143,91,0.25)"
+                          : faceDetected
+                          ? "rgba(184,134,11,0.20)"
+                          : "rgba(217,119,87,0.20)";
+
+                        const bracketColor = faceAligned
+                          ? "#2F8F5B"
+                          : faceDetected
+                          ? "#B8860B"
+                          : "#d97757";
+
+                        const animDur = faceAligned ? "2s" : "8s";
+
+                        return (
+                          <svg
+                            className="absolute inset-0 w-full h-full"
+                            viewBox="0 0 300 400"
+                            preserveAspectRatio="xMidYMid slice"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <defs>
+                              <mask id="face-oval-mask-dyn">
+                                <rect width="300" height="400" fill="white" />
+                                <ellipse cx="150" cy="175" rx="90" ry="118" fill="black" />
+                              </mask>
+                            </defs>
+                            {/* Darkened surround */}
+                            <rect
+                              width="300" height="400"
+                              fill={faceAligned ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.55)"}
+                              mask="url(#face-oval-mask-dyn)"
+                            />
+                            {/* Animated dashed oval */}
+                            <ellipse
+                              cx="150" cy="175" rx="90" ry="118"
+                              fill="none"
+                              stroke={ovalColor}
+                              strokeWidth={faceAligned ? "3" : "2.5"}
+                              strokeLinecap="round"
+                              strokeDasharray={faceAligned ? "560" : "20 8"}
+                              style={{ transition: "stroke 0.3s, stroke-dasharray 0.5s" }}
+                            >
+                              <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="0 150 175"
+                                to="360 150 175"
+                                dur={animDur}
+                                repeatCount="indefinite"
+                              />
+                            </ellipse>
+                            {/* Inner glow ring */}
+                            <ellipse
+                              cx="150" cy="175" rx="90" ry="118"
+                              fill={faceAligned ? "rgba(47,143,91,0.08)" : "none"}
+                              stroke={glowColor}
+                              strokeWidth="7"
+                              style={{ transition: "all 0.3s" }}
+                            />
+                            {/* Corner brackets */}
+                            <path d="M 62 100 L 62 80 L 82 80" fill="none" stroke={bracketColor} strokeWidth="3" strokeLinecap="round" />
+                            <path d="M 218 100 L 218 80 L 198 80" fill="none" stroke={bracketColor} strokeWidth="3" strokeLinecap="round" />
+                            <path d="M 62 280 L 62 300 L 82 300" fill="none" stroke={bracketColor} strokeWidth="3" strokeLinecap="round" />
+                            <path d="M 218 280 L 218 300 L 198 300" fill="none" stroke={bracketColor} strokeWidth="3" strokeLinecap="round" />
+                            {/* Crosshairs */}
+                            <line x1="60" y1="175" x2="88" y2="175" stroke={`${bracketColor}80`} strokeWidth="1" />
+                            <line x1="212" y1="175" x2="240" y2="175" stroke={`${bracketColor}80`} strokeWidth="1" />
+                            {/* Countdown number inside oval */}
+                            {countdown !== null && countdown > 0 && (
+                              <text
+                                x="150" y="195"
+                                textAnchor="middle"
+                                fontSize="72"
+                                fontWeight="900"
+                                fill={faceAligned ? "rgba(47,143,91,0.9)" : "rgba(255,255,255,0.6)"}
+                                style={{ fontFamily: "sans-serif" }}
+                              >
+                                {countdown}
+                              </text>
+                            )}
+                            {countdown === 0 && (
+                              <text
+                                x="150" y="185"
+                                textAnchor="middle"
+                                fontSize="22"
+                                fontWeight="900"
+                                fill="rgba(47,143,91,1)"
+                                style={{ fontFamily: "sans-serif" }}
+                              >
+                                AUTO CAPTURING
+                              </text>
+                            )}
+                          </svg>
+                        );
+                      })()}
+
+                      {/* Bottom instruction pill — updates live */}
                       <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1.5">
-                        <span className="bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                          <span className="material-symbols-outlined !text-[12px] text-[#d97757]">face_retouching_natural</span>
-                          Align face within oval · Look straight ahead
+                        <span
+                          className={`backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all ${
+                            faceAligned
+                              ? "bg-[#2F8F5B]/80"
+                              : faceDetected
+                              ? "bg-[#B8860B]/80"
+                              : "bg-black/70"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined !text-[12px]">
+                            {faceAligned ? "check_circle" : faceDetected ? "center_focus_weak" : "face_retouching_natural"}
+                          </span>
+                          {faceAligned && countdown !== null
+                            ? `Hold still — capturing in ${countdown}...`
+                            : faceDetected
+                            ? "Move closer & centre your face in the oval"
+                            : autoCapSupported
+                            ? "Align face within oval · Look straight ahead"
+                            : "Align face within oval · Click Capture when ready"}
                         </span>
                       </div>
                     </div>
@@ -363,9 +654,8 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
                 </div>
               ) : matchResult ? (
                 <div
-                  className={`rounded-2xl p-6 flex flex-col items-center gap-3 border ${
-                    isMatch ? "bg-[#E5F3EA] border-[#2F8F5B]/30" : "bg-[#FBE3E3] border-[#C13B3B]/30"
-                  }`}
+                  className={`rounded-2xl p-6 flex flex-col items-center gap-3 border ${isMatch ? "bg-[#E5F3EA] border-[#2F8F5B]/30" : "bg-[#FBE3E3] border-[#C13B3B]/30"
+                    }`}
                 >
                   {/* Score ring */}
                   <div className="relative w-24 h-24 flex items-center justify-center">
@@ -383,9 +673,8 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
                       />
                     </svg>
                     <div
-                      className={`absolute inset-0 flex flex-col items-center justify-center ${
-                        isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
-                      }`}
+                      className={`absolute inset-0 flex flex-col items-center justify-center ${isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
+                        }`}
                     >
                       <span className="text-2xl font-extrabold leading-none">{displayScore ?? "—"}</span>
                       <span className="text-[10px] font-bold">%</span>
@@ -393,9 +682,8 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
                   </div>
 
                   <div
-                    className={`flex items-center gap-2 font-extrabold text-lg ${
-                      isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
-                    }`}
+                    className={`flex items-center gap-2 font-extrabold text-lg ${isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
+                      }`}
                   >
                     <span className="material-symbols-outlined icon-fill !text-2xl">
                       {isMatch ? "verified_user" : "gpp_bad"}
@@ -404,9 +692,8 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
                   </div>
 
                   <p
-                    className={`text-xs font-medium text-center max-w-md ${
-                      isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
-                    }`}
+                    className={`text-xs font-medium text-center max-w-md ${isMatch ? "text-[#2F8F5B]" : "text-[#C13B3B]"
+                      }`}
                   >
                     {isMatch
                       ? `Facial geometry matches the document holder photo. Match confidence: ${displayScore}% (threshold 60%).`
@@ -424,13 +711,23 @@ export const Step4FaceVerification: React.FC<Step4FaceVerificationProps> = ({
           {/* ── Action buttons ─────────────────────────────────────────────── */}
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-lg">
             {verifyState === "idle" && (
-              <button
-                onClick={handleCapture}
-                className="w-full bg-[#d97757] text-white px-10 py-4 rounded-xl font-bold text-sm shadow-[0px_8px_24px_rgba(217,119,87,0.25)] hover:scale-[1.03] transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
-              >
-                <span className="material-symbols-outlined !text-xl">photo_camera</span>
-                <span>Capture & Match</span>
-              </button>
+              captureMode === "upload" ? (
+                <button
+                  onClick={() => uploadInputRef.current?.click()}
+                  className="w-full bg-[#B8860B] text-white px-10 py-4 rounded-xl font-bold text-sm shadow-[0px_8px_24px_rgba(184,134,11,0.25)] hover:scale-[1.03] transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+                >
+                  <span className="material-symbols-outlined !text-xl">upload_file</span>
+                  <span>Select Image to Verify (Test Mode)</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleCapture}
+                  className="w-full bg-[#d97757] text-white px-10 py-4 rounded-xl font-bold text-sm shadow-[0px_8px_24px_rgba(217,119,87,0.25)] hover:scale-[1.03] transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+                >
+                  <span className="material-symbols-outlined !text-xl">photo_camera</span>
+                  <span>Capture & Match</span>
+                </button>
+              )
             )}
 
             {(verifyState === "capturing" || verifyState === "verifying") && (

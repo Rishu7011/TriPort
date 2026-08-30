@@ -250,13 +250,13 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "frontend/app/layout.tsx": {
-    "mtime": 1788073897.5993888,
-    "ast_hash": "b875814bce5f6bea1281a27f2893550c",
+    "mtime": 1788025584.3246648,
+    "ast_hash": "1abe7d5d2767ace699853c66877de987",
     "semantic_hash": ""
   },
   "frontend/app/page.tsx": {
-    "mtime": 1788075652.8429778,
-    "ast_hash": "8e63cc1cbbfbbc0a8a43db7702e10ce2",
+    "mtime": 1788026936.550384,
+    "ast_hash": "284a0c9e820b0e05091596039060e6ad",
     "semantic_hash": ""
   },
   "frontend/eslint.config.mjs": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "backend/face_service/core/embedding.py": {
-    "mtime": 1788074887.6978567,
-    "ast_hash": "bacefa93661a8d8f1062a1be8d2a675f",
+    "mtime": 1788023929.2861736,
+    "ast_hash": "e18b9cb899ac8cacef2a2ae2b9626872",
     "semantic_hash": ""
   },
   "backend/face_service/core/one_to_one.py": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "backend/orchestrator/routers/documents.py": {
-    "mtime": 1788074848.0166063,
-    "ast_hash": "f832b20e900dd2e3573c9cf1c54af482",
+    "mtime": 1788025367.9576914,
+    "ast_hash": "6474e999abc221b24250f2c99d6a2e2d",
     "semantic_hash": ""
   },
   "backend/orchestrator/schemas/pipeline.py": {
@@ -667,46 +667,6 @@
   "docs/threat-model.md": {
     "mtime": 1788022744.0339363,
     "ast_hash": "95bdfb85cf55fe83ca885e8994572efa",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/AdminScanQueue.tsx": {
-    "mtime": 1788073979.0347662,
-    "ast_hash": "0b3e1e78bb50214fd637a8ab45c70165",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/ScreenSwitcherNav.tsx": {
-    "mtime": 1788074923.435065,
-    "ast_hash": "d7f82a7610368ee207de20d408578bc3",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step1Upload.tsx": {
-    "mtime": 1788073925.4850557,
-    "ast_hash": "54bb38a9235d02aa89b46db936cb6880",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step2Scanning.tsx": {
-    "mtime": 1788075160.7988174,
-    "ast_hash": "4028ff81a69b83185c527e02854384f6",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step3ExtractionReview.tsx": {
-    "mtime": 1788075021.7451723,
-    "ast_hash": "9d1d6a6c708d8f273829f72ee59578b5",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step3VerificationResult.tsx": {
-    "mtime": 1788074283.8726573,
-    "ast_hash": "50b37329c64e1bda0885d18ecdc2dd7f",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step4Confirmation.tsx": {
-    "mtime": 1788075121.2489526,
-    "ast_hash": "e69f9233500106cca769b6c976bd5633",
-    "semantic_hash": ""
-  },
-  "frontend/components/stitch/Step4FaceVerification.tsx": {
-    "mtime": 1788076110.270518,
-    "ast_hash": "cc55dc94abdbec0c439e1f602e532730",
     "semantic_hash": ""
   }
 }
