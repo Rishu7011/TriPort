@@ -370,3 +370,82 @@ def extract_face_embedding(
     fallback_vec = _compute_fallback_embedding(img_rgb)
     logger.info("Using local gradient fallback embedding", dims=len(fallback_vec))
     return True, fallback_vec, max(1, face_count), "Face embedding generated via local gradient histogram (last-resort fallback)."
+
+
+# ---------------------------------------------------------------------------
+# Face Crop Extraction — Returns cropped face JPEG bytes for frontend display
+# ---------------------------------------------------------------------------
+def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
+    """
+    Detect and crop the face photo from a passport/ID document image.
+
+    Uses a cascading strategy:
+      1. InsightFace RetinaFace bounding box (if available)
+      2. OpenCV Haar cascade (always available via cv2)
+
+    Returns:
+        (crop_bytes, face_detected)
+        - crop_bytes: JPEG bytes of the cropped face region, None if not found
+        - face_detected: True if a face was located and cropped
+    """
+    try:
+        img_rgb = _bytes_to_numpy_rgb(image_bytes)
+    except Exception as exc:
+        logger.warning("extract_face_crop_bytes: image decode failed", error=str(exc))
+        return None, False
+
+    h, w = img_rgb.shape[:2]
+
+    # ── Strategy 1: InsightFace RetinaFace bounding box ──────────────────────
+    app = _get_insightface_app()
+    if app is not None:
+        try:
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+            faces = app.get(img_bgr)
+            if faces:
+                best = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+                x1, y1, x2, y2 = [int(v) for v in best.bbox]
+                # Add 20% padding around the face
+                pad_x = int((x2 - x1) * 0.20)
+                pad_y = int((y2 - y1) * 0.25)
+                x1 = max(0, x1 - pad_x)
+                y1 = max(0, y1 - pad_y)
+                x2 = min(w, x2 + pad_x)
+                y2 = min(h, y2 + pad_y)
+                face_crop_rgb = img_rgb[y1:y2, x1:x2]
+                pil_crop = Image.fromarray(face_crop_rgb)
+                buf = io.BytesIO()
+                pil_crop.save(buf, format="JPEG", quality=92)
+                logger.info("Face crop extracted via InsightFace RetinaFace", bbox=[x1, y1, x2, y2])
+                return buf.getvalue(), True
+        except Exception as exc:
+            logger.debug("InsightFace crop attempt failed", error=str(exc))
+
+    # ── Strategy 2: OpenCV Haar Cascade ──────────────────────────────────────
+    try:
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+        faces_haar = face_cascade.detectMultiScale(
+            gray, scaleFactor=1.05, minNeighbors=3, minSize=(40, 40)
+        )
+        if len(faces_haar) > 0:
+            # Pick the largest face
+            x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
+            pad_x = int(fw * 0.20)
+            pad_y = int(fh * 0.25)
+            x1 = max(0, x - pad_x)
+            y1 = max(0, y - pad_y)
+            x2 = min(w, x + fw + pad_x)
+            y2 = min(h, y + fh + pad_y)
+            face_crop_rgb = img_rgb[y1:y2, x1:x2]
+            pil_crop = Image.fromarray(face_crop_rgb)
+            buf = io.BytesIO()
+            pil_crop.save(buf, format="JPEG", quality=92)
+            logger.info("Face crop extracted via OpenCV Haar cascade", bbox=[x1, y1, x2, y2])
+            return buf.getvalue(), True
+    except Exception as exc:
+        logger.debug("OpenCV Haar crop attempt failed", error=str(exc))
+
+    logger.info("No face detected for crop — returning None")
+    return None, False

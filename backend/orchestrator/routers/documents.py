@@ -12,9 +12,12 @@ Endpoints implemented (plan.md §7):
   - GET  /api/v1/audit/{document_id}
 """
 
+import base64
+import io
 import uuid
 from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,7 +135,47 @@ async def upload_and_screen_document(
 
 
 # ---------------------------------------------------------------------------
+# 1b. Face Photo Crop — Extract passport holder photo from document image
+# ---------------------------------------------------------------------------
+@router.post(
+    "/documents/face-crop",
+    summary="Extract and return the face photo from a passport image as base64",
+)
+async def extract_face_crop(
+    file: UploadFile = File(..., description="Passport or ID document image"),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+) -> JSONResponse:
+    """
+    Use MTCNN face detection to locate and crop the holder photo from a
+    document scan. Returns the crop as a base64-encoded JPEG data URL so
+    the frontend can display the ID photo directly without canvas tricks.
+    """
+    try:
+        image_bytes = await file.read()
+        if len(image_bytes) == 0:
+            raise ValueError("Empty file")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail={"error": "invalid_image", "reason": str(exc)}) from exc
+
+    try:
+        from backend.face_service.core.embedding import extract_face_crop_bytes
+        crop_bytes, face_detected = extract_face_crop_bytes(image_bytes)
+    except Exception:
+        # Fallback: try calling embedding directly without the crop helper
+        face_detected = False
+        crop_bytes = None
+
+    if not face_detected or not crop_bytes:
+        return JSONResponse({"face_detected": False, "face_crop_base64": None})
+
+    b64 = base64.b64encode(crop_bytes).decode("utf-8")
+    data_url = f"data:image/jpeg;base64,{b64}"
+    return JSONResponse({"face_detected": True, "face_crop_base64": data_url})
+
+
+# ---------------------------------------------------------------------------
 # 2. Document Extraction Details
+
 # ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/extraction",
