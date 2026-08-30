@@ -19,8 +19,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="BorderGuard-AI — Orchestrator Gateway",
-    description="Main orchestrator, gateway, and security coordinator for BorderGuard-AI.",
+    title="TriPort — Orchestrator Gateway",
+    description="Main orchestrator, gateway, and security coordinator for TriPort AI screening system.",
     version="0.1.0",
     lifespan=lifespan,
 )

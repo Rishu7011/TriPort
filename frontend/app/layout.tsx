@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BorderGuard-AI — Defense Screening & Officer Dashboard",
-  description: "Warm Minimalist AI identity document verification, multi-layer tampering detection, biometric face matching, and cryptographic audit ledger.",
+  title: "TriPort — Border Document Screening & Officer Dashboard",
+  description: "AI identity document verification, multi-layer tampering detection, biometric face matching, and cryptographic audit ledger for Airport, Land Port & Sea Port checkpoints.",
 };
 
 export default function RootLayout({
