@@ -121,12 +121,16 @@ pnpm-debug.log*
 docker-compose.override.yml
 .docker/
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PostgreSQL / MinIO  (local data volumes if bind-mounted)
+# PostgreSQL / MinIO / SQLite (local data volumes if bind-mounted)
 # ─────────────────────────────────────────────────────────────────────────────
 postgres-data/
 minio-data/
 pgdata/
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.db
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Uploaded / scanned document images  (NEVER commit real documents)

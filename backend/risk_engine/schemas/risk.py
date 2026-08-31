@@ -115,12 +115,38 @@ class BlacklistSubScore(BaseModel):
     )
 
 
+class CrossCheckpointSubScore(BaseModel):
+    """Sub-score input from the Cross-Checkpoint Service (Module 5)."""
+    cross_checkpoint_risk: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Continuous cross-checkpoint fraud risk (0.0 to 1.0)",
+    )
+    flags: list[str] = Field(
+        default_factory=list,
+        description="Flag identifiers (e.g. name_mismatch_across_cluster, impossible_travel_detected)",
+    )
+    flag_details: list[str] = Field(
+        default_factory=list,
+        description="Human-readable details of detected cross-checkpoint flags",
+    )
+    repeat_offender_hit: bool = Field(
+        default=False,
+        description="True if individual has prior High/Critical risk assessments",
+    )
+    prior_critical_or_high_count: int = Field(
+        default=0,
+        description="Count of prior high or critical offenses in this cluster",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Full risk score request — sent by orchestrator to risk engine
 # ---------------------------------------------------------------------------
 class RiskScoreRequest(BaseModel):
     """
-    All sub-score inputs assembled by the orchestrator from the four upstream services.
+    All sub-score inputs assembled by the orchestrator from upstream services.
     The risk engine uses these to compute the final weighted score.
     """
     document_id: str = Field(..., description="Document UUID being scored")
@@ -128,6 +154,7 @@ class RiskScoreRequest(BaseModel):
     tampering: TamperingSubScore = Field(default_factory=TamperingSubScore)
     face: FaceSubScore = Field(default_factory=FaceSubScore)
     blacklist: BlacklistSubScore = Field(default_factory=BlacklistSubScore)
+    cross_checkpoint: CrossCheckpointSubScore = Field(default_factory=CrossCheckpointSubScore)
     # Signals which upstream services were unavailable (degraded pipeline)
     degraded_modules: list[str] = Field(
         default_factory=list,
@@ -144,6 +171,10 @@ class SubScoreBreakdown(BaseModel):
     tampering_score: float = Field(..., description="Normalized tampering sub-score (0–1)")
     face_match_score: float = Field(..., description="Normalized face risk sub-score (0–1)")
     blacklist_hit_score: float = Field(..., description="Blacklist contribution (0 or 1, tiered)")
+    cross_checkpoint_score: float = Field(
+        default=0.0,
+        description="Normalized cross-checkpoint fraud sub-score (0–1)",
+    )
     weights: dict[str, float] = Field(
         default_factory=lambda: {
             "validation": 0.30,
@@ -174,6 +205,10 @@ class RiskScoreResponse(BaseModel):
         description="Plain-language list explaining every risk signal that fired",
     )
     sub_scores: SubScoreBreakdown
+    repeat_offender_escalated: bool = Field(
+        default=False,
+        description="True if the risk band was escalated due to repeat offender history",
+    )
     degraded: bool = Field(
         default=False,
         description="True if one or more upstream modules failed — score is an estimate",
@@ -182,3 +217,4 @@ class RiskScoreResponse(BaseModel):
         default_factory=list,
         description="Which modules were unavailable during this scoring run",
     )
+

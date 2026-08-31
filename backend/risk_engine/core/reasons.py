@@ -143,14 +143,52 @@ def generate_reasons(
             "Do not allow passage without supervisor authorization."
         )
 
-    # ── 5. Degraded module warnings ──────────────────────────────────────────
+    # ── 5. Cross-Checkpoint & Multi-Identity reasons (Module 5) ───────────────
+    cc = request.cross_checkpoint
+    if cc.flags:
+        for flag_name in cc.flags:
+            if "name_mismatch" in flag_name.lower():
+                reasons.append(
+                    "MULTI-IDENTITY ALERT — same facial biometric observed under multiple "
+                    "conflicting names across distinct border checkpoints."
+                )
+            elif "document_number_mismatch" in flag_name.lower():
+                reasons.append(
+                    "MULTIPLE TRAVEL DOCUMENTS — same individual holds distinct passport "
+                    "or ID numbers across historical border crossings."
+                )
+            elif "impossible_travel" in flag_name.lower():
+                reasons.append(
+                    "IMPOSSIBLE TRAVEL VELOCITY — traveler observed at multiple distinct "
+                    "checkpoints within an implausibly short time window."
+                )
+            elif "repeat_offender" in flag_name.lower():
+                reasons.append(
+                    f"REPEAT OFFENDER HIT — traveler cluster has {cc.prior_critical_or_high_count} "
+                    "prior High/Critical risk assessment(s). Risk tier auto-escalated."
+                )
+            else:
+                reasons.append(f"Cross-checkpoint anomaly flag raised: {flag_name}")
+
+    if cc.flag_details:
+        for detail_str in cc.flag_details:
+            if detail_str not in reasons:
+                reasons.append(f"Cross-checkpoint detail: {detail_str}")
+
+    if cc.repeat_offender_hit and not any("REPEAT OFFENDER" in r for r in reasons):
+        reasons.append(
+            "REPEAT OFFENDER ALERT — prior severe infractions on record for this individual. "
+            "Risk band auto-escalated by one tier."
+        )
+
+    # ── 6. Degraded module warnings ──────────────────────────────────────────
     for module in request.degraded_modules:
         reasons.append(
             f"WARNING: {module} service was unavailable during this scan. "
             "Risk score is an estimate — reprocess when service is restored."
         )
 
-    # ── 6. Clean document — always return something ───────────────────────────
+    # ── 7. Clean document — always return something ───────────────────────────
     if not reasons:
         reasons.append(
             "No risk signals detected across all verification checks. "
@@ -163,3 +201,4 @@ def generate_reasons(
         reason_count=len(reasons),
     )
     return reasons
+

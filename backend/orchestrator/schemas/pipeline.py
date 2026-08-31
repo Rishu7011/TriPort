@@ -18,6 +18,9 @@ from backend.face_service.schemas.face import FullFaceVerificationResponse
 from backend.risk_engine.schemas.risk import RiskScoreResponse
 
 
+from backend.cross_checkpoint_service.schemas.cross_checkpoint import ClusterAnalysisResponse
+
+
 # ---------------------------------------------------------------------------
 # Pipeline result — aggregated output from all modules
 # ---------------------------------------------------------------------------
@@ -33,6 +36,7 @@ class PipelineServiceStatuses(BaseModel):
     validation: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
     tampering: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
     face: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
+    cross_checkpoint: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
     risk_engine: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
     audit_ledger: ServiceStatus = Field(default_factory=lambda: ServiceStatus(available=True))
 
@@ -54,7 +58,9 @@ class PipelineResult(BaseModel):
     validation: ValidationResponse | None = None
     tampering: TamperingResponse | None = None
     face: FullFaceVerificationResponse | None = None
+    cross_checkpoint: ClusterAnalysisResponse | None = None
     risk_score: RiskScoreResponse | None = None
+
 
 
 # ---------------------------------------------------------------------------

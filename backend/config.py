@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     face_service_url: str = "http://localhost:8004"
     risk_engine_url: str = "http://localhost:8005"
     audit_ledger_url: str = "http://localhost:8006"
+    cross_checkpoint_service_url: str = "http://localhost:8008"
 
     # ── Auth ────────────────────────────────────────────────
     secret_key: str = "supersecretkey-change-in-production"

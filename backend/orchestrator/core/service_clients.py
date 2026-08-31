@@ -118,11 +118,12 @@ async def call_ocr_service(
         document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
         and len(extracted_dict) < 2
     ):
-        llm_fields = extract_fields_with_llm(image_bytes, document_type)
+        _, llm_fields = extract_fields_with_llm(image_bytes, document_type)
         if llm_fields:
             primary_method = ExtractionMethod.LLM
             for f in llm_fields:
                 extracted_dict[f.field_name] = f
+
 
     return ExtractionResponse(
         document_type=document_type,
@@ -369,7 +370,55 @@ async def call_risk_engine(request: RiskScoreRequest) -> RiskScoreResponse:
 
 
 # ---------------------------------------------------------------------------
-# 6. Audit Ledger Client
+# 6. Cross-Checkpoint Service Client (Module 5)
+# ---------------------------------------------------------------------------
+async def call_cross_checkpoint_service(
+    person_cluster_id: str,
+    current_doc: Any | None = None,
+    current_risk_band: str | None = "low",
+) -> Any:
+    """Invoke Cross-Checkpoint analysis via HTTP or fallback to internal graph engine."""
+    from backend.cross_checkpoint_service.schemas.cross_checkpoint import (
+        ClusterAnalysisRequest,
+        ClusterAnalysisResponse,
+        ClusterDocument,
+    )
+    from backend.cross_checkpoint_service.core.face_graph import analyze_cluster
+
+    url = f"{settings.cross_checkpoint_service_url}/api/v1/clusters/analyze"
+    req = ClusterAnalysisRequest(
+        person_cluster_id=person_cluster_id,
+        current_document_id=current_doc.document_id if current_doc else None,
+        current_checkpoint_type=current_doc.checkpoint_type if current_doc else None,
+        current_checkpoint_id=current_doc.checkpoint_id if current_doc else None,
+        current_timestamp=current_doc.uploaded_at if current_doc else None,
+        current_name=current_doc.name if current_doc else None,
+        current_document_number=current_doc.document_number if current_doc else None,
+        current_nationality=current_doc.nationality if current_doc else None,
+        current_date_of_birth=current_doc.date_of_birth if current_doc else None,
+        current_risk_score=current_doc.risk_score if current_doc else None,
+        current_risk_band=current_risk_band,
+    )
+
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                res = await client.post(url, json=req.model_dump(mode="json"))
+                if res.status_code == 200:
+                    return ClusterAnalysisResponse.model_validate(res.json())
+        except Exception as exc:
+            logger.debug("Cross-checkpoint HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+
+    logger.info("Executing Cross-Checkpoint analysis via internal core engine", cluster_id=person_cluster_id)
+    return await analyze_cluster(
+        person_cluster_id=person_cluster_id,
+        current_doc=current_doc,
+        current_risk_band=current_risk_band,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 7. Audit Ledger Client
 # ---------------------------------------------------------------------------
 async def call_audit_ledger(
     event_type: str,
@@ -393,3 +442,4 @@ async def call_audit_ledger(
     except Exception as exc:
         logger.debug("Audit ledger append event skipped or pending Phase 4", error=str(exc))
     return None
+

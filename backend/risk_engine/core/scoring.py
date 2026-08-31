@@ -145,57 +145,106 @@ def classify_band(score_0_to_100: float) -> RiskBand:
     return RiskBand.LOW
 
 
+def escalate_band_one_tier(band: RiskBand) -> RiskBand:
+    """Escalate risk band by one tier for repeat offenders."""
+    if band == RiskBand.LOW:
+        return RiskBand.MEDIUM
+    if band == RiskBand.MEDIUM:
+        return RiskBand.HIGH
+    return RiskBand.CRITICAL
+
+
 # ---------------------------------------------------------------------------
 # Main scoring function
 # ---------------------------------------------------------------------------
 
-def compute_risk_score(request: RiskScoreRequest) -> tuple[float, RiskBand, SubScoreBreakdown]:
+def compute_risk_score(request: RiskScoreRequest) -> tuple[float, RiskBand, SubScoreBreakdown, bool]:
     """
     Apply the weighted formula to a RiskScoreRequest.
 
+    If cross_checkpoint_risk > 0, an additional 0.10 weight is dedicated to
+    cross-checkpoint fraud risk, deducted proportionally from the baseline weights:
+      - validation: 0.27 (0.30 * 0.90)
+      - tampering: 0.315 (0.35 * 0.90)
+      - face: 0.18 (0.20 * 0.90)
+      - blacklist: 0.135 (0.15 * 0.90)
+      - cross_checkpoint: 0.10
+
     Returns:
         score_0_to_100: float — final officer-facing score
-        band: RiskBand — named risk level
+        band: RiskBand — named risk level (possibly escalated for repeat offenders)
         breakdown: SubScoreBreakdown — per-module contribution for transparency
+        escalated: bool — whether the band was escalated for repeat offense
     """
     v_score = _normalize_validation(request.validation)
     t_score = _normalize_tampering(request.tampering)
     f_score = _normalize_face(request.face)
     b_score = _normalize_blacklist(request.blacklist)
+    cc_score = min(1.0, max(0.0, float(request.cross_checkpoint.cross_checkpoint_risk)))
 
-    weighted_sum = (
-        WEIGHTS["validation"] * v_score
-        + WEIGHTS["tampering"] * t_score
-        + WEIGHTS["face"] * f_score
-        + WEIGHTS["blacklist"] * b_score
-    )
+    if cc_score > 0.0:
+        # Cross-checkpoint term active: weight 0.10 deducted proportionally from others
+        active_weights = {
+            "validation": 0.27,
+            "tampering": 0.315,
+            "face": 0.18,
+            "blacklist": 0.135,
+            "cross_checkpoint": 0.10,
+        }
+        weighted_sum = (
+            active_weights["validation"] * v_score
+            + active_weights["tampering"] * t_score
+            + active_weights["face"] * f_score
+            + active_weights["blacklist"] * b_score
+            + active_weights["cross_checkpoint"] * cc_score
+        )
+    else:
+        active_weights = dict(WEIGHTS)
+        active_weights["cross_checkpoint"] = 0.0
+        weighted_sum = (
+            WEIGHTS["validation"] * v_score
+            + WEIGHTS["tampering"] * t_score
+            + WEIGHTS["face"] * f_score
+            + WEIGHTS["blacklist"] * b_score
+        )
 
     # Scale to 0–100
     score_0_to_100 = round(weighted_sum * 100, 1)
     score_0_to_100 = max(0.0, min(100.0, score_0_to_100))
 
-    band = classify_band(score_0_to_100)
+    base_band = classify_band(score_0_to_100)
+    final_band = base_band
+    escalated = False
+
+    # Repeat offender escalation: if prior High/Critical exists in cluster, escalate by 1 tier
+    if request.cross_checkpoint.repeat_offender_hit:
+        final_band = escalate_band_one_tier(base_band)
+        escalated = final_band != base_band
 
     breakdown = SubScoreBreakdown(
         validation_score=round(v_score, 4),
         tampering_score=round(t_score, 4),
         face_match_score=round(f_score, 4),
         blacklist_hit_score=round(b_score, 4),
-        weights=WEIGHTS,
+        cross_checkpoint_score=round(cc_score, 4),
+        weights=active_weights,
     )
 
     logger.info(
         "risk_score_computed",
         document_id=request.document_id,
         score=score_0_to_100,
-        band=band.value,
+        base_band=base_band.value,
+        final_band=final_band.value,
+        escalated=escalated,
         v_score=v_score,
         t_score=t_score,
         f_score=f_score,
         b_score=b_score,
+        cc_score=cc_score,
     )
 
-    return score_0_to_100, band, breakdown
+    return score_0_to_100, final_band, breakdown
 
 
 def build_risk_response(request: RiskScoreRequest) -> RiskScoreResponse:
@@ -207,6 +256,8 @@ def build_risk_response(request: RiskScoreRequest) -> RiskScoreResponse:
 
     score, band, breakdown = compute_risk_score(request)
     reasons = generate_reasons(request, breakdown)
+    base_band = classify_band(score)
+    escalated = (band != base_band)
 
     return RiskScoreResponse(
         document_id=request.document_id,
@@ -214,6 +265,9 @@ def build_risk_response(request: RiskScoreRequest) -> RiskScoreResponse:
         band=band,
         reasons=reasons,
         sub_scores=breakdown,
+        repeat_offender_escalated=escalated,
         degraded=len(request.degraded_modules) > 0,
         degraded_modules=request.degraded_modules,
     )
+
+

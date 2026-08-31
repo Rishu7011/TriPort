@@ -1,5 +1,5 @@
 # ============================================================
-# Phase 0 — Core Backend Dependencies
+# Core Backend Dependencies
 # Install with: uv pip install -r requirements-core.txt
 # ============================================================
 
@@ -23,9 +23,11 @@ pgvector==0.2.5                # vector type support
 # ── Object Storage ───────────────────────────────────────
 minio==7.2.7
 
-# ── Auth ─────────────────────────────────────────────────
+# ── Auth & Security ──────────────────────────────────────
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.3
+cryptography==42.0.7
 
 # ── Env & Config ─────────────────────────────────────────
 python-dotenv==1.0.1
@@ -33,8 +35,9 @@ python-dotenv==1.0.1
 # ── Logging ──────────────────────────────────────────────
 structlog==24.1.0
 
-# ── Encryption (Phase 4) ─────────────────────────────────
-cryptography==42.0.7
+# ── LangGraph Orchestration ──────────────────────────────
+langgraph>=1.2.11
+langchain-core>=1.6.1
 
 # ── Testing ──────────────────────────────────────────────
 pytest==8.2.0

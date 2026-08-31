@@ -154,6 +154,27 @@ services:
       timeout: 5s
       retries: 3
 
+  cross-checkpoint-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: borderguard-cross-checkpoint
+    restart: unless-stopped
+    env_file: .env
+    command: ["uvicorn", "cross_checkpoint_service.main:app", "--host", "0.0.0.0", "--port", "8008"]
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   orchestrator:
     build:
       context: ./backend
@@ -182,6 +203,8 @@ services:
       risk-engine:
         condition: service_healthy
       audit-ledger:
+        condition: service_healthy
+      cross-checkpoint-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8007/health"]

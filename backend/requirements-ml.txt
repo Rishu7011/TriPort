@@ -1,35 +1,27 @@
 # ============================================================
 # Phase 1+ — ML / AI Dependencies
-# Requires Python 3.11 (not 3.12+)
+# Requires Python 3.11
 # Install with: uv pip install -r requirements-ml.txt
-#
-# IMPORTANT: Create venv with Python 3.11 first:
-#   uv venv --python 3.11
-#   source .venv/bin/activate
-#   uv pip install -r requirements-core.txt
-#   uv pip install -r requirements-ml.txt
 # ============================================================
 
-# ── OCR (Phase 1) ─────────────────────────────────────────
-# Note: paddlepaddle only supports Python ≤ 3.11
-# On macOS Apple Silicon, install via:
-#   pip install paddlepaddle==2.6.1 -f https://www.paddlepaddle.org.cn/whl/mac/cpu/stable.html
-paddleocr==2.7.3
-passporteye==2.2.1             # MRZ parsing + ICAO checksum
-Pillow==10.3.0
-anthropic==0.26.0              # Claude LLM fallback
+# ── OCR & Document Analysis ────────────────────────────────
+easyocr>=1.7.1
+Pillow>=10.3.0
+google-generativeai>=0.5.4
 
-# ── Tampering Detection (Phase 2) ────────────────────────
-opencv-python-headless==4.9.0.80
-exifread==3.0.0
-numpy==1.26.4
-scikit-image==0.23.2
+# ── Computer Vision & Tampering Detection ─────────────────
+opencv-python-headless>=4.9.0.80
+exifread>=3.0.0
+numpy>=1.26.4
+scikit-image>=0.23.2
 
-# ── Face Verification (Phase 2) ──────────────────────────
-deepface==0.0.93
-tf-keras==2.16.0
+# ── Biometrics & Face Verification ────────────────────────
+deepface>=0.0.93
+tf-keras>=2.16.0
+insightface>=0.7.3
+onnxruntime>=1.18.0
+mediapipe>=0.10.9
 
-# ── CNN Classifier — stretch goal (Phase 2) ──────────────
-# torch==2.3.0
-# torchvision==0.18.0
-# efficientnet-pytorch==0.7.1
+# ── Machine Learning Runtime ──────────────────────────────
+torch>=2.2.0
+torchvision>=0.17.0

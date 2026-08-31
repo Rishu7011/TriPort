@@ -424,3 +424,79 @@ async def get_document_audit_trail(
             for e in entries
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# 9. Cross-Checkpoint Cluster History Dossier (Phase 6C)
+# ---------------------------------------------------------------------------
+@router.get(
+    "/clusters/{person_cluster_id}",
+    summary="Retrieve full cross-checkpoint history and multi-identity flags for a person cluster",
+)
+async def get_cluster_history_endpoint(
+    person_cluster_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+):
+    """
+    Retrieve comprehensive multi-checkpoint traveler dossier, including all linked
+    documents, conflicting names/passports, impossible travel anomalies, and repeat offender status.
+    """
+    from backend.cross_checkpoint_service.core.face_graph import get_cluster_history
+
+    try:
+        history = await get_cluster_history(person_cluster_id, db=db)
+        return history
+    except Exception as exc:
+        logger.error("Failed to query cluster history in orchestrator", cluster_id=person_cluster_id, error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch cluster history: {exc}",
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# 10. Secondary Inspection Queue (Phase 7B)
+# ---------------------------------------------------------------------------
+@router.get(
+    "/documents/secondary-queue",
+    summary="List all documents routed to the Secondary Inspection Queue",
+)
+async def get_secondary_inspection_queue(
+    db: AsyncSession = Depends(get_db),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+):
+    """
+    Fetch all high-risk or critical documents routed to secondary inspection.
+    """
+    stmt = (
+        select(Document, RiskScore)
+        .join(RiskScore, RiskScore.document_id == Document.id)
+        .where(RiskScore.band.in_(["high", "critical"]))
+        .order_by(RiskScore.computed_at.desc())
+        .limit(50)
+    )
+    res = await db.execute(stmt)
+    rows = res.fetchall()
+
+    queue_items = []
+    for doc, risk in rows:
+        queue_items.append(
+            {
+                "document_id": str(doc.id),
+                "document_type": doc.document_type,
+                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                "risk_score": risk.score,
+                "risk_band": risk.band,
+                "reasons": risk.reasons or [],
+                "status": "secondary_inspection",
+            }
+        )
+
+    return {
+        "total_queued": len(queue_items),
+        "queue": queue_items,
+    }
+
+
+

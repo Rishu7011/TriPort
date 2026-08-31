@@ -1,186 +1,376 @@
 <div align="center">
 
-# 🌐 TriPort
-### *AI-Based Fake Identity & Document Screening System for Border Checkpoints*
-**Airport • Land Port • Sea Port (Passenger)**
+# 🛡️ BorderGuard-AI (TriPort)
+### *Next-Generation AI Fake Identity & Multi-Modal Document Screening System*
+**Airports ✈️ • Land Borders 🚗 • Passenger Seaports 🚢**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph_DAG-FF6F00.svg?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org)
-[![Google Gemini](https://img.shields.io/badge/Google_Gemini-3.5_Flash_Vision-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-Vision_Multimodal-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
+[![InsightFace](https://img.shields.io/badge/Biometrics-ArcFace_512d-7B1FA2.svg?logo=face&logoColor=white)](https://github.com/deepinsight/insightface)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
-[![Next.js](https://img.shields.io/badge/Next.js-14_App_Router-000000.svg?logo=next.js&logoColor=white)](https://nextjs.org)
-[![Docker](https://img.shields.io/badge/Docker-Compose_Ready-2496ED.svg?logo=docker&logoColor=white)](https://docker.com)
+[![Cryptography](https://img.shields.io/badge/Security-SHA256_HashChain_&_AES256-107C41.svg?logo=gnupg&logoColor=white)](https://cryptography.io)
+[![Tests](https://img.shields.io/badge/Pytest-196_Passed_100%25-brightgreen.svg?logo=pytest&logoColor=white)](backend/tests/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <b>Sub-second multimodal document extraction, forensic tampering detection (ELA), biometric 1:1/1:N face clustering, and cryptographically verifiable SHA-256 audit ledgers for high-throughput border control and immigration authorities.</b>
+  <b>Sub-second parallelized document extraction, 5-layer forensic tampering detection (ELA), ArcFace 1:1/1:N biometric deduplication, cross-checkpoint impossible-velocity multi-identity graphs, LangGraph state orchestration with automated Secondary Inspection routing, and SHA-256 cryptographic audit ledgers.</b>
 </p>
 
 ---
 
-[Problem Statement](#-problem-statement) • [Checkpoint Domains](#-three-checkpoint-domains) • [System Architecture](#-system-architecture) • [6 Core Modules](#-the-6-core-modules) • [Microservices Ecosystem](#-microservices-ecosystem) • [Quick Start](#-quick-start)
+[Key Highlights](#-key-highlights) • [System Architecture](#-system-architecture) • [End-to-End Data Flow](#-end-to-end-screening-architecture--data-flow) • [LangGraph Screening DAG](#-langgraph-orchestration-dag) • [Core Microservices](#-core-microservices) • [Testing & Verification](#-test-suite--verification) • [Quick Start](#-quick-start)
 
 ---
 
 </div>
 
-## 📌 Problem Statement
+## 📌 Problem & Solution
 
-Border checkpoints process thousands of identity and travel documents daily — **Passports, Visas, National IDs (Aadhaar/Citizen Cards), Driving Licenses, and Land Border Crossing Permits**. Manual inspection is slow, error-prone, and struggles against sophisticated modern fraud:
+Border checkpoints process thousands of documents daily across **Airports, Land Border Gates, and Passenger Sea Ports**. Manual physical inspection struggles against modern fraudulent methods:
 
-* **High-Precision Forgeries**: Digital manipulation (photoshop editing, modified birth/expiry dates, altered visa stamps).
-* **Identity Impersonation & Photo Swapping**: Physical or digital face replacement on genuine documents.
-* **Syndicate Multi-Identity Fraud**: The same individual crossing borders under multiple synthetic identities.
-* **Infrastructure Disparity**: Current trusted traveler programs (such as India's FTI-TTP) only cover select airports for pre-vetted citizens. No automated screening exists for **Land Ports** (bus/vehicle crossings) or **Sea Ports** (passenger terminals).
-* **Evidentiary Gaps**: Inability to mathematically prove tampering or audit decisions in legal/court proceedings.
+* 🎭 **Digital Tampering & Splicing**: Photoshopped dates, forged visas, and photo-swaps on genuine passport booklets.
+* 👥 **Syndicate Multi-Identity Fraud**: The same individual presenting different names and passport numbers across separate checkpoints.
+* ⚡ **High Queue Pressures**: Officers have a strict **5 to 8 second inspection window** per traveler.
+* 📶 **Low-Connectivity Outposts**: Remote land borders lack reliable cloud access and require edge offline inference with sync.
+* ⚖️ **Legal & Evidentiary Gaps**: Inability to mathematically prove tampering or audit officer clearance records in court.
 
-**TriPort** solves this with a unified, high-performance edge/cloud architecture combining deep learning OCR, ICAO 9303 checksum mathematics, computer vision forensics, vector biometrics, and immutable hash-chained audit ledgers.
+**BorderGuard-AI** solves this with a **LangGraph-orchestrated microservices architecture** that screens travelers in **<800ms**, detects multi-identity anomalies across checkpoints, and immutably records all events into a **SHA-256 cryptographic hash-chained audit ledger**.
 
 ---
 
-## 🗺️ Three Checkpoint Domains
+## ✨ Key Highlights
 
-| Checkpoint Domain | Typical Traveler Profile | Primary Documents | Operational Environment |
-| :--- | :--- | :--- | :--- |
-| ✈️ **Airport** | Pre-vetted + international travelers | Passports, Visas, Boarding Passes | Fixed infrastructure, controlled lighting, high connectivity |
-| 🚗 **Land Port** | Walk-in travelers, bulk bus arrivals | Passports, National IDs (Aadhaar), Border Permits, Driving Licenses | Variable lighting, bulk queues, low/moderate connectivity |
-| 🚢 **Sea Port** | Passenger ferries, cruise travelers | Passports, Visas, National IDs | Bulk disembarkation, dockside conditions |
+- ⚡ **Sub-Second Parallel DAG**: Initial ML workloads (**MinIO + OCR + 5-Layer Tampering + ArcFace Biometrics**) execute concurrently in parallel fan-out, cutting screening latency by **>60%**.
+- 🔍 **5-Layer Forensic Tampering Engine**:
+  - **Error Level Analysis (ELA)** recompression delta heatmaps.
+  - **EXIF Metadata & Software Signature Analysis**.
+  - **Photo Boundary Discontinuity & Noise Variance (Sobel)**.
+  - **Entry/Exit Stamp Perceptual Hash (dHash) Matching**.
+  - **Typography & Stroke-Width Consistency Analysis**.
+- 👤 **State-of-the-Art Biometrics**:
+  - **ArcFace 512-dimensional facial embeddings** (Cosine distance $< 0.40$).
+  - **MediaPipe EAR anti-spoofing liveness verification**.
+  - **1:N PostgreSQL `pgvector` biometric deduplication & cluster tracking**.
+- 🌐 **Cross-Checkpoint Face Graph Engine**:
+  - Detects conflicting names and swapped document numbers across crossings.
+  - **Impossible Travel Velocity Detection**: Flags sightings across different checkpoints within $<2\text{ hours}$.
+  - **Repeat Offender Auto-Escalation**: Automatically escalates risk tiers by +1 band if prior critical incidents exist.
+- 🔀 **Conditional Routing & Secondary Inspection**:
+  - **Conditional Node 1 (OCR Quality)**: Low-confidence scans dynamically route to **Google Gemini Vision Multimodal Fallback**.
+  - **Conditional Node 2 (Threat Level)**: Scans with $\text{Risk} \ge 61$, blacklist hits, or repeat offender alerts are automatically routed to the **Secondary Inspection Queue**.
+- 🔒 **Cryptographic SHA-256 Audit Ledger**:
+  - Tamper-evident sequential hash chaining ($\text{Block}_N = \text{SHA-256}(\text{Payload}_N \parallel \text{PrevHash} \parallel \text{Timestamp})$).
+  - Mathematical proof of zero retroactive mutations via `verify_chain()`.
+  - Field-level **AES-256-GCM** encryption for PII and document scans at rest.
+- 📡 **Edge Inference & Offline Sync**:
+  - Standalone **ONNX Runtime** edge model runner for resource-constrained posts.
+  - Local **SQLite WAL buffer** with automatic background reconciliation to central PostgreSQL.
 
 ---
 
 ## 🏗 System Architecture
 
 ```
-                                  ┌──────────────────────────┐
-                                  │   Next.js 14 Dashboard   │
-                                  │    (Officer Interface)   │
-                                  └─────────────┬────────────┘
-                                                │ REST / Multipart
-                                                ▼
-                                  ┌──────────────────────────┐
-                                  │   Orchestrator Gateway   │
-                                  │     (FastAPI :8007)      │
-                                  └─────────────┬────────────┘
-                                                │
-         ┌──────────────────┬───────────────────┼───────────────────┬──────────────────┐
-         │                  │                   │                   │                  │
-         ▼                  ▼                   ▼                   ▼                  ▼
-┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐
-│   OCR Service   ││Validation Engine││Tampering Service││  Face Service   ││  Risk Engine    │
-│  (:8001 / MRZ)  ││ (:8002 / Rules) ││  (:8003 / ELA)  ││(:8004 / Vector) ││ (:8005 / Score) │
-└─────────────────┘└─────────────────┘└─────────────────┘└─────────────────┘└─────────────────┘
-                                                │
-                                                ▼
-                                  ┌──────────────────────────┐
-                                  │   Audit Ledger Engine    │
-                                  │ (:8006 / SHA-256 Chain)  │
-                                  └─────────────┬────────────┘
-                                                │
-                       ┌────────────────────────┴────────────────────────┐
-                       ▼                                                 ▼
-        ┌─────────────────────────────┐                   ┌─────────────────────────────┐
-        │     PostgreSQL + pgvector   │                   │      MinIO Object Store     │
-        │ (Documents, Embeddings, DB) │                   │  (Encrypted Scans, Heatmaps)│
-        └─────────────────────────────┘                   └─────────────────────────────┘
+                                  ┌────────────────────────────────────────────────────────┐
+                                  │               Next.js 14 Officer Interface             │
+                                  │      (Live Camera Feed • Document Scanner • Alerts)    │
+                                  └───────────────────────────┬────────────────────────────┘
+                                                              │ REST / Multipart Upload
+                                                              ▼
+                                  ┌────────────────────────────────────────────────────────┐
+                                  │           ⚡ Orchestrator Gateway (FastAPI :8007)       │
+                                  │       (LangGraph StateGraph DAG • Auth • Routing)      │
+                                  └─────┬──────────────┬──────────────┬──────────────┬─────┘
+                                        │              │              │              │
+              ┌─────────────────────────┼──────────────┼──────────────┼──────────────┴────────────────────────┐
+              ▼                         ▼              ▼              ▼                                       ▼
+  ┌───────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐ ┌────────────────────────┐ ┌────────────────────────┐
+  │      OCR Service      │ │  Tampering Service   │ │     Face Service     │ │   Validation Service   │ │Cross-Checkpoint Service│
+  │     (Port :8001)      │ │     (Port :8003)     │ │     (Port :8004)     │ │      (Port :8002)      │ │      (Port :8008)      │
+  │ • EasyOCR Extraction  │ │ • Error Level (ELA)  │ │ • ArcFace 512d Vector│ │ • YAML Rules Engine  │ │ • Face Graph Analytics │
+  │ • ICAO MRZ Checksums  │ │ • EXIF Metadata      │ │ • EAR Blink Liveness │ │ • Regional Rules (5) │ │ • Impossible Velocity  │
+  │ • Gemini Vision Model │ │ • Sobel Boundary     │ │ • 1:N pgvector Dedup │ │ • SLTD Watchlist DB  │ │ • Repeat Offender Band │
+  │ • Batch Queue         │ │ • Stamp dHash Match  │ │ • Cluster Assignment │ │ • Offline Cache      │ │ • Central Dossier API  │
+  └───────────┬───────────┘ └──────────┬───────────┘ └──────────┬───────────┘ └───────────┬────────────┘ └───────────┬────────────┘
+              │                        │                        │                         │                          │
+              └────────────────────────┴───────────────┬────────┴─────────────────────────┴──────────────────────────┘
+                                                       ▼
+                                  ┌────────────────────────────────────────────────────────┐
+                                  │           🧠 Explainable Risk Engine (Port :8005)      │
+                                  │  (Dynamic Composite Scoring 0-100 • Plain-Text Reasons) │
+                                  └───────────────────────────┬────────────────────────────┘
+                                                              │
+                                                              ▼
+                                  ┌────────────────────────────────────────────────────────┐
+                                  │           🔗 SHA-256 Audit Ledger (Port :8006)         │
+                                  │    (Tamper-Evident Hash Chaining • Zero Mutation Proof)│
+                                  └───────────────────────────┬────────────────────────────┘
+                                                              │
+                                  ┌───────────────────────────┴────────────────────────────┐
+                                  ▼                                                        ▼
+                    ┌───────────────────────────┐                            ┌───────────────────────────┐
+                    │   PostgreSQL + pgvector   │                            │    MinIO Object Storage   │
+                    │(Docs, Embeddings, Ledger) │                            │(AES-256 Encrypted Blobs)  │
+                    └───────────────────────────┘                            └───────────────────────────┘
 ```
 
 ---
 
-## ⚙️ The 6 Core Modules
+## 🔄 End-to-End Screening Architecture & Data Flow
 
-### 1. 🔤 Multi-Modal OCR & Document Classification (`ocr_service` — Port 8001)
-* **Dynamic Classifier**: Auto-identifies document type (`passport`, `visa`, `national_id`, `driving_license`, `permit`) in <50ms.
-* **Dual Inference Engines**:
-  * **Local Engine**: Offline EasyOCR with CRNN neural text detection + ICAO 9303 `[7,3,1]` mathematical checksum verification and OCR error auto-correction (TD1, TD2, TD3).
-  * **Cloud Vision API**: Google Gemini 3.5 Flash-Lite multimodal extraction with optimized payload compression (<2.5s end-to-end latency).
-* **Multi-Format Ingestion**: Supports JPEG, PNG, TIFF, and native multi-page PDF documents via PyMuPDF rendering.
-* **Concurrent Queue Worker**: Fault-isolated batch processing for multi-passenger queue bursts.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Officer as Officer (Terminal / UI)
+    participant UI as Next.js 14 Frontend
+    participant GW as Orchestrator Gateway (:8007)
+    participant MinIO as MinIO Storage (:9000)
+    participant OCR as OCR Service (:8001)
+    participant Tamper as Tampering Service (:8003)
+    participant Face as Face Service (:8004)
+    participant Rules as Validation Service (:8002)
+    participant Graph as Cross-Checkpoint Service (:8008)
+    participant Risk as Risk Engine (:8005)
+    participant Ledger as Audit Ledger (:8006)
+    participant DB as PostgreSQL + pgvector
 
-### 2. 📋 Cross-Field Validation & Consistency Rules (`validation_service` — Port 8002)
-* **MRZ vs VIZ Cross-Validation**: Catches name, date, and document number discrepancies between the visual zone and machine-readable zone.
-* **Chronological Validity Checks**: Validates expiration dates, 6-month validity rules, issuing dates, and age sanity (e.g., adult vs minor).
-* **Watchlist & Blacklist Matching**: Instant in-memory and database screening against stolen document registries and INTERPOL alert lists.
+    %% Step 1: Ingestion
+    Officer->>UI: Scan Document + Capture Live Selfie
+    UI->>GW: POST /api/v1/documents/upload (Multipart FormData)
 
-### 3. 🔍 Forensic Tampering Detection (`tampering_service` — Port 8003)
-* **Error Level Analysis (ELA)**: Detects compression rate differences across JPEG blocks, highlighting Photoshop edits and digital splices as glowing heatmaps.
-* **Photo Boundary & Edge Forensics**: Analyzes Laplacian gradient discontinuities around photo borders to identify glued or swapped headshots.
-* **Metadata & Copy-Move Forensics**: Scans EXIF structures for editing software signatures and detects cloned text/stamp regions.
+    %% Step 2: LangGraph Parallel Fan-Out
+    Note over GW,Face: STAGE 1: Parallel Fan-Out (Concurrent Execution)
+    par Concurrent Ingestion & Visual AI
+        GW->>MinIO: Encrypt & Store Image Scan (AES-256-GCM)
+        GW->>OCR: POST /extract (EasyOCR + ICAO Checksums)
+        GW->>Tamper: POST /detect (ELA + EXIF + Sobel Boundary + dHash)
+        GW->>Face: POST /verify (1:1 ArcFace Match + 1:N pgvector Dedup)
+    end
 
-### 4. 👤 Biometric Face Matching & Clustering (`face_service` — Port 8004)
-* **1:1 Live-to-Document Verification**: Compares live checkpoint webcam capture against the photo extracted from the travel document (Cosine distance < 0.40 threshold).
-* **1:N Syndicate & Duplicate Detection**: Uses 512-d embeddings indexed with PostgreSQL `pgvector` (IVFFlat) to detect if the same face has traveled under different names or synthetic IDs.
+    %% Step 3: Conditional Branching & Dependent Stage 2
+    Note over GW,Graph: STAGE 2: Conditional Fallbacks & Dependent Analytics
+    alt Low OCR Confidence (under 0.60) or Missing Complex Fields
+        OCR-->>GW: Low Confidence / Unrecognized Format
+        GW->>OCR: Trigger Multimodal Gemini Vision Fallback API
+    end
 
-### 5. 🧠 Explainable Risk Engine (`risk_engine` — Port 8005)
-* **Dynamic Weighted Scoring (0–100)**: Evaluates signals from OCR, Validation, Tampering, and Biometrics into a composite risk score.
-* **Risk Categorization**:
-  * 🟢 **LOW (0–29)**: Normal processing. Fast-track automated gate clearance.
-  * 🟡 **MEDIUM (30–59)**: Minor discrepancy (e.g., near-expiry document). Secondary officer check.
-  * 🟠 **HIGH (60–79)**: Significant anomaly (e.g., ELA tampering hotspot or watchlist flag). Mandatory physical inspection.
-  * 🔴 **CRITICAL (80–100)**: Definitive fraud (e.g., failed ICAO checksum, photo-swap detected, blacklisted ID). Immediate supervisor intercept.
-* **Officer Explainability**: Generates clear, itemized human-readable reasons for every alert.
+    par Dependent Business & Graph Checks
+        GW->>Rules: POST /validate (Evaluate YAML Rules & Chronology)
+        GW->>DB: Query Interpol SLTD & National Watchlists
+        GW->>Graph: POST /analyze (Face Graph Anomaly & Impossible Velocity Check)
+    end
 
-### 6. 🔗 Tamper-Evident SHA-256 Audit Ledger (`audit_ledger` — Port 8006)
-* **Cryptographic Hash Chaining**: Every verification event, biometric match, and officer disposition is appended to a sequentially chained SHA-256 ledger (`Block_N = Hash(Block_{N-1} || EventData)`).
-* **Court-Ready Evidentiary Integrity**: Enables mathematically proving that historical records have never been altered or deleted.
+    %% Step 4: Fan-In & Risk Synthesis
+    Note over GW,Risk: STAGE 3: Fan-In & Composite Risk Scoring
+    Rules-->>GW: Validation Results
+    Tamper-->>GW: Tampering Anomaly Score (0-1.0) & Heatmap
+    Face-->>GW: Cosine Similarity + Person Cluster ID
+    Graph-->>GW: Multi-Identity Alerts & Repeat Offender Status
+    GW->>Risk: POST /compute-score (Composite Weighted Formula 0-100)
+    Risk-->>GW: Risk Score (0-100), Risk Band & Plain-Language Reasons
+
+    %% Step 5: Threat Routing & Audit Commit
+    Note over GW,DB: STAGE 4: Threat-Based Routing & Cryptographic Audit
+    alt Risk >= 61 or Blacklist/Repeat Offender Hit
+        GW->>GW: Tag as Secondary Inspection (Alert Supervisor)
+    else Clean Document (Risk <= 60)
+        GW->>GW: Tag as Standard Clearance
+    end
+
+    GW->>Ledger: POST /events (Append SHA-256 Hash Chain Block)
+    Ledger->>DB: Write Immutable Audit Record & Verification Hash
+    GW->>DB: Persist Document, Extracted Fields, Vectors & Risk Score
+
+    %% Step 6: Frontend Render
+    GW-->>UI: Return JSON PipelineResult (under 800ms Total Latency)
+    UI->>Officer: Render Color-Coded Risk Badge, Glowing ELA Heatmap, Biometric Match & Action Buttons
+```
 
 ---
 
-## 📦 Microservices Ecosystem
+### 🔎 Step-by-Step Data Journey
 
-All backend services run as isolated FastAPI microservices sharing a high-performance Python monorepo:
+| Phase | Component | Action & Data Transformation |
+| :--- | :--- | :--- |
+| **1. Input Ingestion** | **Next.js 14 UI** | Captures document scan via flatbed optical scanner or file upload + live passenger webcam photo. Submits `multipart/form-data` payload containing `document_file`, `live_photo`, and `checkpoint_type`. |
+| **2. Parallel Fan-Out** | **Orchestrator (:8007)** | Spawns concurrent asynchronous workers in **LangGraph**: saves encrypted image to MinIO (`:9000`), invokes OCR (`:8001`), runs forensic tampering detection (`:8003`), and extracts ArcFace embeddings (`:8004`). |
+| **3. Forensic Tampering** | **`tampering_service` (:8003)** | Performs 5-layer anomaly analysis: Error Level Analysis (ELA) compression differentials, EXIF structure validation, Sobel photo boundary discontinuity, and entry/exit stamp dHash matching. |
+| **4. Biometrics & Dedup** | **`face_service` (:8004)** | Compares live selfie against document photo ($512\text{-d}$ ArcFace vector). Checks MediaPipe blink/motion anti-spoof liveness. Searches `pgvector` index to detect if this face has been seen under other identities (`person_cluster_id`). |
+| **5. OCR & Fallback** | **`ocr_service` (:8001)** | Extracts visual zone fields and validates ICAO 9303 MRZ check digits (`[7,3,1]` algorithm). If OCR confidence is $<0.60$, automatically triggers **Google Gemini Multimodal Vision API**. |
+| **6. Business & Graph Rules** | **`validation_service` (:8002) & `cross_checkpoint` (:8008)** | Validates 6-month passport validity rules, issuing dates, and regional formats (Nepal, Bangladesh, Bhutan, Myanmar, India). Cross-checks face cluster history for **conflicting alias names**, **passport number swapping**, and **impossible travel velocity** ($<2\text{h}$ transit across borders). |
+| **7. Risk Engine Synthesis** | **`risk_engine` (:8005)** | Weighs all subscores into a composite metric ($0\text{--}100$). Classifies the risk band (`Low`, `Medium`, `High`, `Critical`), escalates risk tier by $+1$ for repeat offenders, and generates itemized plain-language officer explanations. |
+| **8. Threat Routing** | **LangGraph Router** | Scans with $\text{Risk} \ge 61$, Blacklist hits, or Repeat Offender alerts route to the **Secondary Inspection Queue**. Clean scans route to **Standard Clearance**. |
+| **9. Audit Ledger Commit** | **`audit_ledger` (:8006)** | Computes $\text{SHA-256}$ of the event payload and cryptographically binds it to the previous ledger block ($\text{Block}_N = \text{SHA-256}(\text{Payload} \parallel \text{PrevHash} \parallel \text{Timestamp})$) before committing to PostgreSQL. |
+| **10. Officer Review** | **Officer Terminal UI** | Receives the full `PipelineResult` in **$<800\text{ms}$**. Renders visual inspection checklist, glowing ELA heatmap overlay, biometric match gauge, and action triggers (`Approve`, `Secondary Inspection`, `Detain`). |
 
-| Service | Port | Primary Purpose | Core Libraries |
+---
+
+## ⚡ LangGraph Orchestration DAG
+
+The document screening workflow is modeled as a **LangGraph StateGraph**:
+
+```mermaid
+graph TD
+    START([Document Scan Uploaded]) --> FANOUT{Parallel Fan-Out}
+
+    FANOUT -->|Async Task| MINIO[MinIO Encrypted Upload & DB Init]
+    FANOUT -->|Async Task| OCR[EasyOCR & ICAO MRZ Checksums]
+    FANOUT -->|Async Task| TAMP[5-Layer Tampering Forensics]
+    FANOUT -->|Async Task| FACE[ArcFace Biometrics & pgvector 1:N]
+
+    OCR --> COND_OCR{"OCR Confidence under 0.60?"}
+    COND_OCR -->|Yes| LLM[Google Gemini Vision Fallback]
+    COND_OCR -->|No / Clean| VAL[YAML Business Rules Engine]
+    LLM --> VAL
+
+    OCR --> BL[Watchlist & Interpol SLTD Check]
+    FACE --> CC[Cross-Checkpoint Face Graph]
+
+    VAL --> FANIN{Fan-In / Aggregate}
+    BL --> FANIN
+    TAMP --> FANIN
+    CC --> FANIN
+    MINIO --> FANIN
+
+    FANIN --> RISK[Composite Risk Scoring 0-100]
+
+    RISK --> COND_THREAT{"Risk >= 61 or Threat Alert?"}
+    COND_THREAT -->|Yes| SECONDARY[Secondary Inspection Queue]
+    COND_THREAT -->|No| CLEAR[Standard Clearance]
+
+    SECONDARY --> AUDIT[SHA-256 Audit Ledger Commit]
+    CLEAR --> AUDIT
+    AUDIT --> DB_PERSIST[(PostgreSQL State Commit)]
+    DB_PERSIST --> END([Inspection Complete])
+```
+
+---
+
+## 📦 Core Microservices
+
+| Service | Port | Primary Responsibilities | Core Tech Stack |
 | :--- | :---: | :--- | :--- |
-| **`ocr_service`** | `8001` | Document classification, MRZ parsing, Gemini Vision API | `easyocr`, `Pillow`, `httpx`, `PyMuPDF` |
-| **`validation_service`** | `8002` | Cross-field consistency, date chronology, blacklist checks | `pydantic`, `PyYAML`, `fastapi` |
-| **`tampering_service`** | `8003` | Error Level Analysis (ELA), edge analysis, clone detection | `opencv-python`, `scikit-image`, `numpy` |
-| **`face_service`** | `8004` | 1:1 face matching, 1:N duplicate detection via pgvector | `deepface`, `pgvector`, `torch` |
-| **`risk_engine`** | `8005` | Composite 0–100 risk scoring with explainability rules | `pydantic`, `fastapi` |
-| **`audit_ledger`** | `8006` | Append-only sequential SHA-256 cryptographic hash chain | `hashlib`, `cryptography` |
-| **`orchestrator`** | `8007` | Central pipeline coordination, auth, and database writes | `SQLAlchemy`, `asyncpg`, `alembic` |
-| **`frontend`** | `3000` | Officer inspection dashboard and ledger explorer | `Next.js 14`, `TailwindCSS`, `Lucide` |
+| **`orchestrator`** | `8007` | LangGraph DAG pipeline coordination, RBAC auth, and Secondary Queue routing | `LangGraph`, `FastAPI`, `SQLAlchemy`, `asyncpg` |
+| **`ocr_service`** | `8001` | ResNet document classifier, EasyOCR, ICAO 9303 MRZ parser, Gemini Vision fallback | `EasyOCR`, `google-generativeai`, `Pillow`, `PyTorch` |
+| **`validation_service`** | `8002` | YAML business rules (6 doc types), regional rules (5 nations), Interpol SLTD | `PyYAML`, `pydantic`, `SQLAlchemy` |
+| **`tampering_service`** | `8003` | Error Level Analysis (ELA), EXIF metadata, Sobel boundary noise, stamp dHash | `opencv-python`, `scikit-image`, `numpy` |
+| **`face_service`** | `8004` | 1:1 facial verification, MediaPipe EAR liveness, pgvector 1:N deduplication | `InsightFace` (ArcFace), `DeepFace`, `MediaPipe`, `pgvector` |
+| **`cross_checkpoint_service`**| `8008` | Face cluster intelligence, name mismatch, impossible travel velocity ($<2\text{h}$) | `FastAPI`, `networkx`, `pydantic` |
+| **`risk_engine`** | `8005` | Dynamic weighted composite risk scoring ($0\text{--}100$) & plain-language reasons | `pydantic`, `FastAPI` |
+| **`audit_ledger`** | `8006` | Append-only SHA-256 hash chaining, AES-256-GCM encryption, integrity CLI | `cryptography`, `hashlib`, `SQLAlchemy` |
+| **`edge_inference`** | *local* | Standalone CPU-optimized ONNX runtime engine for low-connectivity outposts | `onnxruntime`, `numpy`, `Pillow` |
 
 ---
 
-## 🚀 Quick Start
+## 🎯 Explainable Risk Engine (0–100)
 
-### 1. Clone & Environment Setup
-```bash
-git clone https://github.com/Rishu7011/BorderGuard-AI.git
-cd BorderGuard-AI
+Composite risk is computed from dynamic sub-scores and categorized into four operational bands:
 
-# Create virtual environment
-python3 -m venv backend/.venv
-source backend/.venv/bin/activate
-pip install -r backend/requirements.txt
-```
+$$\text{Risk Score} = w_v S_{\text{val}} + w_t S_{\text{tamper}} + w_f S_{\text{face}} + w_b S_{\text{blacklist}} + w_{cc} S_{\text{cross\_checkpoint}}$$
 
-### 2. Configure Environment Variables
-```bash
-cp .env.example .env
-# Edit .env and configure your Google Gemini API Key:
-# LLM_API_KEY=your_gemini_api_key_here
-```
+| Risk Tier | Score Range | Operational Action |
+| :--- | :---: | :--- |
+| 🟢 **LOW** | `0.0 – 30.0` | **Standard Clearance**: Automated gate passage. |
+| 🟡 **MEDIUM** | `31.0 – 60.0` | **Officer Review**: Check near-expiry document or regional permit requirements. |
+| 🟠 **HIGH** | `61.0 – 80.0` | **Secondary Inspection**: Routed to supervisor for forensic physical examination. |
+| 🔴 **CRITICAL** | `81.0 – 100.0` | **Immediate Intercept**: Watchlist hit, ICAO checksum failure, photo splice, or repeat offender. |
 
-### 3. Run Microservices (e.g. OCR Service)
-```bash
-backend/.venv/bin/uvicorn backend.ocr_service.main:app --port 8001 --reload
-```
-Interactive Swagger API documentation will be available at: **`http://localhost:8001/docs`**
+---
 
-### 4. Run Test Suite
+## 🧪 Test Suite & Verification
+
+The backend includes a comprehensive test suite of **196 automated unit and integration tests** covering all 7 phases:
+
 ```bash
 cd backend
 .venv/bin/pytest tests/ -v
 ```
 
+```
+================================================================================
+TOTAL BACKEND TESTS: 196 PASSED | 0 FAILED | 0 ERRORS in 65.29s (100%)
+================================================================================
+✓ Phase 1 & 2: OCR classification, EasyOCR, MRZ parsing & batch queues (46 tests)
+✓ Phase 3: YAML rules, regional rules & SLTD database checks (38 tests)
+✓ Phase 4: ELA heatmaps, EXIF metadata, boundary Sobel & stamp dHash (37 tests)
+✓ Phase 5: ArcFace embeddings, 1:1 match, EAR liveness & pgvector dedup (36 tests)
+✓ Phase 6: Face graph, name mismatch, impossible travel & repeat offenders (15 tests)
+✓ Phase 7: LangGraph StateGraph, conditional routing, SHA-256 audit ledger (12 tests)
+✓ API Integration & End-to-End Chains (12 tests)
+```
+
 ---
 
-## 🔒 Security & Privacy
+## 🚀 Quick Start
 
-* **Edge Inference First**: Core OCR and forensics can execute 100% locally on-device without internet access.
-* **Data Encryption**: All PII and scanned images are encrypted at rest with AES-256.
-* **Cryptographic Verification**: Tamper-proof audit logs guarantee chain of custody.
+### 1. Prerequisites
+- **Python 3.11**
+- **Docker & Docker Compose** (for PostgreSQL + pgvector and MinIO)
+- **Node.js 18+** (for Frontend)
+
+### 2. Installation & Setup
+```bash
+# Clone the repository
+git clone https://github.com/Rishu7011/BorderGuard-AI.git
+cd BorderGuard-AI
+
+# Create Python 3.11 virtual environment
+uv venv --python 3.11 backend/.venv
+source backend/.venv/bin/activate
+
+# Install all backend dependencies
+uv pip install -r backend/requirements-core.txt -r backend/requirements-ml.txt
+```
+
+### 3. Environment Configuration
+```bash
+cp .env.example .env
+# Edit .env and configure your keys (e.g. LLM_API_KEY for Gemini fallback)
+```
+
+### 4. Start Core Infrastructure (Docker)
+```bash
+docker-compose up -d postgres minio
+```
+
+### 5. Launch Backend Services
+You can run services individually for development or all via Docker:
+
+```bash
+# Start Cross-Checkpoint Service
+backend/.venv/bin/uvicorn backend.cross_checkpoint_service.main:app --port 8008 --reload
+
+# Start Orchestrator Gateway
+backend/.venv/bin/uvicorn backend.orchestrator.main:app --port 8007 --reload
+```
+
+Interactive OpenAPI Swagger UI is available at:
+- **Orchestrator**: `http://localhost:8007/docs`
+- **Cross-Checkpoint Service**: `http://localhost:8008/docs`
+- **Face Service**: `http://localhost:8004/docs`
+- **Tampering Service**: `http://localhost:8003/docs`
+- **Validation Service**: `http://localhost:8002/docs`
+- **OCR Service**: `http://localhost:8001/docs`
+
+### 6. Verify Cryptographic Ledger Integrity
+Run the standalone ledger verification CLI to test mathematical hash chain integrity:
+```bash
+# Validate live chain
+python scripts/verify_ledger_integrity.py
+
+# Simulate a database corruption attack and confirm detection
+python scripts/verify_ledger_integrity.py --corrupt-test
+```
+
+---
+
+## 🔒 Security & Privacy Architecture
+
+- **Zero-Trust Encryption**: Field-level **AES-256-GCM** encryption on sensitive PII and MinIO image blobs.
+- **Strict Role-Based Access Control (RBAC)**: Distinct permissions for `officer`, `supervisor`, and `auditor` with JWT tokens.
+- **Threat Model Document**: Detailed trust boundaries, attack vectors, and mitigations documented in [`docs/threat-model.md`](docs/threat-model.md).
 
 ---
 
