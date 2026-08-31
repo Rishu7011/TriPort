@@ -236,14 +236,14 @@ def classify_document(
         scores[DocumentType.NATIONAL_ID] += 5.0
         matched_features[DocumentType.NATIONAL_ID.value].append("aadhaar_number_pattern")
 
-    # PAN Number: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)
-    if re.search(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", full_text):
-        scores[DocumentType.PAN_CARD] += 5.0
+    # PAN Number: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F or PATPK1234M)
+    if re.search(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", full_text) or any(k in full_text for k in ["INCOME TAX", "PERMANENT ACCOUNT"]):
+        scores[DocumentType.PAN_CARD] += 10.0
         matched_features[DocumentType.PAN_CARD.value].append("pan_number_pattern")
 
-    # Voter ID / EPIC Number: 3 letters, 7 digits (e.g. ABC1234567)
-    if re.search(r"\b[A-Z]{3}[0-9]{7}\b", full_text) or "ELECTION COMMISSION" in full_text:
-        scores[DocumentType.VOTER_ID] += 5.0
+    # Voter ID / EPIC Number: 3 letters, 7 digits (e.g. TGI8262487 or ABC1234567)
+    if re.search(r"\b[A-Z]{3}[0-9]{7}\b", full_text) or any(k in full_text for k in ["ELECTION COMMISSION", "ELECTOR IDENTITY", "EPIC NO", "VOTER ID"]):
+        scores[DocumentType.VOTER_ID] += 10.0
         matched_features[DocumentType.VOTER_ID.value].append("voter_id_number_pattern")
 
     # 6. Normalize and Determine Winner
