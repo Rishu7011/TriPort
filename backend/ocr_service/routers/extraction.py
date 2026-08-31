@@ -185,11 +185,19 @@ async def extract_document(
         if field.field_name not in extracted_fields:
             extracted_fields[field.field_name] = field
 
-    # 6. Fallback to Vision LLM if no text/MRZ extracted or if non-standard layout
-    if (not extracted_fields and not mrz_res.mrz_present) or (
-        document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
-        and len(extracted_fields) < 2
-    ):
+    # 6. Fallback to Vision LLM if no text/MRZ extracted or if non-standard layout.
+    # Also trigger for NATIONAL_ID (e.g. Aadhaar) when sparse: EasyOCR reliably extracts
+    # dates but misses the name because Aadhaar doesn't use "GIVEN NAME"/"SURNAME" labels.
+    _sparse_non_mrz = (
+        document_type in [
+            DocumentType.DRIVING_LICENSE,
+            DocumentType.PERMIT,
+            DocumentType.FERRY_TICKET,
+            DocumentType.NATIONAL_ID,
+        ]
+        and len(extracted_fields) < 3
+    )
+    if (not extracted_fields and not mrz_res.mrz_present) or _sparse_non_mrz:
         logger.info("Triggering LLM fallback", document_type=document_type.value)
         _, llm_fields = extract_fields_with_llm(
             image_bytes=image_bytes,
@@ -197,9 +205,12 @@ async def extract_document(
             mime_type=file.content_type or "image/jpeg",
         )
         if llm_fields:
-            primary_method = ExtractionMethod.LLM
+            if not extracted_fields:
+                primary_method = ExtractionMethod.LLM
             for f in llm_fields:
-                extracted_fields[f.field_name] = f
+                # Additive merge: LLM fills gaps; don't overwrite MRZ/OCR fields
+                if f.field_name not in extracted_fields:
+                    extracted_fields[f.field_name] = f
 
     if not extracted_fields and not mrz_res.mrz_present:
         raise HTTPException(
