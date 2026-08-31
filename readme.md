@@ -1,7 +1,7 @@
 <div align="center">
 
-# 🛡️ BorderGuard-AI (TriPort)
-### *Next-Generation AI Fake Identity & Multi-Modal Document Screening System*
+# 🌐 TriPort
+### *AI-Powered Fake Identity & Multi-Modal Document Screening System*
 **Airports ✈️ • Land Borders 🚗 • Passenger Seaports 🚢**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -36,7 +36,8 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
 * 📶 **Low-Connectivity Outposts**: Remote land borders lack reliable cloud access and require edge offline inference with sync.
 * ⚖️ **Legal & Evidentiary Gaps**: Inability to mathematically prove tampering or audit officer clearance records in court.
 
-**BorderGuard-AI** solves this with a **LangGraph-orchestrated microservices architecture** that screens travelers in **<800ms**, detects multi-identity anomalies across checkpoints, and immutably records all events into a **SHA-256 cryptographic hash-chained audit ledger**.
+**TriPort** solves this with a **LangGraph-orchestrated microservices architecture** that screens travelers in **< 800ms**, detects multi-identity anomalies across checkpoints, and immutably records all events into a **SHA-256 cryptographic hash-chained audit ledger**.
+
 
 ---
 
@@ -317,12 +318,13 @@ TOTAL BACKEND TESTS: 196 PASSED | 0 FAILED | 0 ERRORS in 65.29s (100%)
 ### 2. Installation & Setup
 ```bash
 # Clone the repository
-git clone https://github.com/Rishu7011/BorderGuard-AI.git
-cd BorderGuard-AI
+git clone https://github.com/Rishu7011/TriPort.git
+cd TriPort
 
 # Create Python 3.11 virtual environment
 uv venv --python 3.11 backend/.venv
 source backend/.venv/bin/activate
+
 
 # Install all backend dependencies
 uv pip install -r backend/requirements-core.txt -r backend/requirements-ml.txt

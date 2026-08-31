@@ -1,4 +1,4 @@
-# BorderGuard-AI — API Contracts & Specification
+# TriPort — API Contracts & Specification
 
 This document details all external REST API endpoints exposed by the Orchestrator Gateway (`backend/orchestrator/routers/`) and Authentication subsystem.
 
@@ -39,7 +39,7 @@ Authenticates an officer or administrator and issues a signed JWT token.
 - **Request Body (`application/json`):**
 ```json
 {
-  "email": "officer@borderguard.gov",
+  "email": "officer@triport.gov",
   "password": "officer123"
 }
 ```
@@ -51,7 +51,7 @@ Authenticates an officer or administrator and issues a signed JWT token.
   "token_type": "bearer",
   "user": {
     "user_id": "00000000-0000-0000-0000-000000000001",
-    "email": "officer@borderguard.gov",
+    "email": "officer@triport.gov",
     "role": "officer",
     "name": "Officer J. Miller",
     "badge_number": "BG-7492",
@@ -73,7 +73,7 @@ Fetches the active user profile from the provided Bearer token.
 ```json
 {
   "user_id": "00000000-0000-0000-0000-000000000001",
-  "email": "officer@borderguard.gov",
+  "email": "officer@triport.gov",
   "role": "officer",
   "badge_number": "BG-7492",
   "checkpoint_id": "CP-DEL-T3",

@@ -6,25 +6,25 @@ services:
   # ── Databases & Storage ──────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg15
-    container_name: borderguard-postgres
+    container_name: triport-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-borderguard}
-      POSTGRES_USER: ${POSTGRES_USER:-borderguard}
+      POSTGRES_DB: ${POSTGRES_DB:-triport}
+      POSTGRES_USER: ${POSTGRES_USER:-triport}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-borderguard}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triport}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   minio:
     image: minio/minio:latest
-    container_name: borderguard-minio
+    container_name: triport-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -47,7 +47,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-ocr
+    container_name: triport-ocr
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "ocr_service.main:app", "--host", "0.0.0.0", "--port", "8001"]
@@ -65,7 +65,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-validation
+    container_name: triport-validation
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "validation_service.main:app", "--host", "0.0.0.0", "--port", "8002"]
@@ -83,7 +83,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-tampering
+    container_name: triport-tampering
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "tampering_service.main:app", "--host", "0.0.0.0", "--port", "8003"]
@@ -101,7 +101,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-face
+    container_name: triport-face
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "face_service.main:app", "--host", "0.0.0.0", "--port", "8004"]
@@ -119,7 +119,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-risk
+    container_name: triport-risk
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "risk_engine.main:app", "--host", "0.0.0.0", "--port", "8005"]
@@ -137,7 +137,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-audit
+    container_name: triport-audit
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "audit_ledger.main:app", "--host", "0.0.0.0", "--port", "8006"]
@@ -158,7 +158,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-cross-checkpoint
+    container_name: triport-cross-checkpoint
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "cross_checkpoint_service.main:app", "--host", "0.0.0.0", "--port", "8008"]
@@ -179,7 +179,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: borderguard-orchestrator
+    container_name: triport-orchestrator
     restart: unless-stopped
     env_file: .env
     command: ["uvicorn", "orchestrator.main:app", "--host", "0.0.0.0", "--port", "8007"]
@@ -217,7 +217,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: borderguard-frontend
+    container_name: triport-frontend
     restart: unless-stopped
     env_file: .env
     environment:

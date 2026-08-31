@@ -33,10 +33,10 @@ const safeApiFetch = async (path: string, options?: RequestInit): Promise<Respon
 };
 
 const DEMO_CREDENTIALS: Record<string, { email: string; pass: string }> = {
-  officer: { email: "officer@borderguard.gov", pass: "officer123" },
-  supervisor: { email: "supervisor@borderguard.gov", pass: "supervisor123" },
-  auditor: { email: "auditor@borderguard.gov", pass: "auditor123" },
-  admin: { email: "admin@borderguard.gov", pass: "admin123" },
+  officer: { email: "officer@triport.gov", pass: "officer123" },
+  supervisor: { email: "supervisor@triport.gov", pass: "supervisor123" },
+  auditor: { email: "auditor@triport.gov", pass: "auditor123" },
+  admin: { email: "admin@triport.gov", pass: "admin123" },
 };
 
 // ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ const PRESETS: Record<string, any> = {
 // ---------------------------------------------------------------------------
 // Main dashboard
 // ---------------------------------------------------------------------------
-export default function BorderGuardDashboard() {
+export default function TriPortDashboard() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>("step1_upload");
   const [role, setRole] = useState<string>("officer");
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -313,15 +313,15 @@ export default function BorderGuardDashboard() {
         const data = await res.json();
         setPipelineData(data.pipeline || data);
         setPipelineReady(true);
-        console.info("[BorderGuard] Pipeline complete:", data.status);
+        console.info("[TriPort] Pipeline complete:", data.status);
       } else {
         const errData = await res.json().catch(() => ({}));
-        console.error("[BorderGuard] Upload error:", res.status, errData);
+        console.error("[TriPort] Upload error:", res.status, errData);
         // Still mark ready so scanning animation can advance
         setPipelineReady(true);
       }
     } catch (err) {
-      console.error("[BorderGuard] Backend unreachable:", err);
+      console.error("[TriPort] Backend unreachable:", err);
       setPipelineReady(true);
     }
   }, [authToken, obtainToken, fetchFaceCrop, loadPreset]);

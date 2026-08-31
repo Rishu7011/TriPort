@@ -1,6 +1,6 @@
-# BorderGuard-AI — Live Demo & Presentation Script (5-Minute Walkthrough)
+# TriPort — Live Demo & Presentation Script (5-Minute Walkthrough)
 
-**Objective**: Demonstrate how BorderGuard-AI detects identity fraud, digital tampering, and unauthorized alterations across 6 problem statement modules.
+**Objective**: Demonstrate how TriPort detects identity fraud, digital tampering, and unauthorized alterations across 6 problem statement modules.
 
 ---
 

@@ -1,7 +1,8 @@
 # ============================================================
-# BorderGuard-AI — Complete Backend Requirements
+# TriPort — Complete Backend Requirements
 #
 # Install all dependencies with:
+
 #   uv pip install -r requirements-core.txt -r requirements-ml.txt
 # ============================================================
 

@@ -44,43 +44,54 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # Pre-configured demo users for offline & live evaluations
 DEMO_USERS: dict[str, dict[str, Any]] = {
-    "officer@borderguard.gov": {
+    "officer@triport.gov": {
         "user_id": "00000000-0000-0000-0000-000000000001",
-        "email": "officer@borderguard.gov",
+        "email": "officer@triport.gov",
         "password_hash": get_password_hash("officer123"),
         "role": "officer",
         "name": "Officer J. Miller",
-        "badge_number": "BG-7492",
+        "badge_number": "TP-7492",
         "checkpoint_id": "CP-DEL-T3",
     },
-    "supervisor@borderguard.gov": {
+    "supervisor@triport.gov": {
         "user_id": "00000000-0000-0000-0000-000000000002",
-        "email": "supervisor@borderguard.gov",
+        "email": "supervisor@triport.gov",
         "password_hash": get_password_hash("supervisor123"),
         "role": "supervisor",
         "name": "Supervisor S. Rao",
-        "badge_number": "BG-SUP-014",
+        "badge_number": "TP-SUP-014",
         "checkpoint_id": "CP-DEL-T3",
     },
-    "auditor@borderguard.gov": {
+    "auditor@triport.gov": {
         "user_id": "00000000-0000-0000-0000-000000000003",
-        "email": "auditor@borderguard.gov",
+        "email": "auditor@triport.gov",
         "password_hash": get_password_hash("auditor123"),
         "role": "auditor",
         "name": "Auditor M. Chen",
-        "badge_number": "BG-AUD-990",
+        "badge_number": "TP-AUD-990",
         "checkpoint_id": "HQ-AUDIT-CENTRAL",
     },
-    "admin@borderguard.gov": {
+    "admin@triport.gov": {
         "user_id": "00000000-0000-0000-0000-000000000004",
-        "email": "admin@borderguard.gov",
+        "email": "admin@triport.gov",
         "password_hash": get_password_hash("admin123"),
         "role": "admin",
         "name": "Administrator",
-        "badge_number": "BG-ADM-001",
+        "badge_number": "TP-ADM-001",
         "checkpoint_id": "HQ-ADMIN",
     },
+    # Backward compatibility aliases
+    "officer@borderguard.gov": {
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "email": "officer@triport.gov",
+        "password_hash": get_password_hash("officer123"),
+        "role": "officer",
+        "name": "Officer J. Miller",
+        "badge_number": "TP-7492",
+        "checkpoint_id": "CP-DEL-T3",
+    },
 }
+
 
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:

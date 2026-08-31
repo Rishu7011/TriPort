@@ -1,4 +1,4 @@
-# BorderGuard-AI — System Architecture & Technical Specification
+# TriPort — System Architecture & Technical Specification
 
 **Problem Statement ID:** 26188  
 **Organization:** Ministry of Home Affairs — Sashastra Seema Bal (SSB), Police II Division  
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary & Architecture Paradigm
 
-BorderGuard-AI transforms manual identity document inspection into an automated, explainable, and cryptographically tamper-evident pipeline operating under **5 seconds** per traveler. 
+TriPort transforms manual identity document inspection into an automated, explainable, and cryptographically tamper-evident pipeline operating under **5 seconds** per traveler. 
 
 ### Core Architectural Decisions:
 1. **Hybrid Edge-Local Inference with Central Sync:** The AI inference pipeline (OCR, forensic tampering detection, and biometric face verification) runs entirely on the local checkpoint kiosk/edge node without requiring active internet connectivity. Audit logs and watchlists sync to central headquarters when connectivity permits.

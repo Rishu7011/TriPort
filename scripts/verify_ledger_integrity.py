@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BorderGuard-AI — Standalone Cryptographic Ledger Verifier CLI.
+TriPort — Standalone Cryptographic Ledger Verifier CLI.
 
 Walks the entire SHA-256 hash chain and reports verification status.
 Supports live corruption testing for evaluator demonstrations.
@@ -28,8 +28,9 @@ async def main():
     args = parser.parse_args()
 
     print("=" * 70)
-    print("🛡️  BorderGuard-AI — Module 6 Cryptographic Ledger Verifier")
+    print("🌐  TriPort — Cryptographic Ledger Verifier")
     print("=" * 70)
+
 
     # Seed mock events if empty
     if not _IN_MEMORY_CHAIN:

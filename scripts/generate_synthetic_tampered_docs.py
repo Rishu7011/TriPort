@@ -125,7 +125,7 @@ def generate_baseline_passport(doc_id: str, surname: str, given_name: str, doc_n
 def generate_all_samples():
     """Generate 5+ genuine and 5+ samples per tampering category (photo-swap, text-edit, stamp-duplicate)."""
     manifest = {
-        "dataset_name": "BorderGuard-AI Synthetic Tampered Dataset (Expanded)",
+        "dataset_name": "TriPort Synthetic Tampered Dataset (Expanded)",
         "samples": [],
     }
 

@@ -44,7 +44,7 @@ export const ScreenSwitcherNav: React.FC<ScreenSwitcherNavProps> = ({
             <span className="material-symbols-outlined text-[#d97757] !text-2xl">
               security
             </span>
-            <span>BorderGuard-AI</span>
+            <span>TriPort</span>
           </button>
 
           <span className="hidden lg:inline-block w-px h-5 bg-[#E8E2D9]" />

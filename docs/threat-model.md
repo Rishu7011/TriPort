@@ -1,7 +1,7 @@
-# Threat Model & Security Architecture — BorderGuard-AI
+# Threat Model & Security Architecture — TriPort
 
 ## 1. System Overview & Scope
-BorderGuard-AI operates in high-stakes border control environments where physical travel documents, live biometric streams, and officer decisions must be screened in real-time, protected against tampering, and cryptographically audited.
+TriPort operates in high-stakes border control environments where physical travel documents, live biometric streams, and officer decisions must be screened in real-time, protected against tampering, and cryptographically audited.
 
 ---
 

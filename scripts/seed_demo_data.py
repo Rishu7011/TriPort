@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BorderGuard-AI — Demo Data Seeder (Phase 4D).
+TriPort — Demo Data Seeder (Phase 4D).
 
 Seeds curated, high-value test scenarios into PostgreSQL and MinIO:
   1. Clean Genuine Passport (Low Threat)
@@ -30,7 +30,7 @@ logger = get_logger("seed_demo_data")
 
 async def seed_data():
     print("=" * 70)
-    print("🌱 BorderGuard-AI — Seeding Demo Dataset Scenarios...")
+    print("🌱 TriPort — Seeding Demo Dataset Scenarios...")
     print("=" * 70)
 
     # 1. Seed audit ledger baseline trail

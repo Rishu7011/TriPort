@@ -133,18 +133,18 @@ def test_jwt_auth_and_password_hashing():
     # Issue JWT token
     token = create_access_token({
         "sub": "00000000-0000-0000-0000-000000000001",
-        "email": "officer@borderguard.gov",
+        "email": "officer@triport.gov",
         "role": "officer",
-        "badge_number": "BG-7492",
+        "badge_number": "TP-7492",
         "checkpoint_id": "CP-DEL-T3",
     })
     assert isinstance(token, str)
 
     user_data = decode_access_token(token)
     assert user_data is not None
-    assert user_data.email == "officer@borderguard.gov"
+    assert user_data.email == "officer@triport.gov"
     assert user_data.role == "officer"
-    assert user_data.badge_number == "BG-7492"
+    assert user_data.badge_number == "TP-7492"
 
 
 @pytest.mark.asyncio
@@ -155,7 +155,7 @@ async def test_auth_login_endpoint():
         # Successful login
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "officer@borderguard.gov", "password": "officer123"},
+            json={"email": "officer@triport.gov", "password": "officer123"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -171,15 +171,16 @@ async def test_auth_login_endpoint():
         )
         assert me_resp.status_code == 200
         me_data = me_resp.json()
-        assert me_data["email"] == "officer@borderguard.gov"
+        assert me_data["email"] == "officer@triport.gov"
         assert "document:upload" in me_data["permissions"]
 
         # Failed login with bad password
         bad_resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "officer@borderguard.gov", "password": "incorrect_password"},
+            json={"email": "officer@triport.gov", "password": "incorrect_password"},
         )
         assert bad_resp.status_code == 401
+
 
 
 @pytest.mark.asyncio
@@ -252,16 +253,16 @@ async def test_rbac_document_and_audit_endpoints_enforcement():
             # 4. Generate Officer token & Supervisor token
             officer_token = create_access_token({
                 "sub": "00000000-0000-0000-0000-000000000001",
-                "email": "officer@borderguard.gov",
+                "email": "officer@triport.gov",
                 "role": "officer",
-                "badge_number": "BG-7492",
+                "badge_number": "TP-7492",
                 "checkpoint_id": "CP-DEL-T3",
             })
             supervisor_token = create_access_token({
                 "sub": "00000000-0000-0000-0000-000000000002",
-                "email": "supervisor@borderguard.gov",
+                "email": "supervisor@triport.gov",
                 "role": "supervisor",
-                "badge_number": "BG-1102",
+                "badge_number": "TP-1102",
                 "checkpoint_id": "CP-DEL-T3",
             })
 
