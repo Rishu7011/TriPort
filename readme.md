@@ -50,23 +50,24 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
   - **Entry/Exit Stamp Perceptual Hash (dHash) Matching**.
   - **Typography & Stroke-Width Consistency Analysis**.
 - 👤 **State-of-the-Art Biometrics**:
-  - **ArcFace 512-dimensional facial embeddings** (Cosine distance $< 0.40$).
+  - **ArcFace 512-dimensional facial embeddings** (Cosine distance < 0.40).
   - **MediaPipe EAR anti-spoofing liveness verification**.
   - **1:N PostgreSQL `pgvector` biometric deduplication & cluster tracking**.
 - 🌐 **Cross-Checkpoint Face Graph Engine**:
   - Detects conflicting names and swapped document numbers across crossings.
-  - **Impossible Travel Velocity Detection**: Flags sightings across different checkpoints within $<2\text{ hours}$.
+  - **Impossible Travel Velocity Detection**: Flags sightings across different checkpoints within < 2 hours.
   - **Repeat Offender Auto-Escalation**: Automatically escalates risk tiers by +1 band if prior critical incidents exist.
 - 🔀 **Conditional Routing & Secondary Inspection**:
   - **Conditional Node 1 (OCR Quality)**: Low-confidence scans dynamically route to **Google Gemini Vision Multimodal Fallback**.
-  - **Conditional Node 2 (Threat Level)**: Scans with $\text{Risk} \ge 61$, blacklist hits, or repeat offender alerts are automatically routed to the **Secondary Inspection Queue**.
+  - **Conditional Node 2 (Threat Level)**: Scans with Risk >= 61, blacklist hits, or repeat offender alerts are automatically routed to the **Secondary Inspection Queue**.
 - 🔒 **Cryptographic SHA-256 Audit Ledger**:
-  - Tamper-evident sequential hash chaining ($\text{Block}_N = \text{SHA-256}(\text{Payload}_N \parallel \text{PrevHash} \parallel \text{Timestamp})$).
+  - Tamper-evident sequential hash chaining (`Block[N] = SHA256(Payload[N] || PrevHash || Timestamp)`).
   - Mathematical proof of zero retroactive mutations via `verify_chain()`.
   - Field-level **AES-256-GCM** encryption for PII and document scans at rest.
 - 📡 **Edge Inference & Offline Sync**:
   - Standalone **ONNX Runtime** edge model runner for resource-constrained posts.
   - Local **SQLite WAL buffer** with automatic background reconciliation to central PostgreSQL.
+
 
 ---
 
@@ -197,13 +198,13 @@ sequenceDiagram
 | **1. Input Ingestion** | **Next.js 14 UI** | Captures document scan via flatbed optical scanner or file upload + live passenger webcam photo. Submits `multipart/form-data` payload containing `document_file`, `live_photo`, and `checkpoint_type`. |
 | **2. Parallel Fan-Out** | **Orchestrator (:8007)** | Spawns concurrent asynchronous workers in **LangGraph**: saves encrypted image to MinIO (`:9000`), invokes OCR (`:8001`), runs forensic tampering detection (`:8003`), and extracts ArcFace embeddings (`:8004`). |
 | **3. Forensic Tampering** | **`tampering_service` (:8003)** | Performs 5-layer anomaly analysis: Error Level Analysis (ELA) compression differentials, EXIF structure validation, Sobel photo boundary discontinuity, and entry/exit stamp dHash matching. |
-| **4. Biometrics & Dedup** | **`face_service` (:8004)** | Compares live selfie against document photo ($512\text{-d}$ ArcFace vector). Checks MediaPipe blink/motion anti-spoof liveness. Searches `pgvector` index to detect if this face has been seen under other identities (`person_cluster_id`). |
-| **5. OCR & Fallback** | **`ocr_service` (:8001)** | Extracts visual zone fields and validates ICAO 9303 MRZ check digits (`[7,3,1]` algorithm). If OCR confidence is $<0.60$, automatically triggers **Google Gemini Multimodal Vision API**. |
-| **6. Business & Graph Rules** | **`validation_service` (:8002) & `cross_checkpoint` (:8008)** | Validates 6-month passport validity rules, issuing dates, and regional formats (Nepal, Bangladesh, Bhutan, Myanmar, India). Cross-checks face cluster history for **conflicting alias names**, **passport number swapping**, and **impossible travel velocity** ($<2\text{h}$ transit across borders). |
-| **7. Risk Engine Synthesis** | **`risk_engine` (:8005)** | Weighs all subscores into a composite metric ($0\text{--}100$). Classifies the risk band (`Low`, `Medium`, `High`, `Critical`), escalates risk tier by $+1$ for repeat offenders, and generates itemized plain-language officer explanations. |
-| **8. Threat Routing** | **LangGraph Router** | Scans with $\text{Risk} \ge 61$, Blacklist hits, or Repeat Offender alerts route to the **Secondary Inspection Queue**. Clean scans route to **Standard Clearance**. |
-| **9. Audit Ledger Commit** | **`audit_ledger` (:8006)** | Computes $\text{SHA-256}$ of the event payload and cryptographically binds it to the previous ledger block ($\text{Block}_N = \text{SHA-256}(\text{Payload} \parallel \text{PrevHash} \parallel \text{Timestamp})$) before committing to PostgreSQL. |
-| **10. Officer Review** | **Officer Terminal UI** | Receives the full `PipelineResult` in **$<800\text{ms}$**. Renders visual inspection checklist, glowing ELA heatmap overlay, biometric match gauge, and action triggers (`Approve`, `Secondary Inspection`, `Detain`). |
+| **4. Biometrics & Dedup** | **`face_service` (:8004)** | Compares live selfie against document photo (512-d ArcFace vector). Checks MediaPipe blink/motion anti-spoof liveness. Searches `pgvector` index to detect if this face has been seen under other identities (`person_cluster_id`). |
+| **5. OCR & Fallback** | **`ocr_service` (:8001)** | Extracts visual zone fields and validates ICAO 9303 MRZ check digits (`[7,3,1]` algorithm). If OCR confidence is < 0.60, automatically triggers **Google Gemini Multimodal Vision API**. |
+| **6. Business & Graph Rules** | **`validation_service` (:8002) & `cross_checkpoint` (:8008)** | Validates 6-month passport validity rules, issuing dates, and regional formats (Nepal, Bangladesh, Bhutan, Myanmar, India). Cross-checks face cluster history for **conflicting alias names**, **passport number swapping**, and **impossible travel velocity** (< 2h transit across borders). |
+| **7. Risk Engine Synthesis** | **`risk_engine` (:8005)** | Weighs all subscores into a composite metric (0 to 100). Classifies the risk band (`Low`, `Medium`, `High`, `Critical`), escalates risk tier by +1 for repeat offenders, and generates itemized plain-language officer explanations. |
+| **8. Threat Routing** | **LangGraph Router** | Scans with Risk >= 61, Blacklist hits, or Repeat Offender alerts route to the **Secondary Inspection Queue**. Clean scans route to **Standard Clearance**. |
+| **9. Audit Ledger Commit** | **`audit_ledger` (:8006)** | Computes SHA-256 of the event payload and cryptographically binds it to the previous ledger block (`Block[N] = SHA256(Payload[N] || PrevHash || Timestamp)`) before committing to PostgreSQL. |
+| **10. Officer Review** | **Officer Terminal UI** | Receives the full `PipelineResult` in **< 800ms**. Renders visual inspection checklist, glowing ELA heatmap overlay, biometric match gauge, and action triggers (`Approve`, `Secondary Inspection`, `Detain`). |
 
 ---
 
@@ -257,8 +258,8 @@ graph TD
 | **`validation_service`** | `8002` | YAML business rules (6 doc types), regional rules (5 nations), Interpol SLTD | `PyYAML`, `pydantic`, `SQLAlchemy` |
 | **`tampering_service`** | `8003` | Error Level Analysis (ELA), EXIF metadata, Sobel boundary noise, stamp dHash | `opencv-python`, `scikit-image`, `numpy` |
 | **`face_service`** | `8004` | 1:1 facial verification, MediaPipe EAR liveness, pgvector 1:N deduplication | `InsightFace` (ArcFace), `DeepFace`, `MediaPipe`, `pgvector` |
-| **`cross_checkpoint_service`**| `8008` | Face cluster intelligence, name mismatch, impossible travel velocity ($<2\text{h}$) | `FastAPI`, `networkx`, `pydantic` |
-| **`risk_engine`** | `8005` | Dynamic weighted composite risk scoring ($0\text{--}100$) & plain-language reasons | `pydantic`, `FastAPI` |
+| **`cross_checkpoint_service`**| `8008` | Face cluster intelligence, name mismatch, impossible travel velocity (< 2h) | `FastAPI`, `networkx`, `pydantic` |
+| **`risk_engine`** | `8005` | Dynamic weighted composite risk scoring (0 to 100) & plain-language reasons | `pydantic`, `FastAPI` |
 | **`audit_ledger`** | `8006` | Append-only SHA-256 hash chaining, AES-256-GCM encryption, integrity CLI | `cryptography`, `hashlib`, `SQLAlchemy` |
 | **`edge_inference`** | *local* | Standalone CPU-optimized ONNX runtime engine for low-connectivity outposts | `onnxruntime`, `numpy`, `Pillow` |
 
@@ -268,7 +269,9 @@ graph TD
 
 Composite risk is computed from dynamic sub-scores and categorized into four operational bands:
 
-$$\text{Risk Score} = w_v S_{\text{val}} + w_t S_{\text{tamper}} + w_f S_{\text{face}} + w_b S_{\text{blacklist}} + w_{cc} S_{\text{cross\_checkpoint}}$$
+```
+Risk Score = (w_val × S_val) + (w_tamper × S_tamper) + (w_face × S_face) + (w_blacklist × S_blacklist) + (w_cross_checkpoint × S_cross_checkpoint)
+```
 
 | Risk Tier | Score Range | Operational Action |
 | :--- | :---: | :--- |
@@ -276,6 +279,7 @@ $$\text{Risk Score} = w_v S_{\text{val}} + w_t S_{\text{tamper}} + w_f S_{\text{
 | 🟡 **MEDIUM** | `31.0 – 60.0` | **Officer Review**: Check near-expiry document or regional permit requirements. |
 | 🟠 **HIGH** | `61.0 – 80.0` | **Secondary Inspection**: Routed to supervisor for forensic physical examination. |
 | 🔴 **CRITICAL** | `81.0 – 100.0` | **Immediate Intercept**: Watchlist hit, ICAO checksum failure, photo splice, or repeat offender. |
+
 
 ---
 
