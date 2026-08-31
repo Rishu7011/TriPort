@@ -1,0 +1,58 @@
+# Driving License Validation Rules
+#
+# Rule Types:
+#   date_check    — validates date field relative to today
+#   regex_format  — validates field string against a pattern
+#
+# Note: Driving licenses have no MRZ zone; all fields come from OCR/LLM fallback.
+# The LLM fallback path is triggered upstream (Phase 2D) so by the time fields
+# reach this engine they are already in a normalized ExtractedField list.
+
+- rule_name: license_number_format
+  description: "Driving license number must be alphanumeric (6–20 chars), allowing hyphens."
+  rule_type: regex_format
+  field: license_number
+  pattern: "^[A-Z0-9-]{6,20}$"
+  error_message: "Driving license number does not conform to standard format."
+
+- rule_name: license_expiry_not_passed
+  description: "Driving license must not be expired."
+  rule_type: date_check
+  field: date_of_expiry
+  condition: "> today"
+  error_message: "Driving license has expired."
+
+- rule_name: license_dob_in_past
+  description: "Date of birth on driving license must be in the past."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "Date of birth on driving license is invalid or in the future."
+
+- rule_name: license_holder_minimum_age
+  description: "License holder must be at least 16 years old (minimum legal driving age)."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today - 16y"
+  error_message: "Driving license holder does not meet minimum age requirement (16 years)."
+
+- rule_name: vehicle_class_present
+  description: "Vehicle class/category must be present on the driving license."
+  rule_type: regex_format
+  field: vehicle_class
+  pattern: "^[A-Z0-9 ,/]{1,30}$"
+  error_message: "Vehicle class field is missing or contains invalid characters."
+
+- rule_name: issuing_authority_present
+  description: "Issuing authority must be present and non-empty."
+  rule_type: regex_format
+  field: issuing_authority
+  pattern: "^.{2,100}$"
+  error_message: "Issuing authority field is missing or too short."
+
+- rule_name: license_name_present
+  description: "License holder name must be present and non-empty."
+  rule_type: regex_format
+  field: name
+  pattern: "^[A-Za-z .'-]{2,100}$"
+  error_message: "License holder name is missing or contains invalid characters."
