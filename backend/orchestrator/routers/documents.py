@@ -51,7 +51,7 @@ logger = get_logger("orchestrator.router")
 router = APIRouter(prefix="/api/v1", tags=["Documents & Screening"])
 
 STANDARD_ROLES = ["officer", "supervisor", "admin"]
-AUDIT_ROLES = ["supervisor", "admin"]
+AUDIT_ROLES = ["supervisor", "auditor", "admin"]
 
 
 # ---------------------------------------------------------------------------

@@ -3,8 +3,8 @@ Shared structured logging setup.
 Call configure_logging() at service startup.
 """
 
-import structlog
 import logging
+import structlog
 from backend.config import settings
 
 
