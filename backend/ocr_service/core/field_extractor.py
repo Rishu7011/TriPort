@@ -82,6 +82,21 @@ REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
         "valid_until",
         "issuing_authority",
     ],
+    DocumentType.PAN_CARD: [
+        "pan_number",
+        "name",
+        "father_name",
+        "date_of_birth",
+        "issuing_authority",
+    ],
+    DocumentType.VOTER_ID: [
+        "voter_id_number",
+        "name",
+        "father_name",
+        "date_of_birth",
+        "gender",
+        "issuing_authority",
+    ],
 }
 
 PATTERNS = {
@@ -93,6 +108,8 @@ PATTERNS = {
     "dl_num": re.compile(r"\b(DL[- ]?[0-9A-Z]{8,16}|[A-Z]{2}[0-9]{2}[ -]?[0-9]{11})\b"),
     "permit_num": re.compile(r"\b(PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
     "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
+    "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"),
+    "voter_id_num": re.compile(r"\b[A-Z]{3}[0-9]{7}\b"),
 }
 
 
@@ -350,6 +367,42 @@ def extract_fields(
                         confidence=conf,
                         extraction_method=ExtractionMethod.OCR,
                     )
+
+    elif document_type == DocumentType.PAN_CARD:
+        for text, conf in raw_lines:
+            if "pan_number" not in extracted:
+                m_pan = PATTERNS["pan_num"].search(text)
+                if m_pan:
+                    extracted["pan_number"] = ExtractedField(
+                        field_name="pan_number",
+                        field_value=m_pan.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        extracted["issuing_authority"] = ExtractedField(
+            field_name="issuing_authority",
+            field_value="Income Tax Department, Govt. of India",
+            confidence=0.95,
+            extraction_method=ExtractionMethod.OCR,
+        )
+
+    elif document_type == DocumentType.VOTER_ID:
+        for text, conf in raw_lines:
+            if "voter_id_number" not in extracted:
+                m_vid = PATTERNS["voter_id_num"].search(text)
+                if m_vid:
+                    extracted["voter_id_number"] = ExtractedField(
+                        field_name="voter_id_number",
+                        field_value=m_vid.group(0),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+        extracted["issuing_authority"] = ExtractedField(
+            field_name="issuing_authority",
+            field_value="Election Commission of India",
+            confidence=0.95,
+            extraction_method=ExtractionMethod.OCR,
+        )
 
     # -----------------------------------------------------------------------
     # 2. Contextual Date Extraction (DOB vs Issue vs Expiry / Travel Date)

@@ -4,10 +4,12 @@ Document Classifier — Multi-modal document type classification.
 Supports:
   1. Passport (International & Regional)
   2. Visa (Single, Multiple Entry, Tourist, Business)
-  3. National ID (Aadhaar, Citizen ID, Voter ID, National Card)
+  3. National ID (Aadhaar, Citizen ID, National Card)
   4. Driving License (State & National Motor Vehicle Cards)
   5. Permit (Land Border Crossings, Restricted Area Permits, Border Passes)
   6. Ferry Ticket (Sea Passenger Boarding Passes & Ferry Disembarkation Slips)
+  7. PAN Card (Indian Permanent Account Number Card)
+  8. Voter ID (Elector Identity Card / EPIC Card)
 
 Provides both local heuristic / vision-feature classification and cloud API compatibility.
 """
@@ -57,8 +59,6 @@ DOCTYPE_KEYWORDS: dict[DocumentType, list[tuple[str, float]]] = {
         ("UIDAI", 5.0),
         ("UNIQUE IDENTIFICATION", 4.0),
         ("GOVERNMENT OF INDIA", 3.0),
-        ("ELECTION COMMISSION", 4.0),
-        ("VOTER ID", 4.0),
         ("CIVIL ID", 3.5),
         ("CARD NO", 1.5),
         ("YEAR OF BIRTH", 3.0),
@@ -103,6 +103,31 @@ DOCTYPE_KEYWORDS: dict[DocumentType, list[tuple[str, float]]] = {
         ("DEPARTURE", 2.5),
         ("ARRIVAL", 2.5),
         ("SEAT NO", 3.0),
+    ],
+    DocumentType.PAN_CARD: [
+        ("INCOME TAX DEPARTMENT", 5.0),
+        ("PERMANENT ACCOUNT NUMBER", 5.0),
+        ("PAN CARD", 5.0),
+        ("PERMANENT ACCOUNT", 4.0),
+        ("GOVT OF INDIA", 3.0),
+        ("GOVT. OF INDIA", 3.0),
+        ("GOVERNMENT OF INDIA", 2.5),
+        ("FATHER'S NAME", 3.5),
+        ("FATHERS NAME", 3.5),
+        ("आयकर विभाग", 5.0),
+    ],
+    DocumentType.VOTER_ID: [
+        ("ELECTION COMMISSION OF INDIA", 5.0),
+        ("ELECTOR IDENTITY CARD", 5.0),
+        ("ELECTORAL REGISTRATION OFFICER", 4.0),
+        ("VOTER ID", 5.0),
+        ("EPIC NO", 5.0),
+        ("EPIC NUMBER", 5.0),
+        ("ELECTION COMMISSION", 4.0),
+        ("ELECTOR'S NAME", 4.0),
+        ("ELECTORS NAME", 4.0),
+        ("भारत निर्वाचन आयोग", 5.0),
+        ("मतदाता पहचान पत्र", 5.0),
     ],
 }
 
@@ -210,6 +235,16 @@ def classify_document(
     if re.search(r"\b[0-9]{4}\s+[0-9]{4}\s+[0-9]{4}\b", full_text) or re.search(r"\b[0-9]{12}\b", full_text):
         scores[DocumentType.NATIONAL_ID] += 5.0
         matched_features[DocumentType.NATIONAL_ID.value].append("aadhaar_number_pattern")
+
+    # PAN Number: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)
+    if re.search(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", full_text):
+        scores[DocumentType.PAN_CARD] += 5.0
+        matched_features[DocumentType.PAN_CARD.value].append("pan_number_pattern")
+
+    # Voter ID / EPIC Number: 3 letters, 7 digits (e.g. ABC1234567)
+    if re.search(r"\b[A-Z]{3}[0-9]{7}\b", full_text) or "ELECTION COMMISSION" in full_text:
+        scores[DocumentType.VOTER_ID] += 5.0
+        matched_features[DocumentType.VOTER_ID.value].append("voter_id_number_pattern")
 
     # 6. Normalize and Determine Winner
     best_type = max(scores, key=lambda k: scores[k])

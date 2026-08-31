@@ -30,6 +30,8 @@ class DocumentType(str, Enum):
     DRIVING_LICENSE = "driving_license"
     PERMIT = "permit"
     FERRY_TICKET = "ferry_ticket"
+    PAN_CARD = "pan_card"
+    VOTER_ID = "voter_id"
 
 
 class ExtractionMethod(str, Enum):
