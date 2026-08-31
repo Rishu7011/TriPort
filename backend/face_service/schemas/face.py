@@ -67,8 +67,32 @@ class DedupSearchResponse(BaseModel):
     detail: str = Field(..., description="Deduplication finding summary")
 
 
+class LivenessResponse(BaseModel):
+    """Result of real-time anti-spoofing and liveness check."""
+    is_live: bool = Field(..., description="True if face passes 3D motion and EAR anti-spoofing checks")
+    liveness_score: float = Field(..., ge=0.0, le=1.0, description="Calibrated liveness score (0.0=spoof, 1.0=live)")
+    detail: str = Field(..., description="Detailed explanation of liveness decision")
+
+
+class BatchVerifyItem(BaseModel):
+    """Result for an individual traveler in a batch verification queue."""
+    item_id: str = Field(..., description="Client identifier or sequence index for this traveler")
+    matched: bool = Field(..., description="True if document photo matches live capture")
+    match_score: float = Field(..., ge=0.0, le=1.0, description="Verification confidence score")
+    detail: str = Field(..., description="Individual verification result summary")
+
+
+class BatchVerifyResponse(BaseModel):
+    """Result of bulk high-throughput disembarkation batch verification."""
+    total_processed: int = Field(..., description="Total pairs processed in this batch")
+    matched_count: int = Field(..., description="Number of verified matches")
+    mismatch_count: int = Field(..., description="Number of flagged mismatches")
+    results: list[BatchVerifyItem] = Field(..., description="Individual verification results")
+
+
 class FullFaceVerificationResponse(BaseModel):
     """Combined response for orchestrator / officer dashboard."""
     document_id: str | None = None
     one_to_one: OneToOneVerifyResponse | None = None
     dedup: DedupSearchResponse | None = None
+    liveness: LivenessResponse | None = None

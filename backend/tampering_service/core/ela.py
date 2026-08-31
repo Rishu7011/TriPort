@@ -64,6 +64,8 @@ def compute_ela(
 
     # 2. Compute absolute difference between original and recompressed
     ela_diff = ImageChops.difference(original, recompressed)
+    raw_diff_np = np.array(ela_diff)
+    raw_gray_diff = cv2.cvtColor(raw_diff_np, cv2.COLOR_RGB2GRAY)
 
     # 3. Amplify differences for human visualization
     extrema = ela_diff.getextrema()
@@ -77,8 +79,8 @@ def compute_ela(
 
     # 4. Generate colorized heatmap using OpenCV JET colormap
     np_diff = np.array(enhanced)
-    gray_diff = cv2.cvtColor(np_diff, cv2.COLOR_RGB2GRAY)
-    heatmap_bgr = cv2.applyColorMap(gray_diff, cv2.COLORMAP_JET)
+    visual_gray_diff = cv2.cvtColor(np_diff, cv2.COLOR_RGB2GRAY)
+    heatmap_bgr = cv2.applyColorMap(visual_gray_diff, cv2.COLORMAP_JET)
 
     # Blend heatmap 60% with original grayscale document 40% for visual context
     orig_np = np.array(original)
@@ -90,35 +92,43 @@ def compute_ela(
     is_success, buffer_png = cv2.imencode(".png", blended)
     heatmap_png_bytes = buffer_png.tobytes() if is_success else b""
 
-    # 5. Statistical Anomaly Calculation
-    # Tampered regions produce high local variance / localized clusters of high error
-    # Compute std deviation and 98th percentile error vs mean
-    mean_err = float(np.mean(gray_diff))
-    std_err = float(np.std(gray_diff))
-    p98_err = float(np.percentile(gray_diff, 98))
+    # 5. Statistical Anomaly Calculation on RAW (un-amplified) differences
+    mean_err = float(np.mean(raw_gray_diff))
+    std_err = float(np.std(raw_gray_diff))
+    p98_err = float(np.percentile(raw_gray_diff, 98))
 
-    # Anomaly metric: high ratio of top 2% intensity to global mean indicates localized edits
-    if mean_err > 0.001:
-        ratio = p98_err / (mean_err + 1e-5)
+    h, w = raw_gray_diff.shape
+    bh, bw = 32, 32
+    block_means = []
+    for y in range(0, h - bh + 1, bh):
+        for x in range(0, w - bw + 1, bw):
+            block = raw_gray_diff[y : y + bh, x : x + bw]
+            block_means.append(float(np.mean(block)))
+
+    bm = np.array(block_means) if block_means else np.array([0.0])
+    b_max = float(np.max(bm))
+    b_mean = float(np.mean(bm))
+    b_p90 = float(np.percentile(bm, 90))
+
+    if p98_err <= 8.0 and mean_err <= 1.5:
+        score = float(np.clip(p98_err / 30.0, 0.0, 0.25))
+        flagged = False
     else:
-        ratio = 1.0
-
-    # Normalize ratio into 0.0 - 1.0 range
-    # In pristine images, ratio typically ranges 1.5 - 3.5.
-    # In edited images (e.g. text modification / photo swap), ratio spikes > 5.0 - 10.0.
-    raw_score = (ratio - 2.0) / 7.0
-    score = float(np.clip(raw_score, 0.0, 1.0))
-    flagged = score >= ELA_ANOMALY_THRESHOLD
+        mag_score = float(np.clip((p98_err - 8.0) / 25.0, 0.0, 1.0))
+        spatial_ratio = (b_max - b_p90) / (b_mean + 1.5)
+        spatial_score = float(np.clip((spatial_ratio - 1.0) / 3.5, 0.0, 1.0))
+        score = float(np.clip(0.5 * mag_score + 0.5 * spatial_score, 0.0, 1.0))
+        flagged = score >= ELA_ANOMALY_THRESHOLD
 
     if flagged:
         detail = (
             f"ELA detected localized compression disparity (anomaly score: {score:.2f}, "
-            f"peak/mean ratio: {ratio:.1f}). Possible text alteration or spliced region."
+            f"98th percentile error: {p98_err:.1f}). Possible text alteration or spliced region."
         )
     else:
         detail = f"ELA compression levels are uniform across document (score: {score:.2f})."
 
-    logger.info("ELA analysis completed", score=score, flagged=flagged, ratio=ratio)
+    logger.info("ELA analysis completed", score=score, flagged=flagged, p98_err=p98_err, mean_err=mean_err)
     return score, flagged, heatmap_png_bytes, detail
 
 

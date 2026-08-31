@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 class TamperingCheckType(str, Enum):
     """Types of forensic tampering checks performed."""
     ELA = "ela"
+    TEXT_ANALYSIS = "text_analysis"
     METADATA = "metadata"
     BOUNDARY = "boundary"
     STAMP_MATCH = "stamp_match"

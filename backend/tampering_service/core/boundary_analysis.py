@@ -100,9 +100,8 @@ def analyze_photo_boundaries(image_bytes: bytes) -> tuple[float, bool, str, dict
         y2 = min(h, fy + fh + pad_y)
         photo_box = (x1, y1, x2 - x1, y2 - y1)
     else:
-        # Heuristic fallback: passport photos are typically in left or right 40% quadrant
-        # Assume upper-left/middle region
-        x1, y1, bw, bh = int(w * 0.05), int(h * 0.20), int(w * 0.35), int(h * 0.55)
+        # Heuristic fallback: passport photos are typically in left column (x: 5%-28%, y: 18%-58%)
+        x1, y1, bw, bh = int(w * 0.05), int(h * 0.18), int(w * 0.23), int(h * 0.40)
         photo_box = (x1, y1, bw, bh)
 
     bx, by, bw_box, bh_box = photo_box
@@ -122,12 +121,10 @@ def analyze_photo_boundaries(image_bytes: bytes) -> tuple[float, bool, str, dict
     else:
         noise_ratio = 1.0
 
-    # 2. Boundary Edge Energy (Perimeter gradient check)
-    # Check if there is an unnatural sharp rectangular border surrounding the photo
-    # Sample a 6-pixel perimeter strip around the box
+    # 2. Boundary Edge Energy (Perimeter gradient check along all 4 borders)
     border_strip_energy = 0.0
     perimeter_pixels = []
-    border_thickness = 4
+    border_thickness = 3
 
     # Top & bottom border strips
     if by >= border_thickness and by + bh_box + border_thickness <= h:
@@ -136,18 +133,26 @@ def analyze_photo_boundaries(image_bytes: bytes) -> tuple[float, bool, str, dict
         perimeter_pixels.extend(top_strip.flatten())
         perimeter_pixels.extend(bottom_strip.flatten())
 
+    # Left & right border strips
+    if bx >= border_thickness and bx + bw_box + border_thickness <= w:
+        left_strip = gray[by : by + bh_box, bx - border_thickness : bx + border_thickness]
+        right_strip = gray[by : by + bh_box, bx + bw_box - border_thickness : bx + bw_box + border_thickness]
+        perimeter_pixels.extend(left_strip.flatten())
+        perimeter_pixels.extend(right_strip.flatten())
+
     if perimeter_pixels:
         perimeter_arr = np.array(perimeter_pixels)
         border_strip_energy = float(np.std(perimeter_arr))
 
     # 3. Calculate Anomaly Score
-    # Natural photos typically have noise_ratio between 1.0 and 3.5
-    # Splices from another source often exhibit noise_ratio > 4.5
-    noise_anomaly = float(np.clip((noise_ratio - 2.5) / 5.0, 0.0, 1.0))
-    border_anomaly = float(np.clip((border_strip_energy - 35.0) / 45.0, 0.0, 1.0))
+    # Natural photos typically have noise_ratio between 1.0 and 3.2, photo_noise < 30
+    # Splices from another noisy source exhibit photo_noise > 35 or noise_ratio > 3.5
+    noise_anomaly = float(np.clip((photo_noise - 18.0) / 25.0, 0.0, 1.0))
+    ratio_anomaly = float(np.clip((noise_ratio - 2.8) / 3.0, 0.0, 1.0))
+    border_anomaly = float(np.clip((border_strip_energy - 36.0) / 20.0, 0.0, 1.0))
 
-    combined_score = float(np.clip(0.6 * noise_anomaly + 0.4 * border_anomaly, 0.0, 1.0))
-    flagged = combined_score >= 0.50
+    combined_score = float(np.clip(0.4 * noise_anomaly + 0.3 * ratio_anomaly + 0.3 * border_anomaly, 0.0, 1.0))
+    flagged = combined_score >= 0.45
 
     metadata = {
         "photo_box": [int(bx), int(by), int(bw_box), int(bh_box)],
@@ -161,7 +166,7 @@ def analyze_photo_boundaries(image_bytes: bytes) -> tuple[float, bool, str, dict
     if flagged:
         detail = (
             f"Photo region exhibits significant noise discrepancy or boundary discontinuity "
-            f"(noise variance ratio: {noise_ratio:.1f}, anomaly score: {combined_score:.2f}). "
+            f"(photo noise: {photo_noise:.1f}, noise ratio: {noise_ratio:.1f}, anomaly score: {combined_score:.2f}). "
             f"Potential photo replacement / splice detected."
         )
     else:

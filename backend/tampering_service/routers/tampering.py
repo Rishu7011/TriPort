@@ -15,6 +15,7 @@ from backend.tampering_service.core.boundary_analysis import analyze_photo_bound
 from backend.tampering_service.core.ela import compute_ela, ela_to_base64
 from backend.tampering_service.core.metadata_forensics import analyze_metadata
 from backend.tampering_service.core.stamp_matcher import verify_stamps
+from backend.tampering_service.core.text_analysis import analyze_text_manipulation
 from backend.tampering_service.schemas.tampering import (
     TamperingCheckResult,
     TamperingCheckType,
@@ -71,7 +72,19 @@ async def detect_tampering(
     )
     heatmap_b64 = ela_to_base64(heatmap_bytes) if heatmap_bytes else None
 
-    # 2. Metadata & EXIF Forensics
+    # 2. Text Manipulation & Font Consistency Analysis
+    text_score, text_flagged, flagged_fields, text_detail, text_meta = analyze_text_manipulation(image_bytes)
+    checks.append(
+        TamperingCheckResult(
+            check_type=TamperingCheckType.TEXT_ANALYSIS,
+            score=round(text_score, 3),
+            flagged=text_flagged,
+            detail=text_detail,
+            metadata=text_meta,
+        )
+    )
+
+    # 3. Metadata & EXIF Forensics
     meta_score, meta_flagged, flags, raw_meta, meta_detail = analyze_metadata(image_bytes)
     checks.append(
         TamperingCheckResult(
@@ -83,7 +96,7 @@ async def detect_tampering(
         )
     )
 
-    # 3. Photo Boundary Discontinuity & Noise Analysis
+    # 4. Photo Boundary Discontinuity & Noise Analysis
     bnd_score, bnd_flagged, bnd_detail, bnd_meta = analyze_photo_boundaries(image_bytes)
     checks.append(
         TamperingCheckResult(
@@ -95,7 +108,7 @@ async def detect_tampering(
         )
     )
 
-    # 4. Stamp / Seal Matching
+    # 5. Stamp / Seal Matching
     stamp_score, stamp_flagged, stamp_detected, _, stamp_detail, stamp_meta = verify_stamps(image_bytes)
     checks.append(
         TamperingCheckResult(
@@ -108,16 +121,16 @@ async def detect_tampering(
     )
 
     # Overall Composite Score Calculation:
-    # Any single high-confidence forensic flag (e.g. metadata software tag or ELA spike)
-    # significantly increases the tampering score.
-    # Formula: 0.35 * ELA + 0.30 * Metadata + 0.25 * Boundary + 0.10 * Stamp, bounded by max score
+    # 5-layer weighted aggregation:
+    # 0.25 * ELA + 0.25 * Text + 0.20 * Metadata + 0.20 * Boundary + 0.10 * Stamp
     weighted_score = (
-        0.35 * ela_score
-        + 0.30 * meta_score
-        + 0.25 * bnd_score
+        0.25 * ela_score
+        + 0.25 * text_score
+        + 0.20 * meta_score
+        + 0.20 * bnd_score
         + 0.10 * stamp_score
     )
-    max_individual_score = max(ela_score, meta_score, bnd_score, stamp_score)
+    max_individual_score = max(ela_score, text_score, meta_score, bnd_score, stamp_score)
     # Give significant weight to the peak single indicator
     overall_tampering_score = float(np_clip_score(0.6 * max_individual_score + 0.4 * weighted_score))
 

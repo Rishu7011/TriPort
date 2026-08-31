@@ -249,7 +249,37 @@ def verify_one_to_one(
             # but flag it prominently in the detail string
             detail_parts.insert(0, f"⚠️ ANTI-SPOOFING ALERT (liveness_score={liveness_score:.2f})")
 
-    # ── Step 2: Resolve document embedding ───────────────────────────────────
+    # ── Step 2: AWS Rekognition Cloud Provider (Primary when available) ──────
+    from backend.face_service.core.aws_rekognition import is_aws_rekognition_available, aws_compare_faces
+
+    if doc_image_bytes and live_image_bytes and is_aws_rekognition_available():
+        # Strict border control standard: default to 85% to separate siblings/family members
+        aws_threshold_pct = max(80.0, threshold * 100.0 if threshold <= 1.0 else threshold)
+        
+        aws_matched, aws_sim, aws_conf, aws_detail, aws_meta = aws_compare_faces(
+            source_bytes=doc_image_bytes,
+            target_bytes=live_image_bytes,
+            similarity_threshold=aws_threshold_pct,
+        )
+        if "AWS Rekognition error" not in aws_detail and "not configured" not in aws_detail:
+            # Enforce strict cutoff against threshold
+            is_verified = (aws_sim >= (aws_threshold_pct / 100.0)) and aws_matched
+            detail_parts.append(f"[AWS Rekognition] {aws_detail}")
+            
+            if is_verified:
+                verdict = f"✅ Face verification PASSED via AWS Rekognition (Similarity: {aws_sim * 100:.1f}% ≥ {aws_threshold_pct:.1f}%)."
+                if liveness_score < LIVENESS_THRESHOLD:
+                    verdict += " ⚠️ Liveness suspect — secondary review recommended."
+            else:
+                verdict = (
+                    f"❌ Face verification FAILED via AWS Rekognition (Similarity: {aws_sim * 100:.1f}% < {aws_threshold_pct:.1f}% threshold). "
+                    "Biometric mismatch: possible sibling, close relative, or impostor detected."
+                )
+            detail_parts.append(verdict)
+            full_detail = " | ".join(detail_parts)
+            return is_verified, round(aws_sim, 4), round(aws_sim, 4), full_detail
+
+    # ── Step 3: Local ArcFace / InsightFace / DeepFace Pipeline (Fallback) ─────
     if doc_embedding is None:
         if not doc_image_bytes:
             return False, 0.0, 0.0, "Missing document photo image or embedding."
@@ -259,7 +289,7 @@ def verify_one_to_one(
         doc_embedding = emb
         detail_parts.append(f"[DocEmbed] {msg}")
 
-    # ── Step 3: Resolve live capture embedding ────────────────────────────────
+    # ── Step 4: Resolve live capture embedding ────────────────────────────────
     if live_embedding is None:
         if not live_image_bytes:
             return False, 0.0, 0.0, "Missing live capture photo image or embedding."
@@ -269,7 +299,7 @@ def verify_one_to_one(
         live_embedding = emb
         detail_parts.append(f"[LiveEmbed] {msg}")
 
-    # ── Step 4: Cosine Similarity ─────────────────────────────────────────────
+    # ── Step 5: Cosine Similarity ─────────────────────────────────────────────
     sim = compute_cosine_similarity(doc_embedding, live_embedding)
 
     # ── Step 5: Borderline Multi-Model Voter ─────────────────────────────────

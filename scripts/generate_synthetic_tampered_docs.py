@@ -166,23 +166,23 @@ def generate_all_samples():
         base_img = generate_baseline_passport(f"doc_{idx+10:03d}", surname, given_name, doc_num, seed=seed)
         
         # Vary face size, replacement seed, noise level, and splice region
-        w_crop = 135 + (idx * 2)
-        h_crop = 175 + (idx * 2)
+        w_crop = 140
+        h_crop = 180
         diff_face = _draw_mock_face(size=(w_crop, h_crop), seed=900 + idx * 37)
         
-        # Add localized gaussian noise with varying variance
-        noise_sigma = 12.0 + idx * 3.0
+        # Add localized gaussian noise simulating a different sensor / grain
+        noise_sigma = 32.0 + idx * 4.0
         noise = np.random.normal(0, noise_sigma, diff_face.shape).astype(np.float32)
         noisy_face = np.clip(diff_face.astype(np.float32) + noise, 0, 255).astype(np.uint8)
         
         # Splice with distinct border artifact
-        x_pos = 38 + (idx % 3)
-        y_pos = 88 + (idx % 3)
+        x_pos = 40
+        y_pos = 90
         diff_face_pil = Image.fromarray(noisy_face)
         base_img.paste(diff_face_pil, (x_pos, y_pos))
         
         draw = ImageDraw.Draw(base_img)
-        draw.rectangle([(x_pos - 1, y_pos - 1), (x_pos + w_crop, y_pos + h_crop)], outline=(190 + idx * 10, 140, 110), width=1)
+        draw.rectangle([(x_pos - 1, y_pos - 1), (x_pos + w_crop, y_pos + h_crop)], outline=(120, 100, 80), width=2)
 
         path = OUTPUT_DIR / filename
         quality = 80 + idx * 2
@@ -206,26 +206,29 @@ def generate_all_samples():
     # 3. Text-Edit Tampered Documents (5 samples, varying fields altered)
     # ─────────────────────────────────────────────────────────────────────────
     text_tamper_configs = [
-        # (field_name, box, fake_text, quality)
-        ("date_of_expiry", [(450, 240), (620, 260)], "31/12/2039", 65),
-        ("date_of_birth", [(450, 105), (620, 125)], "01/01/2005", 70),
-        ("passport_number", [(210, 105), (380, 125)], "X9988776", 60),
-        ("surname", [(210, 150), (380, 170)], "FORGERY", 75),
-        ("nationality", [(210, 240), (380, 260)], "CANADIAN", 62),
+        # (field_name, box, fake_text, font_face, font_scale, thickness, quality)
+        ("date_of_expiry", (450, 236, 170, 26), "31/12/2039", (452, 254), cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1, 80),
+        ("date_of_birth", (450, 102, 170, 26), "01/01/2005", (452, 120), cv2.FONT_HERSHEY_DUPLEX, 0.40, 1, 75),
+        ("passport_number", (210, 102, 170, 26), "X9988776", (212, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.44, 1, 70),
+        ("surname", (210, 147, 170, 26), "FORGERY", (212, 165), cv2.FONT_HERSHEY_COMPLEX, 0.40, 1, 85),
+        ("nationality", (210, 236, 170, 26), "CANADIAN", (212, 254), cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1, 75),
     ]
 
-    for idx, (field_name, box, fake_text, quality) in enumerate(text_tamper_configs, 1):
+    for idx, (field_name, (bx, by, bw, bh), fake_text, (tx, ty), font_face, font_scale, thickness, quality) in enumerate(text_tamper_configs, 1):
         filename = f"doc_{idx+20:03d}_tampered_textedit_{idx}.jpg"
         surname, given_name, doc_num, seed, _, _ = identities[idx - 1]
         base_img = generate_baseline_passport(f"doc_{idx+20:03d}", surname, given_name, doc_num, seed=seed)
         
-        draw = ImageDraw.Draw(base_img)
-        # White-out region with slight tone mismatch to trigger ELA
-        draw.rectangle(box, fill=(244, 241, 230))
-        draw.text((box[0][0] + 2, box[0][1] + 1), fake_text, fill=(5, 5, 5))
+        # Convert to numpy array for precision OpenCV rendering
+        np_img = np.array(base_img)
+        # White-out region with subtle tone mismatch
+        cv2.rectangle(np_img, (bx, by), (bx + bw, by + bh), (252, 250, 242), -1)
+        # Draw fake text with distinct font geometry and stroke
+        cv2.putText(np_img, fake_text, (tx, ty), font_face, font_scale, (10, 10, 10), thickness, cv2.LINE_AA)
 
         path = OUTPUT_DIR / filename
-        base_img.save(path, quality=quality)
+        edited_pil = Image.fromarray(np_img)
+        edited_pil.save(path, quality=quality)
         manifest["samples"].append({
             "filename": filename,
             "is_tampered": True,
@@ -233,10 +236,10 @@ def generate_all_samples():
             "altered_field": field_name,
             "forged_value": fake_text,
             "tampered_region": {
-                "x": box[0][0],
-                "y": box[0][1],
-                "w": box[1][0] - box[0][0],
-                "h": box[1][1] - box[0][1],
+                "x": bx,
+                "y": by,
+                "w": bw,
+                "h": bh,
             },
             "quality": quality,
             "details": f"Altered field {field_name} -> {fake_text} saved at JPEG quality {quality}",
