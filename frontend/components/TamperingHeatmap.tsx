@@ -1,224 +1,207 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, Layers, ShieldAlert, CheckCircle, Info, Sliders } from "lucide-react";
-
-interface ForensicCheck {
-  type: string;
-  score: number;
-  threshold: number;
-  flagged: boolean;
-  detail: string;
-}
+import type { TamperingResult } from "../lib/api/types";
+import { Sparkles, AlertOctagon, CheckCircle2, Layers } from "lucide-react";
 
 interface TamperingHeatmapProps {
-  originalImageUrl?: string | null;
-  heatmapBase64?: string | null;
-  flagged: boolean;
-  tamperingScore: number;
-  checks?: ForensicCheck[];
+  tampering: TamperingResult | null;
+  rawImageUrl?: string;
 }
 
-export const TamperingHeatmap: React.FC<TamperingHeatmapProps> = ({
-  originalImageUrl,
-  heatmapBase64,
-  flagged,
-  tamperingScore,
-  checks = [],
-}) => {
-  const [viewMode, setViewMode] = useState<"side-by-side" | "original" | "heatmap">("side-by-side");
-  const [opacity, setOpacity] = useState<number>(50);
+function formatCheckDetail(detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  if (typeof detail === "number" || typeof detail === "boolean") {
+    return String(detail);
+  }
 
-  const heatmapSrc = heatmapBase64
-    ? (heatmapBase64.startsWith("data:") ? heatmapBase64 : `data:image/png;base64,${heatmapBase64}`)
+  if (detail && typeof detail === "object") {
+    const summary = (detail as Record<string, unknown>).detail;
+    if (typeof summary === "string") return summary;
+
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return "Structured forensic data available.";
+    }
+  }
+
+  return "No detail provided.";
+}
+
+export function TamperingHeatmap({
+  tampering,
+  rawImageUrl,
+}: TamperingHeatmapProps) {
+  const [showHeatmap, setShowHeatmap] = useState(true);
+
+  if (!tampering) {
+    return (
+      <div className="bg-surface border border-border rounded p-6 text-center">
+        <Sparkles size={24} className="mx-auto text-text-muted mb-2" />
+        <p className="font-mono text-xs text-text-muted">
+          Tampering analysis unavailable.
+        </p>
+      </div>
+    );
+  }
+
+  const scorePct = Math.round(tampering.tampering_score * 100);
+  const isFlagged = tampering.flagged || scorePct > 35;
+  const heatmapData = tampering.ela_heatmap_base64
+    ? tampering.ela_heatmap_base64.startsWith("data:")
+      ? tampering.ela_heatmap_base64
+      : `data:image/png;base64,${tampering.ela_heatmap_base64}`
     : null;
 
   return (
-    <div className="space-y-6">
-      {/* Top Forensic Status Bar */}
-      <div className="glass-panel p-5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-[11px] font-mono text-slate-400 uppercase block">
-            IMAGE FORGERY & ERROR LEVEL ANALYSIS (ELA)
-          </span>
-          <div className="flex items-center gap-3 mt-1">
-            <h3 className="text-base font-bold font-mono text-slate-100">
-              {flagged ? "🚨 Digital Alterations Flagged" : "✅ No Compression Anomalies Detected"}
-            </h3>
-            <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
-              flagged
-                ? "bg-red-950/80 border-red-500/50 text-red-400"
-                : "bg-emerald-950/80 border-emerald-500/50 text-emerald-400"
-            }`}>
-              Score: {Math.round(tamperingScore * 100)}%
+    <div className="bg-surface border border-border rounded flex flex-col h-full overflow-hidden">
+      {/* Header with ELA Toggle */}
+      <div className="p-3 border-b border-border bg-surface-raised flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="font-mono text-[11px] uppercase tracking-wider text-text-muted font-semibold">
+            Forensic Tampering & ELA
+          </h3>
+          {isFlagged ? (
+            <span className="font-mono text-[10px] text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-1.5 py-0.5 rounded">
+              ANOMALY DETECTED
             </span>
-          </div>
+          ) : (
+            <span className="font-mono text-[10px] text-brand bg-brand/10 border border-brand/30 px-1.5 py-0.5 rounded">
+              PASS
+            </span>
+          )}
         </div>
 
-        {/* View Mode Toggle Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-lg border border-slate-800 self-end sm:self-auto">
-          <button
-            onClick={() => setViewMode("side-by-side")}
-            className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-              viewMode === "side-by-side"
-                ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Split View
-          </button>
-          <button
-            onClick={() => setViewMode("original")}
-            className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-              viewMode === "original"
-                ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Original
-          </button>
-          <button
-            onClick={() => setViewMode("heatmap")}
-            className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-              viewMode === "heatmap"
-                ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            ELA Heatmap
-          </button>
-        </div>
-      </div>
-
-      {/* Heatmap Visual Canvas Deck */}
-      <div className="glass-panel p-5 rounded-xl">
-        <div className="flex items-center justify-between mb-4">
+        {/* Toggle View */}
+        {heatmapData && (
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-cyan-400" />
-            <h4 className="text-xs font-bold font-mono tracking-wider text-slate-300 uppercase">
-              Forensic Comparison Viewport
-            </h4>
-          </div>
-          <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-cyan-400" />
-            Bright pixels in ELA represent non-uniform JPEG recompression
-          </span>
-        </div>
-
-        {/* View Modes */}
-        {viewMode === "side-by-side" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-950/80 rounded-lg p-3 border border-slate-800 flex flex-col items-center">
-              <span className="text-[10px] font-mono text-slate-400 mb-2 uppercase">Optical Passport Scan</span>
-              <div className="relative aspect-[4/3] w-full max-h-[320px] rounded overflow-hidden flex items-center justify-center bg-slate-900">
-                {originalImageUrl ? (
-                  <img
-                    src={originalImageUrl}
-                    alt="Original Scan"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span className="text-xs font-mono text-slate-500">No scan loaded</span>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-slate-950/80 rounded-lg p-3 border border-slate-800 flex flex-col items-center">
-              <span className="text-[10px] font-mono text-slate-400 mb-2 uppercase">JPEG Error Level Analysis (ELA)</span>
-              <div className="relative aspect-[4/3] w-full max-h-[320px] rounded overflow-hidden flex items-center justify-center bg-slate-900">
-                {heatmapSrc ? (
-                  <img
-                    src={heatmapSrc}
-                    alt="ELA Heatmap"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span className="text-xs font-mono text-slate-500">ELA heatmap generated upon scan</span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {viewMode === "original" && (
-          <div className="bg-slate-950/80 rounded-lg p-4 border border-slate-800 flex justify-center">
-            {originalImageUrl ? (
-              <img
-                src={originalImageUrl}
-                alt="Original Scan"
-                className="max-h-[420px] object-contain rounded"
+            <span className="font-mono text-[10px] text-text-muted uppercase">
+              ELA Overlay
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer border ${
+                showHeatmap
+                  ? "bg-brand/20 border-brand"
+                  : "bg-surface-raised border-border"
+              }`}
+            >
+              <div
+                className={`w-3.5 h-3.5 rounded-full transition-transform absolute top-[2px] ${
+                  showHeatmap
+                    ? "right-[3px] bg-brand"
+                    : "left-[3px] bg-text-muted"
+                }`}
               />
-            ) : (
-              <span className="text-xs font-mono text-slate-500 py-12">No scan loaded</span>
-            )}
-          </div>
-        )}
-
-        {viewMode === "heatmap" && (
-          <div className="bg-slate-950/80 rounded-lg p-4 border border-slate-800 flex justify-center">
-            {heatmapSrc ? (
-              <img
-                src={heatmapSrc}
-                alt="ELA Heatmap"
-                className="max-h-[420px] object-contain rounded"
-              />
-            ) : (
-              <span className="text-xs font-mono text-slate-500 py-12">No ELA heatmap available</span>
-            )}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Forensic Checks Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Check 1: ELA Score */}
-        <div className="glass-panel p-4 rounded-xl border border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase">1. ELA ANOMALY</span>
-            <span className="text-xs font-mono font-bold text-slate-200">
-              {checks.find(c => c.type === "ela")?.score ?? "0.26"}
+      {/* Main Forensic Display */}
+      <div className="p-4 flex flex-col gap-4 flex-1">
+        {/* Heatmap / Scan Preview Container */}
+        <div className="relative w-full h-44 bg-bg border border-border rounded overflow-hidden flex items-center justify-center group">
+          {heatmapData && showHeatmap ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heatmapData}
+              alt="Error Level Analysis Heatmap"
+              className="w-full h-full object-contain mix-blend-screen"
+            />
+          ) : rawImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={rawImageUrl}
+              alt="Document Scan"
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-text-muted">
+              <Layers size={28} strokeWidth={1.5} className="text-text-muted" />
+              <span className="font-mono text-xs">
+                Uniform Error Level Distribution
+              </span>
+            </div>
+          )}
+
+          {/* Technical scanline overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-30"
+            style={{
+              background:
+                "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(166,255,77,0.08) 2px, rgba(166,255,77,0.08) 4px)",
+            }}
+          />
+
+          <div className="absolute bottom-2 right-2 bg-bg/90 border border-border px-2 py-0.5 rounded font-mono text-[10px] text-text-muted">
+            {showHeatmap && heatmapData ? "Mode: ELA Heatmap (85Q)" : "Mode: Visual Zone"}
+          </div>
+        </div>
+
+        {/* Score and Checks Breakdown */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between font-mono text-xs">
+            <span className="text-text-muted">Tampering Score:</span>
+            <span
+              className={`font-bold ${
+                isFlagged ? "text-risk-critical" : "text-brand"
+              }`}
+            >
+              {scorePct}% ({isFlagged ? "Elevated" : "Clean"})
             </span>
           </div>
-          <p className="text-xs font-mono text-slate-300">
-            {checks.find(c => c.type === "ela")?.detail ?? "Uniform compression error variance across image substrate."}
-          </p>
-        </div>
 
-        {/* Check 2: Metadata / EXIF */}
-        <div className="glass-panel p-4 rounded-xl border border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase">2. EXIF FORENSICS</span>
-            <span className="text-xs font-mono font-bold text-emerald-400">CLEAN</span>
+          <div className="w-full h-1.5 bg-bg rounded-full overflow-hidden border border-border">
+            <div
+              className={`h-full transition-all duration-300 ${
+                isFlagged ? "bg-risk-critical" : "bg-brand"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(5, scorePct))}%` }}
+            />
           </div>
-          <p className="text-xs font-mono text-slate-300">
-            No Photoshop, GIMP, or digital editor metadata signatures found in EXIF tags.
-          </p>
-        </div>
 
-        {/* Check 3: Photo Boundary Discontinuity */}
-        <div className="glass-panel p-4 rounded-xl border border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase">3. PHOTO BOUNDARY</span>
-            <span className="text-xs font-mono font-bold text-slate-200">
-              {checks.find(c => c.type === "boundary")?.score ?? "0.46"}
-            </span>
+          {/* Forensic Checks List */}
+          <div className="pt-2 divide-y divide-border/60">
+            {tampering.checks && tampering.checks.length > 0 ? (
+              tampering.checks.map((c, i) => (
+                <div
+                  key={i}
+                  className="py-1.5 flex items-start justify-between gap-2 font-mono text-[11px]"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    {c.flagged ? (
+                      <AlertOctagon
+                        size={12}
+                        className="text-risk-critical shrink-0"
+                      />
+                    ) : (
+                      <CheckCircle2 size={12} className="text-brand shrink-0" />
+                    )}
+                    <span className="uppercase text-text font-medium">
+                      {c.check_type.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-right truncate ${
+                      c.flagged ? "text-risk-critical font-bold" : "text-text-muted"
+                    }`}
+                  >
+                    {formatCheckDetail(c.detail)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="py-1.5 flex items-center justify-between font-mono text-[11px] text-text-muted">
+                <span>ELA Compression Delta</span>
+                <span className="text-brand">Within Normal Boundaries</span>
+              </div>
+            )}
           </div>
-          <p className="text-xs font-mono text-slate-300">
-            {checks.find(c => c.type === "boundary")?.detail ?? "Portrait noise variance consistent with background substrate."}
-          </p>
-        </div>
-
-        {/* Check 4: Stamp Authenticity */}
-        <div className="glass-panel p-4 rounded-xl border border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase">4. STAMP VERIFICATION</span>
-            <span className="text-xs font-mono font-bold text-emerald-400">GENUINE</span>
-          </div>
-          <p className="text-xs font-mono text-slate-300">
-            Consular stamp ink dispersion and feature templates match genuine physical ink.
-          </p>
         </div>
       </div>
     </div>
   );
-};
+}

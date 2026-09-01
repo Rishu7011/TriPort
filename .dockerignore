@@ -1,0 +1,23 @@
+# Frontend
+frontend/node_modules
+frontend/.next
+
+# VCS / tooling
+.git
+.cursor
+graphify-out
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/.mypy_cache
+
+# Local runtime data
+backend/data
+backend/**/*.db
+backend/.venv
+:memory:.ses
+
+# Docs / misc
+*.md
+!backend/**/README.md

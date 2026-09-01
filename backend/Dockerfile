@@ -11,12 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire backend source
-COPY . .
+# Copy backend package (imports use `backend.*`)
+COPY backend/ ./backend/
+
+ENV PYTHONPATH=/app
 
 # Default CMD is overridden per-service in docker-compose.yml
-# Example: uvicorn ocr_service.main:app --host 0.0.0.0 --port 8001
-CMD ["uvicorn", "orchestrator.main:app", "--host", "0.0.0.0", "--port", "8007"]
+CMD ["uvicorn", "backend.orchestrator.main:app", "--host", "0.0.0.0", "--port", "8007"]

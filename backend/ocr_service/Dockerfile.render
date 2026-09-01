@@ -21,7 +21,7 @@ COPY backend/ ./backend/
 
 ENV PYTHONPATH=/app
 ENV LLM_PROVIDER=gemini
-ENV LLM_MODEL=gemini-3.5-flash-lite
+ENV LLM_MODEL=gemini-2.5-flash
 
 # Render dynamic port binding
 CMD uvicorn backend.ocr_service.main:app --host 0.0.0.0 --port ${PORT:-8001}

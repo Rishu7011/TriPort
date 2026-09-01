@@ -54,6 +54,45 @@ STANDARD_ROLES = ["officer", "supervisor", "admin"]
 AUDIT_ROLES = ["supervisor", "auditor", "admin"]
 
 
+def _normalize_tampering_detail(raw: Any) -> Any:
+    """Return a render-safe detail value for API consumers."""
+    if raw is None:
+        return "No detail provided."
+    if isinstance(raw, (str, int, float, bool)):
+        return raw if isinstance(raw, str) else str(raw)
+    if isinstance(raw, dict):
+        nested = raw.get("detail")
+        if isinstance(nested, str):
+            return nested
+    return raw
+
+
+def _compute_tampering_score(checks: list[TamperingResult]) -> float:
+    """Mirror the tampering service weighting when only per-check rows exist."""
+    if not checks:
+        return 0.0
+
+    scores = {c.check_type: (c.score or 0.0) for c in checks}
+    weighted = (
+        0.35 * scores.get("ela", 0.0)
+        + 0.30 * scores.get("metadata", 0.0)
+        + 0.25 * scores.get("boundary", 0.0)
+        + 0.10 * scores.get("stamp_match", 0.0)
+    )
+    max_score = max(scores.values()) if scores else 0.0
+    return round(max(0.0, min(1.0, 0.6 * max_score + 0.4 * weighted)), 3)
+
+
+def _extract_ela_heatmap(checks: list[TamperingResult]) -> str | None:
+    for check in checks:
+        if check.check_type != "ela" or not isinstance(check.detail, dict):
+            continue
+        heatmap = check.detail.get("ela_heatmap_base64")
+        if isinstance(heatmap, str) and heatmap:
+            return heatmap
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Helper: verify document existence
 # ---------------------------------------------------------------------------
@@ -264,19 +303,23 @@ async def get_document_tampering(
     checks = res.scalars().all()
 
     flagged = any(c.flagged for c in checks)
+    tampering_score = _compute_tampering_score(checks)
+    ela_heatmap_base64 = _extract_ela_heatmap(checks)
 
     return {
         "document_id": document_id,
         "flagged": flagged,
+        "tampering_score": tampering_score,
         "checks": [
             {
                 "check_type": c.check_type,
                 "score": c.score,
                 "flagged": c.flagged,
-                "detail": c.detail,
+                "detail": _normalize_tampering_detail(c.detail),
             }
             for c in checks
         ],
+        "ela_heatmap_base64": ela_heatmap_base64,
         "image_url": get_document_image_url(doc.image_object_key),
     }
 

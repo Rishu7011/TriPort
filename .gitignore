@@ -185,6 +185,7 @@ $RECYCLE.BIN/
 *.bak
 *.tmp
 *.temp
+*.ses
 scratch/
 plan.md
 phase.md

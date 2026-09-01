@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     )
 
     # ── PostgreSQL ──────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://borderguard:changeme@localhost:5432/borderguard"
+    database_url: str = "postgresql+asyncpg://triport:changeme@localhost:5432/triport"
 
     # ── MinIO ───────────────────────────────────────────────
     minio_endpoint: str = "localhost:9000"
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # ── LLM fallback (Pluggable Vision Model: Gemini / OpenAI / Anthropic / Local) ─
     llm_provider: str = "gemini"  # "gemini", "openai", "anthropic", or "generic"
     llm_api_key: str = ""
-    llm_model: str = "gemini-3.5-flash-lite"
+    llm_model: str = "gemini-2.5-flash"
     llm_fallback_confidence_threshold: float = 0.6
 
     # ── Encryption ──────────────────────────────────────────

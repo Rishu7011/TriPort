@@ -6,6 +6,7 @@ Gracefully falls back in local/offline test environments if MinIO is not running
 """
 
 import io
+import socket
 from datetime import timedelta
 from typing import Any
 
@@ -17,11 +18,28 @@ logger = get_logger("orchestrator.storage")
 _minio_client: Any = None
 
 
+def _minio_endpoint_reachable(endpoint: str) -> bool:
+    """Fast TCP preflight to avoid the MinIO client's multi-second retries offline."""
+    host, separator, port = endpoint.rpartition(":")
+    if not separator or not host or not port.isdigit():
+        return False
+    try:
+        with socket.create_connection((host, int(port)), timeout=0.25):
+            return True
+    except OSError:
+        return False
+
+
 def get_minio_client():
     """Lazy initialize MinIO client."""
     global _minio_client
     if _minio_client is None:
         try:
+            if not _minio_endpoint_reachable(settings.minio_endpoint):
+                logger.warning("MinIO unavailable; using offline storage mode")
+                _minio_client = False
+                return _minio_client
+
             from minio import Minio
             _minio_client = Minio(
                 endpoint=settings.minio_endpoint,
@@ -35,7 +53,11 @@ def get_minio_client():
                     _minio_client.make_bucket(settings.minio_bucket_documents)
                     logger.info("MinIO bucket created", bucket=settings.minio_bucket_documents)
             except Exception as b_err:
-                logger.warning("Could not verify/create MinIO bucket", error=str(b_err))
+                # A constructed client does not prove the server is reachable.
+                # Mark it unavailable now so put_object does not spend multiple
+                # retries attempting an upload against a down MinIO endpoint.
+                logger.warning("MinIO unavailable; using offline storage mode", error=str(b_err))
+                _minio_client = False
         except Exception as e:
             logger.warning("MinIO client initialization failed (using local dummy)", error=str(e))
             _minio_client = False
@@ -46,12 +68,13 @@ async def upload_document_image(
     image_bytes: bytes,
     document_id: str,
     content_type: str = "image/jpeg",
-) -> str:
+) -> str | None:
     """
     Upload document image bytes to MinIO.
 
     Returns:
-        object_key: The storage key pointing to the object in the documents bucket.
+        The storage key pointing to the object in the documents bucket, or ``None``
+        when object storage is unavailable.
     """
     object_key = f"documents/{document_id}.jpg"
     client = get_minio_client()
@@ -70,11 +93,15 @@ async def upload_document_image(
             return object_key
         except Exception as exc:
             logger.error("Failed to upload image to MinIO", document_id=document_id, error=str(exc))
-            # Return object_key anyway so DB record points to expected location
-            return object_key
+            # Avoid publishing a URL for an object that was never stored. Disable
+            # this process's client so subsequent offline scans do not incur MinIO
+            # retry delays on every upload.
+            global _minio_client
+            _minio_client = False
+            return None
 
-    logger.debug("MinIO not active; recorded virtual object key", object_key=object_key)
-    return object_key
+    logger.warning("MinIO not active; image storage skipped", document_id=document_id)
+    return None
 
 
 def get_document_image_url(object_key: str | None) -> str | None:

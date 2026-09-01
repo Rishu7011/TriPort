@@ -42,19 +42,18 @@ services:
       retries: 5
 
   # ── Backend Microservices (all built from the shared backend/ image) ──────────
-  # Each service runs a different uvicorn module from the same codebase.
   ocr-service:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-ocr
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "ocr_service.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "backend.ocr_service.main:app", "--host", "0.0.0.0", "--port", "8001"]
     ports:
       - "8001:8001"
     volumes:
-      - ./backend:/app   # hot-reload in dev
+      - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 15s
@@ -63,16 +62,16 @@ services:
 
   validation-service:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-validation
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "validation_service.main:app", "--host", "0.0.0.0", "--port", "8002"]
+    command: ["uvicorn", "backend.validation_service.main:app", "--host", "0.0.0.0", "--port", "8002"]
     ports:
       - "8002:8002"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 15s
@@ -81,16 +80,16 @@ services:
 
   tampering-service:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-tampering
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "tampering_service.main:app", "--host", "0.0.0.0", "--port", "8003"]
+    command: ["uvicorn", "backend.tampering_service.main:app", "--host", "0.0.0.0", "--port", "8003"]
     ports:
       - "8003:8003"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
       interval: 15s
@@ -99,16 +98,16 @@ services:
 
   face-service:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-face
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "face_service.main:app", "--host", "0.0.0.0", "--port", "8004"]
+    command: ["uvicorn", "backend.face_service.main:app", "--host", "0.0.0.0", "--port", "8004"]
     ports:
       - "8004:8004"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
       interval: 15s
@@ -117,16 +116,16 @@ services:
 
   risk-engine:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-risk
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "risk_engine.main:app", "--host", "0.0.0.0", "--port", "8005"]
+    command: ["uvicorn", "backend.risk_engine.main:app", "--host", "0.0.0.0", "--port", "8005"]
     ports:
       - "8005:8005"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
       interval: 15s
@@ -135,16 +134,16 @@ services:
 
   audit-ledger:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-audit
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "audit_ledger.main:app", "--host", "0.0.0.0", "--port", "8006"]
+    command: ["uvicorn", "backend.audit_ledger.main:app", "--host", "0.0.0.0", "--port", "8006"]
     ports:
       - "8006:8006"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,16 +155,16 @@ services:
 
   cross-checkpoint-service:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-cross-checkpoint
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "cross_checkpoint_service.main:app", "--host", "0.0.0.0", "--port", "8008"]
+    command: ["uvicorn", "backend.cross_checkpoint_service.main:app", "--host", "0.0.0.0", "--port", "8008"]
     ports:
       - "8008:8008"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -177,16 +176,16 @@ services:
 
   orchestrator:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: triport-orchestrator
     restart: unless-stopped
     env_file: .env
-    command: ["uvicorn", "orchestrator.main:app", "--host", "0.0.0.0", "--port", "8007"]
+    command: ["uvicorn", "backend.orchestrator.main:app", "--host", "0.0.0.0", "--port", "8007"]
     ports:
       - "8007:8007"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -217,9 +216,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8007}
     container_name: triport-frontend
     restart: unless-stopped
-    env_file: .env
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8007}
     ports:

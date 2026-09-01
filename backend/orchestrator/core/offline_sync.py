@@ -18,7 +18,9 @@ from backend.logging_config import get_logger
 
 logger = get_logger("orchestrator.offline_sync")
 
-DEFAULT_OFFLINE_DB = Path("/Users/rishu/Desktop/BorderGuard-AI/backend/data/orchestrator_offline.db")
+# Keep the offline queue inside this checkout. A machine-specific absolute path
+# made copied workspaces fail during module import before the pipeline could run.
+DEFAULT_OFFLINE_DB = Path(__file__).resolve().parents[2] / "data" / "orchestrator_offline.db"
 
 
 class OrchestratorOfflineStore:

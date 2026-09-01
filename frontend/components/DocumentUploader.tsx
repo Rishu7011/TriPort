@@ -1,281 +1,387 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Upload, Camera, FileText, CheckCircle2, AlertCircle, Sparkles, RefreshCw, X } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+import {
+  UploadCloud,
+  Camera,
+  Trash2,
+  CheckCircle2,
+  Video,
+  X,
+  RefreshCw,
+  FolderOpen,
+} from "lucide-react";
 
 interface DocumentUploaderProps {
-  onUpload: (file: File, liveFile?: File | null, presetName?: string) => Promise<void>;
-  loading: boolean;
+  docFile: File | null;
+  onDocFileChange: (file: File | null) => void;
+  livePhoto: File | null;
+  onLivePhotoChange: (file: File | null) => void;
 }
 
-export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ onUpload, loading }) => {
-  const [docFile, setDocFile] = useState<File | null>(null);
+export function DocumentUploader({
+  docFile,
+  onDocFileChange,
+  livePhoto,
+  onLivePhotoChange,
+}: DocumentUploaderProps) {
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const liveInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const [docDragOver, setDocDragOver] = useState(false);
+  const [liveDragOver, setLiveDragOver] = useState(false);
+
   const [docPreview, setDocPreview] = useState<string | null>(null);
-  const [liveFile, setLiveFile] = useState<File | null>(null);
   const [livePreview, setLivePreview] = useState<string | null>(null);
-  const [useCamera, setUseCamera] = useState<boolean>(false);
-  const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Live Camera Streaming State
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // Drag & drop handlers
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setDocFile(file);
-      setDocPreview(URL.createObjectURL(file));
+  const stopCameraStream = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
     }
+    setIsCameraActive(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setDocFile(file);
-      setDocPreview(URL.createObjectURL(file));
-    }
-  };
+  useEffect(() => {
+    return () => {
+      // Clean up camera stream on unmount
+      stopCameraStream();
+    };
+  }, []);
 
-  // Webcam capture
-  const startCamera = async () => {
-    setUseCamera(true);
+  const startCamera = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCameraError(null);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Camera device access not supported in this browser.");
       }
-    } catch (err) {
-      console.warn("Webcam access denied or unavailable:", err);
-    }
-  };
 
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], "live_capture.jpg", { type: "image/jpeg" });
-          setLiveFile(file);
-          setLivePreview(canvas.toDataURL("image/jpeg"));
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
+        audio: false,
+      });
+
+      mediaStreamRef.current = stream;
+      setIsCameraActive(true);
+
+      // Attach to video element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
         }
-      }, "image/jpeg", 0.95);
+      }, 50);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Could not access camera. Please allow camera permissions or upload an image file.";
+      setCameraError(msg);
+      setIsCameraActive(false);
     }
-    // Stop camera
-    const stream = videoRef.current.srcObject as MediaStream;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
-    setUseCamera(false);
   };
 
-  const handleSubmit = async () => {
-    if (!docFile) return;
-    await onUpload(docFile, liveFile);
+  const captureFrame = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!videoRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File(
+            [blob],
+            `live_capture_${Date.now()}.jpg`,
+            { type: "image/jpeg" }
+          );
+          onLivePhotoChange(file);
+          const url = URL.createObjectURL(file);
+          setLivePreview(url);
+          stopCameraStream();
+        }
+      },
+      "image/jpeg",
+      0.92
+    );
   };
 
-  // Preset sample runner
-  const handlePresetSelect = async (presetType: string) => {
-    await onUpload(null as any, null, presetType);
+  const handleDocSelect = (file: File | null) => {
+    onDocFileChange(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setDocPreview(url);
+    } else {
+      setDocPreview(null);
+    }
+  };
+
+  const handleLiveSelect = (file: File | null) => {
+    onLivePhotoChange(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLivePreview(url);
+      stopCameraStream();
+    } else {
+      setLivePreview(null);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Quick Demo Preset Selection Bar */}
-      <div className="glass-panel p-4 rounded-xl border border-cyan-500/30">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-cyan-400" />
-          <h4 className="text-xs font-bold font-mono tracking-wider text-slate-200 uppercase">
-            Quick-Test Evaluator Presets (1-Click Screening Scenarios)
-          </h4>
-        </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 1. Document Dropzone (Required) */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDocDragOver(true);
+        }}
+        onDragLeave={() => setDocDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDocDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleDocSelect(file);
+        }}
+        className={`relative bg-surface border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center min-h-[280px] text-center transition-colors cursor-pointer group ${
+          docDragOver
+            ? "border-brand bg-surface-raised"
+            : docFile
+            ? "border-brand/60 bg-surface-raised/40"
+            : "border-border hover:border-brand/40"
+        }`}
+        onClick={() => docInputRef.current?.click()}
+      >
+        <input
+          ref={docInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          className="hidden"
+          onChange={(e) => handleDocSelect(e.target.files?.[0] || null)}
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-          <button
-            onClick={() => handlePresetSelect("genuine")}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-bold text-left transition-all disabled:opacity-50"
-          >
-            <span className="block text-emerald-400">🟢 Genuine Passport</span>
-            <span className="text-[9px] text-slate-400 font-normal">Clean MRZ + ELA clear</span>
-          </button>
-
-          <button
-            onClick={() => handlePresetSelect("photoswap")}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 text-red-300 font-mono text-[11px] font-bold text-left transition-all disabled:opacity-50"
-          >
-            <span className="block text-red-400">🔴 Photo-Swap Tamper</span>
-            <span className="text-[9px] text-slate-400 font-normal">Splice anomaly detected</span>
-          </button>
-
-          <button
-            onClick={() => handlePresetSelect("textedit")}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-orange-950/40 hover:bg-orange-900/60 border border-orange-500/40 text-orange-300 font-mono text-[11px] font-bold text-left transition-all disabled:opacity-50"
-          >
-            <span className="block text-orange-400">🟠 Text-Edit Tamper</span>
-            <span className="text-[9px] text-slate-400 font-normal">Date compression spike</span>
-          </button>
-
-          <button
-            onClick={() => handlePresetSelect("expired")}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 font-mono text-[11px] font-bold text-left transition-all disabled:opacity-50"
-          >
-            <span className="block text-amber-400">🟡 Expired Passport</span>
-            <span className="text-[9px] text-slate-400 font-normal">Rule engine violation</span>
-          </button>
-
-          <button
-            onClick={() => handlePresetSelect("blacklist")}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 font-mono text-[11px] font-bold text-left transition-all disabled:opacity-50"
-          >
-            <span className="block text-purple-400">🚨 Watchlist / Blacklist</span>
-            <span className="text-[9px] text-slate-400 font-normal">Interpol match trigger</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Dual Upload / Webcam Ingestion Deck */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Document Ingestion Zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`glass-panel relative rounded-xl p-6 border-2 border-dashed flex flex-col items-center justify-center min-h-[220px] cursor-pointer transition-all ${
-            isDragOver ? "border-cyan-400 bg-cyan-950/20" : "border-slate-800 hover:border-slate-700 bg-slate-950/60"
-          }`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
-          {loading && <div className="radar-scanner-line" />}
-
-          {docPreview ? (
-            <div className="relative w-full h-full max-h-[180px] flex items-center justify-center">
-              <img
-                src={docPreview}
-                alt="Document Scan"
-                className="max-h-[170px] rounded object-contain"
-              />
+        {docPreview ? (
+          <div className="relative w-full h-full flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={docPreview}
+              alt="Document Scan Preview"
+              className="max-h-44 max-w-full object-contain rounded border border-border"
+            />
+            <div className="mt-3 flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-brand" />
+              <span className="font-mono text-xs text-text font-bold truncate max-w-[200px]">
+                {docFile?.name}
+              </span>
               <button
-                onClick={(e) => { e.stopPropagation(); setDocFile(null); setDocPreview(null); }}
-                className="absolute top-0 right-0 p-1.5 rounded-full bg-slate-900/90 text-slate-300 hover:text-red-400"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDocSelect(null);
+                }}
+                className="p-1 text-text-muted hover:text-risk-critical"
               >
-                <X className="w-4 h-4" />
+                <Trash2 size={14} />
               </button>
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-center">
-              <div className="p-3 rounded-full bg-slate-900 border border-slate-800 text-cyan-400">
-                <Upload className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold font-mono text-slate-200 block">
-                  DROP PASSPORT SCAN OR CLICK TO BROWSE
-                </span>
-                <span className="text-[10px] font-mono text-slate-500">
-                  Supports JPEG, PNG, TIFF, WebP (ICAO TD3 / TD1)
-                </span>
-              </div>
+            <p className="font-mono text-[10px] text-text-muted mt-1">
+              Click to replace document scan
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-surface-raised border border-border flex items-center justify-center text-brand mb-3 group-hover:scale-105 transition-transform">
+              <UploadCloud size={24} strokeWidth={1.5} />
             </div>
-          )}
-        </div>
+            <div className="font-display font-bold text-sm uppercase text-text tracking-tight">
+              Ingest Document Scan Image
+            </div>
+            <p className="font-mono text-xs text-text-muted mt-1">
+              Drop ICAO 9303 passport, ID card, or visa scan
+            </p>
+            <span className="mt-4 px-3 py-1 bg-surface-raised border border-border rounded font-mono text-[10px] text-brand uppercase tracking-wider">
+              JPG • PNG • WEBP (Up to 10MB)
+            </span>
+          </div>
+        )}
+      </div>
 
-        {/* Live Biometric Camera Zone */}
-        <div className="glass-panel rounded-xl p-6 border border-slate-800 flex flex-col items-center justify-center min-h-[220px] bg-slate-950/60">
-          {useCamera ? (
-            <div className="relative w-full flex flex-col items-center">
+      {/* 2. Live Camera / Facial Capture Feed */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setLiveDragOver(true);
+        }}
+        onDragLeave={() => setLiveDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setLiveDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleLiveSelect(file);
+        }}
+        className={`relative bg-surface border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center min-h-[280px] text-center transition-colors ${
+          liveDragOver
+            ? "border-brand bg-surface-raised"
+            : livePhoto || isCameraActive
+            ? "border-brand/60 bg-surface-raised/40"
+            : "border-border hover:border-brand/40"
+        }`}
+      >
+        <input
+          ref={liveInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => handleLiveSelect(e.target.files?.[0] || null)}
+        />
+
+        {/* Live Camera Viewfinder */}
+        {isCameraActive ? (
+          <div className="relative w-full h-full flex flex-col items-center">
+            <div className="relative w-full h-44 bg-black rounded border border-brand/60 overflow-hidden flex items-center justify-center">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full max-h-[160px] object-cover rounded-lg bg-black"
+                muted
+                className="w-full h-full object-cover mirror"
               />
-              <button
-                onClick={capturePhoto}
-                className="mt-3 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold flex items-center gap-2 shadow-lg"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Snap Live Photo</span>
-              </button>
-            </div>
-          ) : livePreview ? (
-            <div className="relative w-full max-h-[180px] flex items-center justify-center">
-              <img
-                src={livePreview}
-                alt="Live Snapshot"
-                className="max-h-[170px] rounded object-contain"
-              />
-              <button
-                onClick={() => { setLiveFile(null); setLivePreview(null); }}
-                className="absolute top-0 right-0 p-1.5 rounded-full bg-slate-900/90 text-slate-300 hover:text-red-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-center">
-              <div className="p-3 rounded-full bg-slate-900 border border-slate-800 text-emerald-400">
-                <Camera className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold font-mono text-slate-200 block">
-                  LIVE CHECKPOINT WEBCAM (1:1 BIOMETRICS)
-                </span>
-                <span className="text-[10px] font-mono text-slate-500 block mb-2">
-                  Captures traveler portrait for facial cosine similarity match
-                </span>
-                <button
-                  onClick={startCamera}
-                  className="px-3 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs"
-                >
-                  Activate Camera
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Execute Pipeline Button */}
-      {docFile && (
-        <div className="flex justify-end">
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-mono text-xs font-bold tracking-wider uppercase shadow-xl shadow-cyan-500/20 transition-all disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>SCREENING FORENSIC PIPELINE RUNNING...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>EXECUTE FORENSIC PIPELINE</span>
-              </>
+              {/* Facial alignment reticle */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div className="w-28 h-36 border-2 border-dashed border-brand/70 rounded-full animate-pulse" />
+              </div>
+
+              {/* LIVE Indicator */}
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/80 border border-risk-critical text-risk-critical font-mono text-[10px] uppercase font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-risk-critical animate-ping" />
+                <span>Live Feed</span>
+              </div>
+
+              {/* Close Camera Button */}
+              <button
+                type="button"
+                onClick={stopCameraStream}
+                className="absolute top-2 right-2 p-1 rounded bg-black/80 text-text-muted hover:text-white border border-border"
+                title="Close Camera"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Shutter Capture Button */}
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={captureFrame}
+                className="px-4 py-2 bg-brand hover:bg-white text-bg font-display text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center gap-2 shadow-[0_0_12px_rgba(166,255,77,0.3)] cursor-pointer"
+              >
+                <Camera size={15} />
+                <span>Capture Snapshot</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={stopCameraStream}
+                className="px-3 py-2 bg-surface-raised hover:bg-border text-text-muted font-mono text-xs uppercase rounded transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : livePreview ? (
+          <div className="relative w-full h-full flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={livePreview}
+              alt="Live Portrait Capture Preview"
+              className="max-h-44 max-w-full object-contain rounded border border-border"
+            />
+            <div className="mt-3 flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-brand" />
+              <span className="font-mono text-xs text-text font-bold truncate max-w-[200px]">
+                {livePhoto?.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleLiveSelect(null)}
+                className="p-1 text-text-muted hover:text-risk-critical"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={startCamera}
+                className="text-[11px] font-mono text-brand hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw size={11} />
+                <span>Retake with Camera</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-surface-raised border border-border flex items-center justify-center text-text-muted mb-3 group-hover:scale-105 transition-transform">
+              <Video size={24} strokeWidth={1.5} className="text-brand" />
+            </div>
+
+            <div className="font-display font-bold text-sm uppercase text-text tracking-tight">
+              Live Biometric Camera Capture
+            </div>
+            <p className="font-mono text-xs text-text-muted mt-1 max-w-xs">
+              Direct webcam stream for 1:1 ArcFace biometric matching
+            </p>
+
+            {cameraError && (
+              <p className="font-mono text-[11px] text-risk-critical mt-2 max-w-xs">
+                {cameraError}
+              </p>
             )}
-          </button>
-        </div>
-      )}
+
+            {/* Action Buttons: Live Camera vs File Upload */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={startCamera}
+                className="px-4 py-2 bg-brand hover:bg-white text-bg font-display text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(166,255,77,0.25)] cursor-pointer"
+              >
+                <Camera size={14} />
+                <span>Open Live Camera</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => liveInputRef.current?.click()}
+                className="px-3 py-2 bg-surface-raised hover:bg-border border border-border text-text-muted hover:text-text font-mono text-xs uppercase rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <FolderOpen size={13} />
+                <span>Choose File</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
-};
+}

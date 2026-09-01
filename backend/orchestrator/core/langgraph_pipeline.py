@@ -16,6 +16,7 @@ import time
 import uuid
 from typing import Annotated, Any, TypedDict
 from langgraph.graph import StateGraph, START, END
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
@@ -141,19 +142,26 @@ def _safe_uuid(val: Any) -> uuid.UUID | None:
 # ---------------------------------------------------------------------------
 
 async def minio_storage_node(state: ScreeningState) -> dict:
-    """Store encrypted image in MinIO and create Document DB row."""
+    """Store the image when object storage is available and create the document row."""
     doc_id = state["document_id"]
     try:
         image_key = await upload_document_image(state["image_bytes"], doc_id)
         db = state.get("db")
         if db is not None:
-            doc_record = Document(
-                id=_safe_uuid(doc_id),
-                document_type=state["document_type"].value,
-                image_object_key=image_key,
-                checkpoint_id=_safe_uuid(state.get("border_checkpoint_id")),
-            )
-            db.add(doc_record)
+            doc_uuid = _safe_uuid(doc_id)
+            doc_record = await db.get(Document, doc_uuid) if doc_uuid else None
+            if doc_record is None:
+                doc_record = Document(
+                    id=doc_uuid,
+                    document_type=state["document_type"].value,
+                    image_object_key=image_key,
+                    checkpoint_id=_safe_uuid(state.get("border_checkpoint_id")),
+                )
+                db.add(doc_record)
+            else:
+                doc_record.document_type = state["document_type"].value
+                doc_record.image_object_key = image_key
+                doc_record.checkpoint_id = _safe_uuid(state.get("border_checkpoint_id"))
             await db.flush()
         return {"image_object_key": image_key}
     except Exception as exc:
@@ -492,6 +500,18 @@ async def db_persistence_node(state: ScreeningState) -> dict:
 
     if db is not None and doc_uuid:
         try:
+            # A client retry may execute a scan again with the same document ID.
+            # Replace derived records atomically rather than violating their
+            # document-scoped unique constraints.
+            for model in (
+                ExtractedFieldModel,
+                ValidationResultModel,
+                TamperingResultModel,
+                FaceEmbeddingModel,
+                RiskScoreModel,
+            ):
+                await db.execute(delete(model).where(model.document_id == doc_uuid))
+
             ext = state.get("extraction")
             if ext and ext.fields:
                 for f in ext.fields:
@@ -519,13 +539,24 @@ async def db_persistence_node(state: ScreeningState) -> dict:
             tamp = state.get("tampering")
             if tamp and tamp.checks:
                 for c in tamp.checks:
+                    check_type = (
+                        c.check_type.value
+                        if hasattr(c.check_type, "value")
+                        else str(c.check_type)
+                    )
+                    detail_payload: dict[str, Any] = {
+                        "detail": c.detail,
+                        **c.metadata,
+                    }
+                    if check_type == "ela" and tamp.ela_heatmap_base64:
+                        detail_payload["ela_heatmap_base64"] = tamp.ela_heatmap_base64
                     db.add(
                         TamperingResultModel(
                             document_id=doc_uuid,
-                            check_type=(c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)),
+                            check_type=check_type,
                             score=c.score,
                             flagged=c.flagged,
-                            detail={"detail": c.detail, **c.metadata},
+                            detail=detail_payload,
                         )
                     )
 
@@ -657,11 +688,19 @@ def build_screening_graph():
     workflow.add_edge("face_verification", "cross_checkpoint")
 
     # ── Aggregation / Fan-In to Risk Engine ───────────────────────────────────
-    workflow.add_edge("validation_rules", "risk_engine")
-    workflow.add_edge("tampering_detection", "risk_engine")
-    workflow.add_edge("blacklist_check", "risk_engine")
-    workflow.add_edge("cross_checkpoint", "risk_engine")
-    workflow.add_edge("minio_storage", "risk_engine")
+    # A list source is a LangGraph fan-in: risk scoring must wait for every
+    # independent branch and run exactly once. Separate edges here would
+    # schedule the node once per completed branch, duplicating audit and DB work.
+    workflow.add_edge(
+        [
+            "validation_rules",
+            "tampering_detection",
+            "blacklist_check",
+            "cross_checkpoint",
+            "minio_storage",
+        ],
+        "risk_engine",
+    )
 
     # ── Conditional Edge 2: Risk Threat Level Escalation ─────────────────────
     workflow.add_conditional_edges(

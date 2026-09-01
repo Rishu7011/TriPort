@@ -102,98 +102,112 @@ def extract_fields_with_llm(
     encoded_image = base64.b64encode(optimized_bytes).decode("utf-8")
 
     try:
-        model_name = settings.llm_model or "gemini-3.5-flash-lite"
+        configured_model = settings.llm_model or "gemini-2.5-flash"
+        # Auto-sanitize invalid / non-existent gemini model strings
+        if "3.5" in configured_model or "lite" in configured_model:
+            candidate_models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+        else:
+            candidate_models = [configured_model, "gemini-2.5-flash", "gemini-1.5-flash"]
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": f"{system_prompt}\n\n{user_prompt}"},
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type,
-                                "data": encoded_image,
-                            }
-                        },
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "response_mime_type": "application/json",
-                "temperature": 0.1,
-            },
-        }
+        resp = None
+        for model_name in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": f"{system_prompt}\n\n{user_prompt}"},
+                            {
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": encoded_image,
+                                }
+                            },
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.1,
+                },
+            }
 
-        with httpx.Client(timeout=20.0) as client:
-            resp = client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                content = data["candidates"][0]["content"]["parts"][0]["text"]
-                clean_json = re.sub(r"^```json\s*|\s*```$", "", content.strip())
-                parsed = json.loads(clean_json)
-
-                # Extract detected document type
-                raw_type = str(parsed.get("document_type", "")).lower().strip()
-                resolved_type = None
-                for dt in DocumentType:
-                    if dt.value == raw_type:
-                        resolved_type = dt
+            try:
+                with httpx.Client(timeout=10.0) as client:
+                    r = client.post(url, json=payload)
+                    if r.status_code == 200:
+                        resp = r
                         break
-
-                if not resolved_type:
-                    if "voter" in raw_type or "epic" in raw_type or "elector" in raw_type:
-                        resolved_type = DocumentType.VOTER_ID
-                    elif "pan" in raw_type or "income" in raw_type:
-                        resolved_type = DocumentType.PAN_CARD
-                    elif "national" in raw_type or "aadhaar" in raw_type or "id" in raw_type:
-                        resolved_type = DocumentType.NATIONAL_ID
-                    elif "license" in raw_type or "licence" in raw_type or "driving" in raw_type:
-                        resolved_type = DocumentType.DRIVING_LICENSE
-                    elif "visa" in raw_type:
-                        resolved_type = DocumentType.VISA
-                    elif "ticket" in raw_type or "ferry" in raw_type:
-                        resolved_type = DocumentType.FERRY_TICKET
-                    elif "permit" in raw_type:
-                        resolved_type = DocumentType.PERMIT
                     else:
-                        resolved_type = document_type or DocumentType.NATIONAL_ID
+                        logger.warning("Gemini Vision API model attempt returned non-200", model=model_name, status_code=r.status_code)
+            except Exception as exc:
+                logger.warning("Gemini Vision API model attempt failed", model=model_name, error=str(exc))
 
-                fields_dict = parsed.get("fields", parsed)
-                if not isinstance(fields_dict, dict):
-                    fields_dict = {}
+        if resp and resp.status_code == 200:
+            data = resp.json()
+            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            clean_json = re.sub(r"^```json\s*|\s*```$", "", content.strip())
+            parsed = json.loads(clean_json)
 
-                # Map common key variations
-                if resolved_type == DocumentType.VOTER_ID:
-                    if "id_number" in fields_dict and "voter_id_number" not in fields_dict:
-                        fields_dict["voter_id_number"] = fields_dict.pop("id_number")
-                    elif "epic_number" in fields_dict and "voter_id_number" not in fields_dict:
-                        fields_dict["voter_id_number"] = fields_dict.pop("epic_number")
-                elif resolved_type == DocumentType.PAN_CARD:
-                    if "id_number" in fields_dict and "pan_number" not in fields_dict:
-                        fields_dict["pan_number"] = fields_dict.pop("id_number")
-                    elif "pan" in fields_dict and "pan_number" not in fields_dict:
-                        fields_dict["pan_number"] = fields_dict.pop("pan")
+            # Extract detected document type
+            raw_type = str(parsed.get("document_type", "")).lower().strip()
+            resolved_type = None
+            for dt in DocumentType:
+                if dt.value == raw_type:
+                    resolved_type = dt
+                    break
 
-                fields: list[ExtractedField] = []
-                for k, v in fields_dict.items():
-                    if k != "document_type" and v and str(v).lower() not in ["null", "none"]:
-                        fields.append(
-                            ExtractedField(
-                                field_name=str(k),
-                                field_value=str(v).strip(),
-                                confidence=0.96,
-                                extraction_method=ExtractionMethod.LLM,
-                            )
+            if not resolved_type:
+                if "voter" in raw_type or "epic" in raw_type or "elector" in raw_type:
+                    resolved_type = DocumentType.VOTER_ID
+                elif "pan" in raw_type or "income" in raw_type:
+                    resolved_type = DocumentType.PAN_CARD
+                elif "national" in raw_type or "aadhaar" in raw_type or "id" in raw_type:
+                    resolved_type = DocumentType.NATIONAL_ID
+                elif "license" in raw_type or "licence" in raw_type or "driving" in raw_type:
+                    resolved_type = DocumentType.DRIVING_LICENSE
+                elif "visa" in raw_type:
+                    resolved_type = DocumentType.VISA
+                elif "ticket" in raw_type or "ferry" in raw_type:
+                    resolved_type = DocumentType.FERRY_TICKET
+                elif "permit" in raw_type:
+                    resolved_type = DocumentType.PERMIT
+                else:
+                    resolved_type = document_type or DocumentType.NATIONAL_ID
+
+            fields_dict = parsed.get("fields", parsed)
+            if not isinstance(fields_dict, dict):
+                fields_dict = {}
+
+            # Map common key variations
+            if resolved_type == DocumentType.VOTER_ID:
+                if "id_number" in fields_dict and "voter_id_number" not in fields_dict:
+                    fields_dict["voter_id_number"] = fields_dict.pop("id_number")
+                elif "epic_number" in fields_dict and "voter_id_number" not in fields_dict:
+                    fields_dict["voter_id_number"] = fields_dict.pop("epic_number")
+            elif resolved_type == DocumentType.PAN_CARD:
+                if "id_number" in fields_dict and "pan_number" not in fields_dict:
+                    fields_dict["pan_number"] = fields_dict.pop("id_number")
+                elif "pan" in fields_dict and "pan_number" not in fields_dict:
+                    fields_dict["pan_number"] = fields_dict.pop("pan")
+
+            fields: list[ExtractedField] = []
+            for k, v in fields_dict.items():
+                if k != "document_type" and v and str(v).lower() not in ["null", "none"]:
+                    fields.append(
+                        ExtractedField(
+                            field_name=str(k),
+                            field_value=str(v).strip(),
+                            confidence=0.96,
+                            extraction_method=ExtractionMethod.LLM,
                         )
-                logger.info(
-                    "Successfully extracted fields via Gemini Vision API",
-                    document_type=resolved_type.value,
-                    count=len(fields),
-                )
-                return (resolved_type, fields)
-            else:
-                logger.warning("Gemini Vision API error", status_code=resp.status_code, response=resp.text[:200])
+                    )
+            logger.info(
+                "Successfully extracted fields via Gemini Vision API",
+                document_type=resolved_type.value,
+                count=len(fields),
+            )
+            return (resolved_type, fields)
 
         return (document_type or DocumentType.NATIONAL_ID, [])
 

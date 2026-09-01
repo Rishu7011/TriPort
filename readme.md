@@ -209,6 +209,17 @@ sequenceDiagram
 
 ---
 
+### Phase 7 hardening status
+
+| Work item | Status | Behavior |
+| :--- | :---: | :--- |
+| Parallel-stage fan-in | Complete | Risk scoring, threat routing, audit, and persistence wait for all upstream analyses and execute once per scan. |
+| Retry-safe persistence | Complete | Reprocessing a document ID atomically replaces its derived OCR, validation, tampering, face, and risk records. |
+| Offline object storage | Complete | If MinIO is unreachable, the scan remains processable but no invalid image URL is persisted; the UI continues to use its in-session image preview. |
+| Distributed services | Optional | Unavailable local microservices fall back to internal engines; start Docker Compose for networked service execution and durable MinIO storage. |
+
+---
+
 ## ⚡ LangGraph Orchestration DAG
 
 The document screening workflow is modeled as a **LangGraph StateGraph**:

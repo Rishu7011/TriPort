@@ -1,63 +1,175 @@
 "use client";
 
 import React from "react";
-import { CheckCircle2, AlertCircle, ShieldAlert, FileSearch, Sparkles } from "lucide-react";
+import type { RiskScoreResponse, ValidationResult } from "../lib/api/types";
+import { RiskBadge } from "./RiskBadge";
+import { AlertCircle, CheckCircle2, Shield, Info } from "lucide-react";
 
 interface ReasonsPanelProps {
-  reasons: string[];
-  band: string;
+  riskScore: RiskScoreResponse | null;
+  validation?: ValidationResult | null;
 }
 
-export const ReasonsPanel: React.FC<ReasonsPanelProps> = ({ reasons, band }) => {
-  const isClean = !reasons || reasons.length === 0 || (reasons.length === 1 && reasons[0].toLowerCase().includes("all checks passed"));
+export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
+  if (!riskScore) {
+    return (
+      <div className="bg-surface border border-border rounded p-6 text-center">
+        <Shield size={24} className="mx-auto text-text-muted mb-2" />
+        <p className="font-mono text-xs text-text-muted">
+          Risk scoring breakdown unavailable.
+        </p>
+      </div>
+    );
+  }
+
+  const score = riskScore.score || 0;
+  const reasons = riskScore.reasons || [];
+  const subScores = riskScore.sub_scores || {
+    validation_score: 0.0,
+    tampering_score: 0.0,
+    face_match_score: 0.0,
+    blacklist_score: 0.0,
+  };
 
   return (
-    <div className="glass-panel p-5 rounded-xl">
-      <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <FileSearch className="w-4 h-4 text-cyan-400" />
-          <h4 className="text-sm font-bold font-mono tracking-wider text-slate-200 uppercase">
-            AI Explainability & Signal Rationale
-          </h4>
-        </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
-          {reasons.length} FINDING{reasons.length !== 1 ? "S" : ""}
-        </span>
+    <div className="bg-surface border border-border rounded flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="p-3 border-b border-border bg-surface-raised flex items-center justify-between">
+        <h3 className="font-mono text-[11px] uppercase tracking-wider text-text-muted font-semibold">
+          Composite Risk Assessment
+        </h3>
+        <RiskBadge band={riskScore.band} score={score} size="sm" showScore={false} />
       </div>
 
-      {isClean ? (
-        <div className="flex items-center gap-3 p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-emerald-400">
-          <CheckCircle2 className="w-5 h-5 shrink-0" />
-          <span className="text-xs font-mono font-medium">
-            All forensic indicators nominal. No tampering anomalies, rule violations, or watchlist matches detected.
-          </span>
+      {/* Main Score Centerpiece */}
+      <div className="p-4 flex-1 flex flex-col gap-4">
+        <div className="flex items-center justify-between bg-bg border border-border rounded p-3">
+          <div>
+            <div className="font-mono text-[10px] text-text-muted uppercase">
+              Calculated Risk Index
+            </div>
+            <div className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mt-0.5">
+              {score.toFixed(1)}
+              <span className="font-mono text-xs text-text-muted font-normal">
+                {" "}
+                / 100
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <RiskBadge band={riskScore.band} score={score} size="md" />
+          </div>
         </div>
-      ) : (
-        <div className="space-y-2.5">
-          {reasons.map((reason, idx) => {
-            const isCritical = reason.toLowerCase().includes("blacklist") || reason.toLowerCase().includes("tampering") || reason.toLowerCase().includes("mismatch");
-            return (
-              <div
-                key={idx}
-                className={`flex items-start gap-3 p-3 rounded-lg border text-xs font-mono transition-all ${
-                  isCritical
-                    ? "bg-red-950/30 border-red-500/40 text-red-300"
-                    : "bg-amber-950/30 border-amber-500/40 text-amber-300"
-                }`}
+
+        {/* Contributing Sub-Scores */}
+        <div>
+          <h4 className="font-mono text-[10px] uppercase text-text-muted tracking-wider mb-2">
+            Module Sub-Scores:
+          </h4>
+          <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+            <div className="p-2 rounded bg-surface-raised border border-border flex justify-between items-center">
+              <span className="text-text-muted">Validation:</span>
+              <span
+                className={
+                  subScores.validation_score > 0
+                    ? "text-risk-critical font-bold"
+                    : "text-brand"
+                }
               >
-                {isCritical ? (
-                  <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                )}
-                <div className="flex-1">
-                  <span className="leading-relaxed">{reason}</span>
-                </div>
-              </div>
-            );
-          })}
+                {(subScores.validation_score * 100).toFixed(0)}%
+              </span>
+            </div>
+
+            <div className="p-2 rounded bg-surface-raised border border-border flex justify-between items-center">
+              <span className="text-text-muted">Tampering:</span>
+              <span
+                className={
+                  subScores.tampering_score > 0.3
+                    ? "text-risk-critical font-bold"
+                    : "text-brand"
+                }
+              >
+                {(subScores.tampering_score * 100).toFixed(0)}%
+              </span>
+            </div>
+
+            <div className="p-2 rounded bg-surface-raised border border-border flex justify-between items-center">
+              <span className="text-text-muted">Biometrics:</span>
+              <span
+                className={
+                  subScores.face_match_score > 0.4
+                    ? "text-risk-critical font-bold"
+                    : "text-brand"
+                }
+              >
+                {(subScores.face_match_score * 100).toFixed(0)}%
+              </span>
+            </div>
+
+            <div className="p-2 rounded bg-surface-raised border border-border flex justify-between items-center">
+              <span className="text-text-muted">Watchlist:</span>
+              <span
+                className={
+                  subScores.blacklist_score > 0
+                    ? "text-risk-critical font-bold"
+                    : "text-brand"
+                }
+              >
+                {(subScores.blacklist_score * 100).toFixed(0)}%
+              </span>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Human Readable Finding Reasons */}
+        <div className="flex-1">
+          <h4 className="font-mono text-[10px] uppercase text-text-muted tracking-wider mb-2">
+            Automated Findings:
+          </h4>
+          <div className="space-y-1.5 overflow-y-auto max-h-48">
+            {reasons.length > 0 ? (
+              reasons.map((reason, idx) => (
+                <div
+                  key={idx}
+                  className="p-2 rounded bg-bg border border-border/80 flex items-start gap-2 text-xs font-body"
+                >
+                  <Info
+                    size={14}
+                    className="text-brand shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
+                  <span className="text-text leading-snug">{reason}</span>
+                </div>
+              ))
+            ) : (
+              <div className="p-2 rounded bg-bg border border-border flex items-center gap-2 text-xs text-brand font-body">
+                <CheckCircle2 size={14} className="shrink-0" />
+                <span>All security parameters verified within thresholds.</span>
+              </div>
+            )}
+
+            {/* If validation failed rules exist */}
+            {validation &&
+              validation.failed_rules &&
+              validation.failed_rules.length > 0 && (
+                <div className="p-2 rounded bg-risk-critical/10 border border-risk-critical/30 space-y-1">
+                  <div className="font-mono text-[10px] uppercase text-risk-critical font-bold flex items-center gap-1.5">
+                    <AlertCircle size={12} />
+                    Failed Validation Rules:
+                  </div>
+                  {validation.failed_rules.map((ruleName, rIdx) => (
+                    <div
+                      key={rIdx}
+                      className="font-mono text-[11px] text-risk-critical pl-4"
+                    >
+                      • {ruleName}
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+        </div>
+      </div>
     </div>
   );
-};
+}

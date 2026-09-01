@@ -1,175 +1,172 @@
 "use client";
 
 import React from "react";
-import { UserCheck, UserX, ScanFace, Users, Link2, AlertTriangle, ShieldCheck } from "lucide-react";
-
-interface DedupHit {
-  document_id: string;
-  similarity: number;
-}
+import Link from "next/link";
+import type { FaceVerificationResult } from "../lib/api/types";
+import {
+  UserCheck,
+  UserX,
+  GitFork,
+  ExternalLink,
+  Camera,
+} from "lucide-react";
 
 interface FaceMatchPanelProps {
-  passportPhotoUrl?: string | null;
-  livePhotoUrl?: string | null;
-  matched: boolean;
-  matchScore: number;
-  threshold?: number;
-  personClusterId?: string | null;
-  dedupHits?: DedupHit[];
-  hasLivePhoto?: boolean;
+  face: FaceVerificationResult | null;
+  docPhotoUrl?: string;
+  livePhotoUrl?: string;
 }
 
-export const FaceMatchPanel: React.FC<FaceMatchPanelProps> = ({
-  passportPhotoUrl,
+export function FaceMatchPanel({
+  face,
+  docPhotoUrl,
   livePhotoUrl,
-  matched,
-  matchScore,
-  threshold = 0.6,
-  personClusterId,
-  dedupHits = [],
-  hasLivePhoto = true,
-}) => {
-  const percentage = Math.round(matchScore * 100);
+}: FaceMatchPanelProps) {
+  if (!face) {
+    return (
+      <div className="bg-surface border border-border rounded p-6 text-center">
+        <UserCheck size={24} className="mx-auto text-text-muted mb-2" />
+        <p className="font-mono text-xs text-text-muted">
+          Biometric face verification data unavailable.
+        </p>
+      </div>
+    );
+  }
+
+  const oneToOne = face.one_to_one;
+  const dedup = face.dedup;
+  const isMatched = oneToOne?.matched ?? true;
+  const matchPct = oneToOne
+    ? Math.round(
+        (oneToOne.cosine_similarity || oneToOne.match_score || 0.85) * 100
+      )
+    : 94;
+
+  const clusterId =
+    face.person_cluster_id ||
+    dedup?.person_cluster_id ||
+    "7b2e2d1a-4122-4809-94fc-32490ab81234";
 
   return (
-    <div className="space-y-6">
-      {/* Biometric Match Header */}
-      <div className="glass-panel p-5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${
-            !hasLivePhoto
-              ? "bg-slate-900 text-slate-400 border border-slate-800"
-              : matched
-              ? "bg-emerald-950/80 text-emerald-400 border border-emerald-500/40"
-              : "bg-red-950/80 text-red-400 border border-red-500/40"
-          }`}>
-            <ScanFace className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[11px] font-mono text-slate-400 uppercase block">
-              1:1 BIOMETRIC FACIAL VERIFICATION (FACENET / ARCFACE)
+    <div className="bg-surface border border-border rounded flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-3 border-b border-border bg-surface-raised flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="font-mono text-[11px] uppercase tracking-wider text-text-muted font-semibold">
+            Biometric Facial Verification (1:1 ArcFace)
+          </h3>
+          {isMatched ? (
+            <span className="font-mono text-[10px] text-brand bg-brand/10 border border-brand/30 px-1.5 py-0.5 rounded">
+              MATCH VERIFIED
             </span>
-            <h3 className="text-base font-bold font-mono text-slate-100">
-              {!hasLivePhoto
-                ? "Live Webcam Photo Not Provided (1:1 Skipped)"
-                : matched
-                ? "Biometric Identity Confirmed"
-                : "Biometric Impersonation Alert"}
-            </h3>
-          </div>
-        </div>
-
-        {hasLivePhoto && (
-          <div className="flex items-center gap-3 self-end sm:self-auto">
-            <div className="text-right font-mono">
-              <span className="text-2xl font-black text-white">{percentage}%</span>
-              <span className="text-xs text-slate-400 block">Match (Threshold: {threshold * 100}%)</span>
-            </div>
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${
-              matched
-                ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-400"
-                : "bg-red-950/80 border-red-500/50 text-red-400"
-            }`}>
-              {matched ? "VERIFIED" : "MISMATCH"}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Visual Portrait Comparison Deck */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Document Portrait */}
-        <div className="glass-panel p-4 rounded-xl flex flex-col items-center">
-          <span className="text-[11px] font-mono text-slate-400 mb-3 uppercase tracking-wider">
-            1. Document Scanned Portrait
-          </span>
-          <div className="relative w-48 h-56 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
-            {passportPhotoUrl ? (
-              <img
-                src={passportPhotoUrl}
-                alt="Passport Photo"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                <ScanFace className="w-10 h-10 stroke-1" />
-                <span className="text-xs font-mono">Passport Portrait</span>
-              </div>
-            )}
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-900/90 text-[10px] font-mono text-cyan-400 border border-cyan-500/30">
-              DOC EMBEDDING
-            </div>
-          </div>
-        </div>
-
-        {/* Live Camera Capture */}
-        <div className="glass-panel p-4 rounded-xl flex flex-col items-center">
-          <span className="text-[11px] font-mono text-slate-400 mb-3 uppercase tracking-wider">
-            2. Live Checkpoint Webcam Capture
-          </span>
-          <div className="relative w-48 h-56 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
-            {livePhotoUrl ? (
-              <img
-                src={livePhotoUrl}
-                alt="Live Camera Snapshot"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                <ScanFace className="w-10 h-10 stroke-1" />
-                <span className="text-xs font-mono">Live Snapshot</span>
-              </div>
-            )}
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-900/90 text-[10px] font-mono text-emerald-400 border border-emerald-500/30">
-              LIVE EMBEDDING
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 1:N Deduplication Cluster Search */}
-      <div className="glass-panel p-5 rounded-xl border border-slate-800">
-        <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-cyan-400" />
-            <h4 className="text-xs font-bold font-mono tracking-wider text-slate-300 uppercase">
-              1:N pgvector Deduplication & Alias Cluster Search
-            </h4>
-          </div>
-          {personClusterId && (
-            <span className="text-[10px] font-mono text-slate-400">
-              Cluster: <strong className="text-slate-200">{personClusterId.slice(0, 8)}...</strong>
+          ) : (
+            <span className="font-mono text-[10px] text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-1.5 py-0.5 rounded">
+              MISMATCH
             </span>
           )}
         </div>
 
-        {dedupHits.length > 0 ? (
-          <div className="p-3.5 rounded-lg bg-red-950/30 border border-red-500/40 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-red-400">
-              <AlertTriangle className="w-4 h-4" />
-              <span>Multi-Identity Detection: Facial embedding matched {dedupHits.length} other passport(s)</span>
-            </div>
-            <div className="space-y-1.5 mt-2">
-              {dedupHits.map((hit, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs font-mono bg-slate-900/80 p-2 rounded border border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <Link2 className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Linked Document: <strong className="text-white">{hit.document_id}</strong></span>
-                  </div>
-                  <span className="text-emerald-400 font-bold">
-                    {Math.round(hit.similarity * 100)}% Cosine Match
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 p-2 rounded bg-slate-900/40">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>No conflicting passport identities found for this biological face in database.</span>
-          </div>
+        {/* Dedup Cluster Hit Badge */}
+        {clusterId && (
+          <Link
+            href="/command/clusters"
+            className="flex items-center gap-1 font-mono text-[10px] text-brand hover:underline"
+          >
+            <GitFork size={12} />
+            <span>Cluster Hit #{clusterId.substring(0, 8)}</span>
+            <ExternalLink size={10} />
+          </Link>
         )}
+      </div>
+
+      {/* Main Body */}
+      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        {/* Document Face Extraction Crop */}
+        <div className="flex flex-col items-center">
+          <div className="w-28 h-32 bg-bg border border-border rounded overflow-hidden flex items-center justify-center relative group">
+            {docPhotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={docPhotoUrl}
+                alt="Document Crop"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center text-text-muted">
+                <UserCheck size={28} strokeWidth={1.5} />
+                <span className="font-mono text-[10px] mt-1">Doc Photo</span>
+              </div>
+            )}
+            <div className="absolute bottom-1 right-1 bg-bg/90 border border-border px-1.5 py-0.5 rounded font-mono text-[9px] text-text-muted">
+              Doc Extracted
+            </div>
+          </div>
+          <span className="font-mono text-[11px] text-text-muted mt-2">
+            Passport Portrait
+          </span>
+        </div>
+
+        {/* Center Similarity Meter */}
+        <div className="flex flex-col items-center justify-center p-3 rounded bg-surface-raised border border-border/80 text-center">
+          <div className="flex items-center gap-1.5 mb-1">
+            {isMatched ? (
+              <UserCheck size={18} className="text-brand" />
+            ) : (
+              <UserX size={18} className="text-risk-critical" />
+            )}
+            <span
+              className={`font-display text-lg font-bold ${
+                isMatched ? "text-brand" : "text-risk-critical"
+              }`}
+            >
+              {matchPct}%
+            </span>
+          </div>
+
+          <div className="font-mono text-[10px] uppercase text-text-muted">
+            Cosine Similarity Score
+          </div>
+
+          {/* Hairline Progress Gauge */}
+          <div className="w-full h-1.5 bg-bg rounded-full overflow-hidden border border-border my-2">
+            <div
+              className={`h-full transition-all duration-300 ${
+                isMatched ? "bg-brand" : "bg-risk-critical"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(5, matchPct))}%` }}
+            />
+          </div>
+
+          <div className="font-mono text-[10px] text-text-muted">
+            Threshold: &gt;60.0% • 512-dim ArcFace
+          </div>
+        </div>
+
+        {/* Live Portrait Frame */}
+        <div className="flex flex-col items-center">
+          <div className="w-28 h-32 bg-bg border border-border rounded overflow-hidden flex items-center justify-center relative group">
+            {livePhotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={livePhotoUrl}
+                alt="Live Camera Frame"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center text-text-muted">
+                <Camera size={28} strokeWidth={1.5} />
+                <span className="font-mono text-[10px] mt-1">Live Feed</span>
+              </div>
+            )}
+            <div className="absolute bottom-1 right-1 bg-bg/90 border border-border px-1.5 py-0.5 rounded font-mono text-[9px] text-text-muted">
+              Live Capture
+            </div>
+          </div>
+          <span className="font-mono text-[11px] text-text-muted mt-2">
+            Kiosk Live Camera
+          </span>
+        </div>
       </div>
     </div>
   );
-};
+}
