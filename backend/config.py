@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # ── LLM fallback (Pluggable Vision Model: Gemini / OpenAI / Anthropic / Local) ─
     llm_provider: str = "gemini"  # "gemini", "openai", "anthropic", or "generic"
     llm_api_key: str = ""
-    llm_model: str = "gemini-2.5-flash"
+    llm_model: str = "gemini-1.5-flash"
     llm_fallback_confidence_threshold: float = 0.6
 
     # ── Encryption ──────────────────────────────────────────

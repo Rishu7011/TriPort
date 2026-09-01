@@ -102,12 +102,12 @@ def extract_fields_with_llm(
     encoded_image = base64.b64encode(optimized_bytes).decode("utf-8")
 
     try:
-        configured_model = settings.llm_model or "gemini-2.5-flash"
+        configured_model = settings.llm_model or "gemini-1.5-flash"
         # Auto-sanitize invalid / non-existent gemini model strings
-        if "3.5" in configured_model or "lite" in configured_model:
-            candidate_models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+        if "3.5" in configured_model or "2.5" in configured_model or "lite" in configured_model:
+            candidate_models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro"]
         else:
-            candidate_models = [configured_model, "gemini-2.5-flash", "gemini-1.5-flash"]
+            candidate_models = [configured_model, "gemini-1.5-flash", "gemini-2.0-flash-exp"]
 
         resp = None
         for model_name in candidate_models:
