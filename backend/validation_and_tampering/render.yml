@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: validation-tampering-service
-    env: docker
-    dockerfilePath: ./backend/validation_and_tampering/Dockerfile
-    plan: free
-    region: oregon
