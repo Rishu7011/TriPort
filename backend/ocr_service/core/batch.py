@@ -100,18 +100,30 @@ async def process_single_item(
                     extracted_fields[field.field_name] = field
 
             # 5. Fallback check
-            if (not extracted_fields and not mrz_res.mrz_present) or (
-                doc_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
-                and len(extracted_fields) < 2
-            ):
-                llm_fields = extract_fields_with_llm(
+            _sparse_non_mrz = (
+                doc_type in [
+                    DocumentType.DRIVING_LICENSE,
+                    DocumentType.PERMIT,
+                    DocumentType.FERRY_TICKET,
+                    DocumentType.NATIONAL_ID,
+                    DocumentType.PAN_CARD,
+                    DocumentType.VOTER_ID,
+                ]
+                and len(extracted_fields) < 3
+            )
+            if (not extracted_fields and not mrz_res.mrz_present) or _sparse_non_mrz:
+                llm_type, llm_fields = extract_fields_with_llm(
                     image_bytes=image_bytes,
                     document_type=doc_type,
                 )
                 if llm_fields:
-                    primary_method = ExtractionMethod.LLM
+                    if llm_type and not document_type_hint:
+                        doc_type = llm_type
+                    if not extracted_fields:
+                        primary_method = ExtractionMethod.LLM
                     for f in llm_fields:
-                        extracted_fields[f.field_name] = f
+                        if f.field_name not in extracted_fields:
+                            extracted_fields[f.field_name] = f
 
             if not extracted_fields and not mrz_res.mrz_present:
                 return BatchItemResult(

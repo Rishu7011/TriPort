@@ -210,7 +210,7 @@ def classify_document(
         elif clean.startswith("V<") or (clean.startswith("V") and "<<" in clean):
             scores[DocumentType.VISA] += 5.0
             matched_features[DocumentType.VISA.value].append("mrz_mrv_line1")
-        elif clean.startswith("I<") or clean.startswith("A<") or clean.startswith("C<"):
+        elif clean.startswith("I<") or clean.startswith("A<") or clean.startswith("C<") or clean.startswith("ID") or clean.startswith("AC"):
             scores[DocumentType.NATIONAL_ID] += 4.0
             matched_features[DocumentType.NATIONAL_ID.value].append("mrz_td1_line1")
 
@@ -242,7 +242,10 @@ def classify_document(
         matched_features[DocumentType.PAN_CARD.value].append("pan_number_pattern")
 
     # Voter ID / EPIC Number: 3 letters, 7 digits (e.g. TGI8262487 or ABC1234567)
-    if re.search(r"\b[A-Z]{3}[0-9]{7}\b", full_text) or any(k in full_text for k in ["ELECTION COMMISSION", "ELECTOR IDENTITY", "EPIC NO", "VOTER ID"]):
+    # Ignore if this is clearly an MRZ line (contains << or P< or I< or V<) unless Voter ID keywords are present
+    has_voter_keywords = any(k in full_text for k in ["ELECTION COMMISSION", "ELECTOR IDENTITY", "EPIC NO", "VOTER ID"])
+    has_mrz_tokens = any(k in full_text for k in ["P<", "I<", "V<", "<<", "PASSPORT"])
+    if (re.search(r"\b[A-Z]{3}[0-9]{7}\b", full_text) and not (has_mrz_tokens and not has_voter_keywords)) or has_voter_keywords:
         scores[DocumentType.VOTER_ID] += 10.0
         matched_features[DocumentType.VOTER_ID.value].append("voter_id_number_pattern")
 

@@ -116,16 +116,18 @@ async def extract_document(
     extracted_fields: dict[str, ExtractedField] = {}
     primary_method = ExtractionMethod.OCR
 
+    explicit_document_type = document_type is not None
+
     # 1. Pure Cloud API Mode (Google Gemini Vision API)
     if provider == "api":
         logger.info(
             "Executing Cloud Vision API extraction",
-            document_type=document_type.value if document_type else "auto",
+            document_type=document_type.value if explicit_document_type else "auto",
             provider="api",
         )
         resolved_doc_type, llm_fields = extract_fields_with_llm(
             image_bytes=image_bytes,
-            document_type=document_type,
+            document_type=document_type if explicit_document_type else None,
             mime_type=file.content_type or "image/jpeg",
         )
         if llm_fields:
@@ -137,7 +139,7 @@ async def extract_document(
                 provider_used="api",
                 extraction_method=ExtractionMethod.LLM,
                 fields=list(extracted_fields.values()),
-                mrz=MRZResult(mrz_present=False, mrz_format=None, mrz_fields={}, checksum_valid=True, checksum_failures=[]),
+                mrz=MRZResult(mrz_present=False, mrz_format=None, mrz_fields={}, checksum_valid=None, checksum_failures=[]),
                 warnings=["Extracted via Gemini Vision API (gemini-3.5-flash-lite)"],
             )
         else:
@@ -147,13 +149,15 @@ async def extract_document(
     raw_ocr_lines: list[tuple[str, float]] = []
     try:
         raw_ocr_lines = extract_raw_ocr_lines(image_bytes)
+    except RuntimeError as exc:
+        logger.debug("Local OCR engine not installed, defaulting to Cloud Vision API", reason=str(exc))
     except Exception as exc:
-        logger.warning("OCR engine failed on image", error=str(exc))
+        logger.warning("Local OCR engine failed on image", error=str(exc))
 
     text_only_lines = [text for text, _ in raw_ocr_lines]
 
     # 3. If document_type not explicitly provided, auto-classify
-    if not document_type:
+    if not explicit_document_type:
         classified_type, class_conf, _ = classify_document(
             image_bytes,
             ocr_lines=raw_ocr_lines,
@@ -194,17 +198,21 @@ async def extract_document(
             DocumentType.PERMIT,
             DocumentType.FERRY_TICKET,
             DocumentType.NATIONAL_ID,
+            DocumentType.PAN_CARD,
+            DocumentType.VOTER_ID,
         ]
         and len(extracted_fields) < 3
     )
     if (not extracted_fields and not mrz_res.mrz_present) or _sparse_non_mrz:
-        logger.info("Triggering LLM fallback", document_type=document_type.value)
-        _, llm_fields = extract_fields_with_llm(
+        logger.info("Triggering LLM fallback", document_type=document_type.value if document_type else "auto")
+        llm_detected_type, llm_fields = extract_fields_with_llm(
             image_bytes=image_bytes,
-            document_type=document_type,
+            document_type=document_type if explicit_document_type else None,
             mime_type=file.content_type or "image/jpeg",
         )
         if llm_fields:
+            if not explicit_document_type and llm_detected_type:
+                document_type = llm_detected_type
             if not extracted_fields:
                 primary_method = ExtractionMethod.LLM
             for f in llm_fields:

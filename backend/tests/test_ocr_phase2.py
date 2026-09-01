@@ -84,6 +84,14 @@ def test_classifier_all_doctypes():
             [("LAND PORTS AUTHORITY OF INDIA", 0.96), ("LAND BORDER ENTRY PERMIT", 0.98), ("PERMIT NO: PER-987654", 0.95)],
             DocumentType.PERMIT,
         ),
+        (
+            [("INCOME TAX DEPARTMENT GOVT OF INDIA", 0.97), ("PERMANENT ACCOUNT NUMBER CARD", 0.98), ("PATPK1234M", 0.99)],
+            DocumentType.PAN_CARD,
+        ),
+        (
+            [("ELECTION COMMISSION OF INDIA ELECTOR IDENTITY CARD", 0.98), ("EPIC NO: ABC1234567", 0.99), ("ELECTOR'S NAME: RAJESH KUMAR", 0.95)],
+            DocumentType.VOTER_ID,
+        ),
     ]
 
     dummy_bytes = _create_synthetic_doc_image([])
@@ -309,3 +317,74 @@ async def test_ocr_api_batch_endpoint(genuine_passport_bytes):
         res_data = resp.json()
         assert res_data["total_processed"] == 2
         assert res_data["successful_count"] == 2
+
+
+# ─── 6. Verification Tests for Bug Fixes ──────────────────────────────────────
+
+def test_father_name_not_extracted_as_holder_name():
+    """Verify lines with FATHER'S NAME are skipped when extracting holder name."""
+    dummy_bytes = _create_synthetic_doc_image([])
+    lines = [
+        ("FATHER'S NAME: RAMESH KUMAR", 0.95),
+        ("NAME: AMIT KUMAR", 0.96),
+    ]
+    fields = extract_fields(dummy_bytes, DocumentType.NATIONAL_ID, raw_lines=lines)
+    field_dict = {f.field_name: f.field_value for f in fields}
+    assert "name" in field_dict
+    assert field_dict["name"] == "AMIT KUMAR"
+
+
+def test_national_id_alphabetic_word_filtering():
+    """Verify purely alphabetic words like NATIONAL are not selected as id_number."""
+    dummy_bytes = _create_synthetic_doc_image([])
+    lines = [
+        ("NATIONAL IDENTITY CARD NO: 987654321012", 0.95),
+    ]
+    fields = extract_fields(dummy_bytes, DocumentType.NATIONAL_ID, raw_lines=lines)
+    field_dict = {f.field_name: f.field_value for f in fields}
+    assert "id_number" in field_dict
+    assert field_dict["id_number"] == "987654321012"
+
+
+def test_single_digit_date_and_dl_slashes_extraction():
+    """Verify single-digit dates and slashes in driving license numbers are extracted."""
+    dummy_bytes = _create_synthetic_doc_image([])
+    lines = [
+        ("DL NO: DL-04/2011/0012345", 0.95),
+        ("DOB: 5/8/1995", 0.94),
+        ("VALID TILL: 1/1/2030", 0.93),
+    ]
+    fields = extract_fields(dummy_bytes, DocumentType.DRIVING_LICENSE, raw_lines=lines)
+    field_dict = {f.field_name: f.field_value for f in fields}
+    assert "license_number" in field_dict
+    assert field_dict["license_number"] == "DL-04/2011/0012345"
+    assert field_dict.get("date_of_birth") == "5/8/1995"
+    assert field_dict.get("date_of_expiry") == "1/1/2030"
+
+
+def test_lowercase_pan_and_voter_id_extraction():
+    """Verify lowercase PAN and Voter ID regex matching."""
+    dummy_bytes = _create_synthetic_doc_image([])
+    pan_lines = [("pan number: abcde1234f", 0.95)]
+    pan_fields = extract_fields(dummy_bytes, DocumentType.PAN_CARD, raw_lines=pan_lines)
+    pan_dict = {f.field_name: f.field_value for f in pan_fields}
+    assert pan_dict.get("pan_number") == "abcde1234f"
+
+    voter_lines = [("epic no: tgi8262487", 0.95)]
+    voter_fields = extract_fields(dummy_bytes, DocumentType.VOTER_ID, raw_lines=voter_lines)
+    voter_dict = {f.field_name: f.field_value for f in voter_fields}
+    assert voter_dict.get("voter_id_number") == "tgi8262487"
+
+
+def test_date_line_plus_1_no_dob_collision():
+    """Verify labeled expiry date on next line does not collide with unlabeled birth date fallback."""
+    dummy_bytes = _create_synthetic_doc_image([])
+    lines = [
+        ("EXPIRY DATE:", 0.90),
+        ("15/10/2028", 0.95),
+    ]
+    fields = extract_fields(dummy_bytes, DocumentType.PASSPORT, raw_lines=lines)
+    field_dict = {f.field_name: f.field_value for f in fields}
+    assert field_dict.get("date_of_expiry") == "15/10/2028"
+    assert "date_of_birth" not in field_dict
+

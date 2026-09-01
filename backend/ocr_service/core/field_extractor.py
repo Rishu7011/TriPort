@@ -25,23 +25,45 @@ from backend.ocr_service.schemas.extraction import (
 
 logger = get_logger("ocr_service.field_extractor")
 
-# Lazy-loaded EasyOCR reader
+# Singleton OCR engine state
+_ocr_engine_type: str | None = None  # "paddleocr", "easyocr", or None
 _ocr_reader: Any = None
 
 
-def get_ocr_reader():
-    """Singleton lazy-loader for EasyOCR reader."""
-    global _ocr_reader
+def get_ocr_reader() -> tuple[str, Any]:
+    """
+    Singleton lazy-loader for local OCR engines.
+    Tries PaddleOCR first (fastest, lightest), then EasyOCR.
+    """
+    global _ocr_reader, _ocr_engine_type
     if _ocr_reader is None:
+        # 1. Try PaddleOCR first
+        try:
+            from paddleocr import PaddleOCR
+            _ocr_reader = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+            _ocr_engine_type = "paddleocr"
+            logger.info("PaddleOCR engine initialized successfully")
+            return _ocr_engine_type, _ocr_reader
+        except ImportError:
+            logger.debug("PaddleOCR package not installed; checking EasyOCR")
+        except Exception as e:
+            logger.warning("Failed to initialize PaddleOCR engine", error=str(e))
+
+        # 2. Try EasyOCR second
         try:
             import easyocr
-            # Load English reader without GPU requirement by default for portability
             _ocr_reader = easyocr.Reader(["en"], gpu=False)
-            logger.info("EasyOCR reader initialized successfully")
+            _ocr_engine_type = "easyocr"
+            logger.info("EasyOCR engine initialized successfully")
+            return _ocr_engine_type, _ocr_reader
+        except ImportError:
+            logger.debug("EasyOCR package not installed; running in Cloud Mode")
+            raise RuntimeError("No local OCR engine installed (PaddleOCR or EasyOCR)")
         except Exception as e:
-            logger.error("Failed to initialize EasyOCR engine", error=str(e))
+            logger.warning("Failed to initialize EasyOCR engine", error=str(e))
             raise RuntimeError(f"OCR engine initialization error: {e}") from e
-    return _ocr_reader
+
+    return _ocr_engine_type, _ocr_reader
 
 
 REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
@@ -100,22 +122,22 @@ REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
 }
 
 PATTERNS = {
-    "date": re.compile(r"\b(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2}|\d{2}\s+[A-Za-z]{3}\s+\d{4})\b"),
+    "date": re.compile(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}[\s/-]?[A-Za-z]{3}[\s/-]?\d{2,4})\b"),
     "passport_num": re.compile(r"\b[A-Z][0-9]{7,8}\b"),
     "gender": re.compile(r"\b(SEX|GENDER)?\s*([MFX])\b", re.IGNORECASE),
     "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY)?\s*([A-Z]{3})\b", re.IGNORECASE),
     "aadhaar": re.compile(r"\b\d{4}\s+\d{4}\s+\d{4}\b"),
-    "dl_num": re.compile(r"\b(DL[- ]?[0-9A-Z]{8,16}|[A-Z]{2}[0-9]{2}[ -]?[0-9]{11})\b"),
+    "dl_num": re.compile(r"\b(DL[- /]?[0-9A-Z/-]{8,18}|[A-Z]{2}[0-9]{2}[ -/:]?[0-9]{4,11}(?:[ -/:][0-9]{4,7})?)\b", re.IGNORECASE),
     "permit_num": re.compile(r"\b(PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
     "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
-    "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"),
-    "voter_id_num": re.compile(r"\b[A-Z]{3}[0-9]{7}\b"),
+    "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.IGNORECASE),
+    "voter_id_num": re.compile(r"\b[A-Z]{3}[-/]?[0-9]{7}\b", re.IGNORECASE),
 }
 
 
 def ensure_image_bytes(raw_bytes: bytes) -> bytes:
     """If input is a PDF byte stream (%PDF), render the first page to JPEG bytes."""
-    if raw_bytes.startswith(b"%PDF"):
+    if b"%PDF" in raw_bytes[:1024]:
         try:
             import pymupdf
             pdf_doc = pymupdf.open(stream=raw_bytes, filetype="pdf")
@@ -126,6 +148,7 @@ def ensure_image_bytes(raw_bytes: bytes) -> bytes:
                 return pix.tobytes("jpeg")
         except Exception as e:
             logger.warning("Failed to render PDF page to image", error=str(e))
+            raise ValueError("Failed to process uploaded PDF file. Please ensure it is a valid PDF scan.") from e
     return raw_bytes
 
 
@@ -134,7 +157,7 @@ def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray
     valid_bytes = ensure_image_bytes(image_bytes)
     image = Image.open(io.BytesIO(valid_bytes)).convert("RGB")
     
-    # Scale down oversized phone camera images to 1600px max dimension for 2x-3x faster CRAFT OCR
+    # Scale down oversized phone camera images to 1600px max dimension for 2x-3x faster CRAFT/Paddle OCR
     w, h = image.size
     if max(w, h) > max_dim:
         scale = max_dim / float(max(w, h))
@@ -145,23 +168,33 @@ def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray
 
 
 def extract_raw_ocr_lines(image_bytes: bytes) -> list[tuple[str, float]]:
-    """Extract raw text lines and confidences using EasyOCR with inference mode."""
+    """Extract raw text lines and confidences using PaddleOCR or EasyOCR."""
     valid_bytes = ensure_image_bytes(image_bytes)
     img_array = _bytes_to_numpy_image(valid_bytes)
-    reader = get_ocr_reader()
-    
-    import torch
-    with torch.inference_mode():
-        raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
+    engine_type, reader = get_ocr_reader()
 
     lines_with_conf: list[tuple[str, float]] = []
-    for item in raw_results:
-        text = str(item[1]).strip()
-        prob = float(item[2])
-        if text:
-            lines_with_conf.append((text, prob))
 
-    logger.info("OCR detection completed", lines_count=len(lines_with_conf))
+    if engine_type == "paddleocr":
+        raw_results = reader.ocr(img_array, cls=True)
+        if raw_results and raw_results[0]:
+            for line in raw_results[0]:
+                if line and len(line) >= 2 and line[1]:
+                    text = str(line[1][0]).strip()
+                    prob = float(line[1][1])
+                    if text:
+                        lines_with_conf.append((text, prob))
+    elif engine_type == "easyocr":
+        import torch
+        with torch.inference_mode():
+            raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
+        for item in raw_results:
+            text = str(item[1]).strip()
+            prob = float(item[2])
+            if text:
+                lines_with_conf.append((text, prob))
+
+    logger.info("OCR detection completed", engine=engine_type, lines_count=len(lines_with_conf))
     return lines_with_conf
 
 
@@ -265,11 +298,12 @@ def extract_fields(
                     )
                 # General ID number
                 elif any(k in text.upper() for k in ["ID NO", "IDENTITY NO", "CARD NO", "CITIZEN NO", "UID"]):
-                    nums = re.findall(r"\b[A-Z0-9\-]{8,16}\b", text.upper())
-                    if nums:
+                    candidates = re.findall(r"\b[A-Z0-9\-]{8,16}\b", text.upper())
+                    numeric_cands = [c for c in candidates if any(ch.isdigit() for ch in c)]
+                    if numeric_cands:
                         extracted["id_number"] = ExtractedField(
                             field_name="id_number",
-                            field_value=nums[0],
+                            field_value=numeric_cands[0],
                             confidence=conf,
                             extraction_method=ExtractionMethod.OCR,
                         )
@@ -409,14 +443,17 @@ def extract_fields(
     # -----------------------------------------------------------------------
     found_labeled_dates: dict[str, tuple[str, float]] = {}
     unlabeled_dates: list[tuple[str, float]] = []
+    used_next_line_indices: set[int] = set()
 
     for i, (text, conf) in enumerate(raw_lines):
+        if i in used_next_line_indices:
+            continue
         text_upper = text.upper()
         date_matches = list(PATTERNS["date"].finditer(text))
         
         dates_on_line = [m.group(0) for m in date_matches]
         next_line_date = None
-        if i + 1 < len(raw_lines):
+        if i + 1 < len(raw_lines) and (i + 1) not in used_next_line_indices:
             next_m = PATTERNS["date"].search(raw_lines[i + 1][0])
             if next_m:
                 next_line_date = (next_m.group(0), raw_lines[i + 1][1])
@@ -424,18 +461,27 @@ def extract_fields(
         target_date = (dates_on_line[0], conf) if dates_on_line else next_line_date
 
         if target_date:
+            label_matched = False
             if any(k in text_upper for k in ["EXPIRY", "समाप्ति", "VALID UNTIL", "EXPIRATION", "VALID TILL", "VALID UPTO"]):
                 found_labeled_dates["date_of_expiry"] = target_date
+                label_matched = True
             elif any(k in text_upper for k in ["BIRTH", "जन्म", "DOB", "NAISSANCE"]):
                 found_labeled_dates["date_of_birth"] = target_date
+                label_matched = True
             elif any(k in text_upper for k in ["TRAVEL DATE", "JOURNEY DATE", "SAILING DATE", "DEPARTURE DATE"]):
                 found_labeled_dates["travel_date"] = target_date
+                label_matched = True
             elif any(k in text_upper for k in ["ENTRY VALIDITY", "VALIDITY"]):
                 found_labeled_dates["entry_validity"] = target_date
+                label_matched = True
             elif any(k in text_upper for k in ["ISSUE", "जारी"]):
                 found_labeled_dates["date_of_issue"] = target_date
+                label_matched = True
             elif dates_on_line:
                 unlabeled_dates.append((dates_on_line[0], conf))
+
+            if label_matched and not dates_on_line and next_line_date:
+                used_next_line_indices.add(i + 1)
 
     # Apply labeled dates
     for field_key in ["date_of_birth", "date_of_expiry", "travel_date", "entry_validity", "valid_until"]:
@@ -450,6 +496,9 @@ def extract_fields(
             )
 
     # Fallback to date sorting if labels weren't matched
+    labeled_values = {v[0] for v in found_labeled_dates.values()}
+    unlabeled_dates = [ud for ud in unlabeled_dates if ud[0] not in labeled_values]
+
     if ("date_of_birth" not in extracted or "date_of_expiry" not in extracted) and unlabeled_dates:
         parsed_dates = []
         for d_str, c in unlabeled_dates:
@@ -524,7 +573,8 @@ def extract_fields(
                 if next_t and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
                     given_val = next_t
 
-        if any(k in text_upper for k in ["PASSENGER NAME", "HOLDER NAME", "NAME:"]):
+        is_relational_name = any(r in text_upper for r in ["FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN", "W/O", "D/O", "S/O", "C/O"])
+        if any(k in text_upper for k in ["PASSENGER NAME", "HOLDER NAME", "NAME:"]) and not is_relational_name:
             clean_name = re.sub(r"(PASSENGER NAME|HOLDER NAME|NAME:|\bNAME\b|:)", "", text, flags=re.IGNORECASE).strip()
             if clean_name and len(clean_name) > 2:
                 given_val = clean_name
