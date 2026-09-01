@@ -41,9 +41,9 @@ def get_ocr_reader() -> tuple[str, Any]:
         try:
             from paddleocr import PaddleOCR
             try:
-                _ocr_reader = PaddleOCR(use_angle_cls=True, lang="en")
-            except TypeError:
-                _ocr_reader = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+                _ocr_reader = PaddleOCR(use_angle_cls=False, lang="en")
+            except Exception:
+                _ocr_reader = PaddleOCR(lang="en")
             _ocr_engine_type = "paddleocr"
             logger.info("PaddleOCR engine initialized successfully")
             return _ocr_engine_type, _ocr_reader
