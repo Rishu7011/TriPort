@@ -26,61 +26,23 @@ from backend.ocr_service.schemas.extraction import (
 logger = get_logger("ocr_service.field_extractor")
 
 # Singleton OCR engine state
-_ocr_engine_type: str | None = None  # "paddleocr", "easyocr", or None
+_ocr_engine_type: str | None = None  # "easyocr"
 _ocr_reader: Any = None
 
 
 def get_ocr_reader() -> tuple[str, Any]:
     """
-    Singleton lazy-loader for local OCR engines.
-    Tries PyTesseract first (lightest, 15MB RAM, rock solid C++ binary), then PaddleOCR, then EasyOCR.
+    Singleton lazy-loader for EasyOCR engine.
+    Exclusively uses EasyOCR for local OCR field extraction with GPU/MPS acceleration.
     """
     global _ocr_reader, _ocr_engine_type
     if _ocr_reader is None:
-        # 1. Try PyTesseract first (lightweight, stable, zero SIGSEGV)
-        try:
-            import pytesseract
-            pytesseract.get_tesseract_version()
-            _ocr_reader = pytesseract
-            _ocr_engine_type = "tesseract"
-            logger.info("Tesseract OCR engine initialized successfully")
-            return _ocr_engine_type, _ocr_reader
-        except Exception as e:
-            logger.debug("PyTesseract engine check skipped", error=str(e))
-
-        # 2. Try PaddleOCR second
-        try:
-            import paddle
-            if hasattr(paddle, "base") and hasattr(paddle.base, "libpaddle"):
-                if not hasattr(paddle.base.libpaddle.AnalysisConfig, "set_optimization_level"):
-                    setattr(paddle.base.libpaddle.AnalysisConfig, "set_optimization_level", lambda self, *args, **kwargs: None)
-        except Exception as patch_exc:
-            logger.debug("Paddle AnalysisConfig patch check skipped", error=str(patch_exc))
-
-        try:
-            from paddleocr import PaddleOCR
-            _ocr_reader = PaddleOCR(use_angle_cls=False, lang="en")
-            _ocr_engine_type = "paddleocr"
-            logger.info("PaddleOCR engine initialized successfully")
-            return _ocr_engine_type, _ocr_reader
-        except ImportError:
-            logger.debug("PaddleOCR package not installed; checking EasyOCR")
-        except Exception as e:
-            logger.warning("Failed to initialize PaddleOCR engine", error=str(e))
-
-        # 3. Try EasyOCR third
-        try:
-            import easyocr
-            _ocr_reader = easyocr.Reader(["en"], gpu=False)
-            _ocr_engine_type = "easyocr"
-            logger.info("EasyOCR engine initialized successfully")
-            return _ocr_engine_type, _ocr_reader
-        except ImportError:
-            logger.debug("EasyOCR package not installed; running in Cloud Mode")
-            raise RuntimeError("No local OCR engine installed (PyTesseract, PaddleOCR or EasyOCR)")
-        except Exception as e:
-            logger.warning("Failed to initialize EasyOCR engine", error=str(e))
-            raise RuntimeError(f"OCR engine initialization error: {e}") from e
+        import easyocr
+        import torch
+        use_gpu = torch.cuda.is_available()
+        _ocr_reader = easyocr.Reader(["en"], gpu=use_gpu)
+        _ocr_engine_type = "easyocr"
+        logger.info("EasyOCR engine initialized successfully", gpu=use_gpu)
 
     return _ocr_engine_type, _ocr_reader
 
@@ -176,7 +138,7 @@ def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray
     valid_bytes = ensure_image_bytes(image_bytes)
     image = Image.open(io.BytesIO(valid_bytes)).convert("RGB")
     
-    # Scale down oversized phone camera images to 1600px max dimension for 2x-3x faster CRAFT/Paddle OCR
+    # Scale down oversized phone camera images to 1600px max dimension for fast CRAFT inference
     w, h = image.size
     if max(w, h) > max_dim:
         scale = max_dim / float(max(w, h))
@@ -187,48 +149,18 @@ def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray
 
 
 def extract_raw_ocr_lines(image_bytes: bytes) -> list[tuple[str, float]]:
-    """Extract raw text lines and confidences using PyTesseract, PaddleOCR or EasyOCR."""
+    """Extract raw text lines and confidences exclusively using EasyOCR."""
     valid_bytes = ensure_image_bytes(image_bytes)
     img_array = _bytes_to_numpy_image(valid_bytes)
     engine_type, reader = get_ocr_reader()
 
     lines_with_conf: list[tuple[str, float]] = []
 
-    if engine_type == "tesseract":
-        import pytesseract
-        pil_img = Image.fromarray(img_array)
-        data = pytesseract.image_to_data(pil_img, output_type=pytesseract.Output.DICT)
-        lines_dict: dict[tuple[int, int], list[tuple[str, float]]] = {}
-        n_boxes = len(data.get("text", []))
-        for i in range(n_boxes):
-            text = str(data["text"][i]).strip()
-            conf_val = float(data["conf"][i])
-            if text and conf_val > 0:
-                line_num = data["line_num"][i]
-                block_num = data["block_num"][i]
-                key = (block_num, line_num)
-                if key not in lines_dict:
-                    lines_dict[key] = []
-                lines_dict[key].append((text, conf_val / 100.0))
-        for key in sorted(lines_dict.keys()):
-            line_texts = [t for t, _ in lines_dict[key]]
-            confs = [c for _, c in lines_dict[key]]
-            avg_conf = sum(confs) / len(confs)
-            lines_with_conf.append((" ".join(line_texts), round(avg_conf, 2)))
-    elif engine_type == "paddleocr":
-        raw_results = reader.ocr(img_array, cls=True)
-        if raw_results and raw_results[0]:
-            for line in raw_results[0]:
-                if line and len(line) >= 2 and line[1]:
-                    text = str(line[1][0]).strip()
-                    prob = float(line[1][1])
-                    if text:
-                        lines_with_conf.append((text, prob))
-    elif engine_type == "easyocr":
-        import torch
-        with torch.inference_mode():
-            raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
-        for item in raw_results:
+    import torch
+    with torch.inference_mode():
+        raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
+    for item in raw_results:
+        if item and len(item) >= 3:
             text = str(item[1]).strip()
             prob = float(item[2])
             if text:
