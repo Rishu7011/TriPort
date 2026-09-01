@@ -37,13 +37,19 @@ def get_ocr_reader() -> tuple[str, Any]:
     """
     global _ocr_reader, _ocr_engine_type
     if _ocr_reader is None:
+        # Patch paddlepaddle 2.6.2 C++ AnalysisConfig if set_optimization_level is missing
+        try:
+            import paddle
+            if hasattr(paddle, "base") and hasattr(paddle.base, "libpaddle"):
+                if not hasattr(paddle.base.libpaddle.AnalysisConfig, "set_optimization_level"):
+                    setattr(paddle.base.libpaddle.AnalysisConfig, "set_optimization_level", lambda self, *args, **kwargs: None)
+        except Exception as patch_exc:
+            logger.debug("Paddle AnalysisConfig patch check skipped", error=str(patch_exc))
+
         # 1. Try PaddleOCR first
         try:
             from paddleocr import PaddleOCR
-            try:
-                _ocr_reader = PaddleOCR(use_angle_cls=False, lang="en")
-            except Exception:
-                _ocr_reader = PaddleOCR(lang="en")
+            _ocr_reader = PaddleOCR(use_angle_cls=False, lang="en")
             _ocr_engine_type = "paddleocr"
             logger.info("PaddleOCR engine initialized successfully")
             return _ocr_engine_type, _ocr_reader
