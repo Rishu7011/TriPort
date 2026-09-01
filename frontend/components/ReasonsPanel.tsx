@@ -3,7 +3,7 @@
 import React from "react";
 import type { RiskScoreResponse, ValidationResult } from "../lib/api/types";
 import { RiskBadge } from "./RiskBadge";
-import { AlertCircle, CheckCircle2, Shield, Info } from "lucide-react";
+import { AlertCircle, Shield, Info } from "lucide-react";
 
 interface ReasonsPanelProps {
   riskScore: RiskScoreResponse | null;
@@ -143,8 +143,8 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
               ))
             ) : (
               <div className="p-2 rounded bg-bg border border-border flex items-center gap-2 text-xs text-brand font-body">
-                <CheckCircle2 size={14} className="shrink-0" />
-                <span>All security parameters verified within thresholds.</span>
+                <Info size={14} className="shrink-0" />
+                <span>No explanatory findings were returned by the risk service.</span>
               </div>
             )}
 

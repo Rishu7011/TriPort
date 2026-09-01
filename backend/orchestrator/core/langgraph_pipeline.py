@@ -8,7 +8,7 @@ Architecture:
   - Parallel Dependent Stage: YAML Rules Validation, Watchlist Cross-Check, Cross-Checkpoint Graph.
   - Synthesis & Risk Scoring Node.
   - Conditional Edge 2: Automated Routing between Standard Clearance vs Secondary Inspection Queue.
-  - Append-Only Tamper-Evident Audit Logging & PostgreSQL Persistence.
+  - Append-Only Tamper-Evident Audit Logging (in-memory ledger).
 """
 
 import asyncio
@@ -16,8 +16,6 @@ import time
 import uuid
 from typing import Annotated, Any, TypedDict
 from langgraph.graph import StateGraph, START, END
-from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import (
@@ -45,6 +43,7 @@ from backend.risk_engine.schemas.risk import (
     ValidationSubScore,
 )
 from backend.orchestrator.core.blacklist import check_blacklist
+from backend.orchestrator.core.scan_store import save_scan
 from backend.orchestrator.core.service_clients import (
     call_audit_ledger,
     call_cross_checkpoint_service,
@@ -54,20 +53,11 @@ from backend.orchestrator.core.service_clients import (
     call_tampering_service,
     call_validation_service,
 )
-from backend.orchestrator.db.models import (
-    Document,
-    ExtractedField as ExtractedFieldModel,
-    FaceEmbedding as FaceEmbeddingModel,
-    RiskScore as RiskScoreModel,
-    TamperingResult as TamperingResultModel,
-    ValidationResult as ValidationResultModel,
-)
 from backend.orchestrator.schemas.pipeline import (
     PipelineResult,
     PipelineServiceStatuses,
     ServiceStatus,
 )
-from backend.orchestrator.storage.minio_client import upload_document_image
 
 logger = get_logger("orchestrator.langgraph_pipeline")
 
@@ -94,7 +84,6 @@ class ScreeningState(TypedDict, total=False):
     border_checkpoint_id: str | None
     provider: str
     image_object_key: str | None
-    db: Any | None  # AsyncSession
 
     # Microservice outputs
     extraction: ExtractionResponse | None
@@ -141,32 +130,9 @@ def _safe_uuid(val: Any) -> uuid.UUID | None:
 # 2. Graph Nodes
 # ---------------------------------------------------------------------------
 
-async def minio_storage_node(state: ScreeningState) -> dict:
-    """Store the image when object storage is available and create the document row."""
-    doc_id = state["document_id"]
-    try:
-        image_key = await upload_document_image(state["image_bytes"], doc_id)
-        db = state.get("db")
-        if db is not None:
-            doc_uuid = _safe_uuid(doc_id)
-            doc_record = await db.get(Document, doc_uuid) if doc_uuid else None
-            if doc_record is None:
-                doc_record = Document(
-                    id=doc_uuid,
-                    document_type=state["document_type"].value,
-                    image_object_key=image_key,
-                    checkpoint_id=_safe_uuid(state.get("border_checkpoint_id")),
-                )
-                db.add(doc_record)
-            else:
-                doc_record.document_type = state["document_type"].value
-                doc_record.image_object_key = image_key
-                doc_record.checkpoint_id = _safe_uuid(state.get("border_checkpoint_id"))
-            await db.flush()
-        return {"image_object_key": image_key}
-    except Exception as exc:
-        logger.warning("MinIO / DB init warning in node", error=str(exc))
-        return {"image_object_key": None}
+async def buffer_images_node(state: ScreeningState) -> dict:
+    """Keep images in pipeline state only — no external storage."""
+    return {}
 
 
 async def ocr_extraction_node(state: ScreeningState) -> dict:
@@ -306,7 +272,7 @@ async def blacklist_check_node(state: ScreeningState) -> dict:
     """Cross-check extracted fields against national & Interpol watchlists."""
     ext = state.get("extraction")
     fields = ext.fields if ext else []
-    bl_score = await check_blacklist(fields=fields, db=state.get("db"))
+    bl_score = await check_blacklist(fields=fields)
     return {"blacklist": bl_score}
 
 
@@ -493,105 +459,6 @@ async def audit_ledger_node(state: ScreeningState) -> dict:
     return {}
 
 
-async def db_persistence_node(state: ScreeningState) -> dict:
-    """Commit all relational results to PostgreSQL."""
-    db: AsyncSession = state.get("db")
-    doc_uuid = _safe_uuid(state["document_id"])
-
-    if db is not None and doc_uuid:
-        try:
-            # A client retry may execute a scan again with the same document ID.
-            # Replace derived records atomically rather than violating their
-            # document-scoped unique constraints.
-            for model in (
-                ExtractedFieldModel,
-                ValidationResultModel,
-                TamperingResultModel,
-                FaceEmbeddingModel,
-                RiskScoreModel,
-            ):
-                await db.execute(delete(model).where(model.document_id == doc_uuid))
-
-            ext = state.get("extraction")
-            if ext and ext.fields:
-                for f in ext.fields:
-                    db.add(
-                        ExtractedFieldModel(
-                            document_id=doc_uuid,
-                            field_name=f.field_name,
-                            field_value=f.field_value,
-                            confidence=f.confidence,
-                        )
-                    )
-
-            val = state.get("validation")
-            if val and val.rule_results:
-                for r in val.rule_results:
-                    db.add(
-                        ValidationResultModel(
-                            document_id=doc_uuid,
-                            rule_name=r.rule_name,
-                            passed=r.passed,
-                            detail=r.detail,
-                        )
-                    )
-
-            tamp = state.get("tampering")
-            if tamp and tamp.checks:
-                for c in tamp.checks:
-                    check_type = (
-                        c.check_type.value
-                        if hasattr(c.check_type, "value")
-                        else str(c.check_type)
-                    )
-                    detail_payload: dict[str, Any] = {
-                        "detail": c.detail,
-                        **c.metadata,
-                    }
-                    if check_type == "ela" and tamp.ela_heatmap_base64:
-                        detail_payload["ela_heatmap_base64"] = tamp.ela_heatmap_base64
-                    db.add(
-                        TamperingResultModel(
-                            document_id=doc_uuid,
-                            check_type=check_type,
-                            score=c.score,
-                            flagged=c.flagged,
-                            detail=detail_payload,
-                        )
-                    )
-
-            face = state.get("face")
-            dedup = face.dedup if face else None
-            if dedup and dedup.person_cluster_id:
-                cluster_uuid = _safe_uuid(dedup.person_cluster_id)
-                db.add(
-                    FaceEmbeddingModel(
-                        document_id=doc_uuid,
-                        embedding=None,
-                        person_cluster_id=cluster_uuid,
-                    )
-                )
-
-            risk = state.get("risk_score")
-            if risk:
-                db.add(
-                    RiskScoreModel(
-                        document_id=doc_uuid,
-                        score=risk.score,
-                        band=risk.band.value,
-                        reasons=risk.reasons,
-                    )
-                )
-
-            await db.commit()
-            logger.info("Persisted all LangGraph entities to PostgreSQL", document_id=str(doc_uuid))
-        except Exception as exc:
-            logger.error("DB persistence node error", error=str(exc))
-            await db.rollback()
-
-    return {}
-
-
 # ---------------------------------------------------------------------------
 # 3. Conditional Routers (Edges)
 # ---------------------------------------------------------------------------
@@ -654,7 +521,7 @@ def build_screening_graph():
     workflow = StateGraph(ScreeningState)
 
     # Register Nodes
-    workflow.add_node("minio_storage", minio_storage_node)
+    workflow.add_node("buffer_images", buffer_images_node)
     workflow.add_node("ocr_extraction", ocr_extraction_node)
     workflow.add_node("llm_vision_fallback", llm_vision_fallback_node)
     workflow.add_node("tampering_detection", tampering_detection_node)
@@ -666,10 +533,9 @@ def build_screening_graph():
     workflow.add_node("secondary_inspection", secondary_inspection_node)
     workflow.add_node("standard_clearance", standard_clearance_node)
     workflow.add_node("audit_ledger", audit_ledger_node)
-    workflow.add_node("db_persistence", db_persistence_node)
 
     # ── Initial Parallel Fan-Out ──────────────────────────────────────────────
-    workflow.add_edge(START, "minio_storage")
+    workflow.add_edge(START, "buffer_images")
     workflow.add_edge(START, "ocr_extraction")
     workflow.add_edge(START, "tampering_detection")
     workflow.add_edge(START, "face_verification")
@@ -697,7 +563,7 @@ def build_screening_graph():
             "tampering_detection",
             "blacklist_check",
             "cross_checkpoint",
-            "minio_storage",
+            "buffer_images",
         ],
         "risk_engine",
     )
@@ -712,11 +578,10 @@ def build_screening_graph():
         },
     )
 
-    # ── Audit & Final Persistence ─────────────────────────────────────────────
+    # ── Audit ─────────────────────────────────────────────────────────────────
     workflow.add_edge("secondary_inspection", "audit_ledger")
     workflow.add_edge("standard_clearance", "audit_ledger")
-    workflow.add_edge("audit_ledger", "db_persistence")
-    workflow.add_edge("db_persistence", END)
+    workflow.add_edge("audit_ledger", END)
 
     return workflow.compile()
 
@@ -736,7 +601,6 @@ async def run_langgraph_pipeline(
     live_image_bytes: bytes | None = None,
     document_id: str | None = None,
     checkpoint_id: str | None = None,
-    db: AsyncSession | None = None,
 ) -> PipelineResult:
     """
     Execute the document screening pipeline using the LangGraph StateGraph engine.
@@ -753,7 +617,6 @@ async def run_langgraph_pipeline(
         "border_checkpoint_id": checkpoint_id,
         "provider": provider,
         "image_object_key": None,
-        "db": db,
         "extraction": None,
         "validation": None,
         "tampering": None,
@@ -817,7 +680,7 @@ async def run_langgraph_pipeline(
         duration_ms=total_duration,
     )
 
-    return PipelineResult(
+    result = PipelineResult(
         document_id=doc_id_str,
         degraded=len(final_state.get("degraded_modules", [])) > 0,
         service_statuses=statuses,
@@ -828,3 +691,14 @@ async def run_langgraph_pipeline(
         cross_checkpoint=final_state.get("cross_checkpoint"),
         risk_score=final_state.get("risk_score"),
     )
+
+    save_scan(
+        result,
+        document_type=document_type.value,
+        checkpoint_id=checkpoint_id,
+        image_bytes=image_bytes,
+        live_image_bytes=live_image_bytes,
+        inspection_status=final_state.get("inspection_status", "standard_clearance"),
+    )
+
+    return result

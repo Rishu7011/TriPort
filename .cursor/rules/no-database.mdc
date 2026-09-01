@@ -1,0 +1,25 @@
+---
+description: No database or browser/cloud storage — in-memory only until persistence is added later
+alwaysApply: true
+---
+
+# No persistence layer (current phase)
+
+TriPort is intentionally **stateless beyond process memory** right now.
+
+## Do NOT add
+
+- PostgreSQL, SQLite, or any SQL/ORM persistence
+- MinIO, S3, or other object/cloud storage
+- `sessionStorage`, `localStorage`, or `IndexedDB` in the frontend
+- `DATABASE_URL`, `POSTGRES_*`, `MINIO_*`, or similar env vars
+
+## Use instead
+
+- **Backend**: `backend/orchestrator/core/scan_store.py` for screening results, audit ledger in-memory chain, validation mock tables in `database_check.py`
+- **Frontend**: fetch scan data from API endpoints; auth token in HTTP cookie only (no localStorage)
+- **Env**: service URLs, auth, LLM, and logging only (see `.env.example`)
+
+## Future work
+
+When the user asks to add a database, reintroduce persistence as a deliberate phase — do not sneak it back in for caching or convenience.

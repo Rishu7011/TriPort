@@ -49,10 +49,7 @@ from backend.face_service.core.embedding import (
 
 logger = get_logger("face_service.one_to_one")
 
-DEFAULT_COSINE_THRESHOLD = 0.50   # lowered from 0.60 — ArcFace cross-domain (passport vs. live)
-                                  # same-person similarity clusters around 0.45–0.65; 0.50 is the
-                                  # research-backed midpoint that minimises false-rejects while
-                                  # staying well above the impostor range (0.10–0.30).
+DEFAULT_COSINE_THRESHOLD = 0.90
 LIVENESS_THRESHOLD = 0.30        # lowered from 0.40 — single still-image EAR is less reliable
                                   # than video-stream EAR; 0.30 avoids falsely flagging normal
                                   # passport photos where eyes appear slightly narrowed.
@@ -219,7 +216,7 @@ def verify_one_to_one(
         live_image_bytes: Raw bytes of the live checkpoint photo.
         doc_embedding: Precomputed 512-dim embedding for doc photo (skips extraction).
         live_embedding: Precomputed 512-dim embedding for live capture (skips extraction).
-        threshold: Cosine similarity decision boundary (default: 0.60).
+        threshold: Cosine similarity decision boundary (default: 0.90).
         enable_liveness: Run MediaPipe liveness check on live photo (default: True).
         enable_voter: Run multi-model voter for borderline scores (default: True).
 
@@ -233,7 +230,70 @@ def verify_one_to_one(
     """
     detail_parts: list[str] = []
 
-    # ── Step 1: MediaPipe Liveness Check (live photo only) ───────────────────
+    from backend.config import settings
+    from backend.face_service.core.aws_rekognition import (
+        aws_compare_faces,
+        is_aws_rekognition_available,
+        use_aws_face_verification,
+    )
+
+    aws_only = use_aws_face_verification()
+
+    # ── AWS Rekognition (primary / exclusive when face_verification_provider=aws) ─
+    if doc_image_bytes and live_image_bytes:
+        if aws_only and not is_aws_rekognition_available():
+            return (
+                False,
+                0.0,
+                0.0,
+                "AWS Rekognition is required but not configured. "
+                "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in .env.",
+            )
+
+        if is_aws_rekognition_available():
+            aws_threshold_pct = (
+                threshold * 100.0 if threshold <= 1.0 else threshold
+            )
+            aws_threshold_pct = max(
+                settings.aws_face_similarity_threshold, aws_threshold_pct
+            )
+
+            aws_matched, aws_sim, aws_conf, aws_detail, _aws_meta = aws_compare_faces(
+                source_bytes=doc_image_bytes,
+                target_bytes=live_image_bytes,
+                similarity_threshold=aws_threshold_pct,
+            )
+
+            if "AWS Rekognition error" not in aws_detail and "not configured" not in aws_detail:
+                is_verified = (aws_sim >= (aws_threshold_pct / 100.0)) and aws_matched
+                detail_parts.append(f"[AWS Rekognition] {aws_detail}")
+
+                if is_verified:
+                    verdict = (
+                        f"✅ Face verification PASSED via AWS Rekognition "
+                        f"(Similarity: {aws_sim * 100:.1f}% ≥ {aws_threshold_pct:.1f}%)."
+                    )
+                else:
+                    verdict = (
+                        f"❌ Face verification FAILED via AWS Rekognition "
+                        f"(Similarity: {aws_sim * 100:.1f}% < {aws_threshold_pct:.1f}% threshold). "
+                        "Biometric mismatch detected."
+                    )
+                detail_parts.append(verdict)
+                return is_verified, round(aws_sim, 4), round(aws_sim, 4), " | ".join(detail_parts)
+
+            if aws_only:
+                return False, 0.0, 0.0, aws_detail
+
+    if aws_only:
+        return (
+            False,
+            0.0,
+            0.0,
+            "AWS face verification requires both document and live photos.",
+        )
+
+    # ── Local pipeline below — only when face_verification_provider=local ───────
     liveness_score = 1.0
     liveness_detail = "Liveness check not applicable."
     if live_image_bytes and enable_liveness:
@@ -249,37 +309,7 @@ def verify_one_to_one(
             # but flag it prominently in the detail string
             detail_parts.insert(0, f"⚠️ ANTI-SPOOFING ALERT (liveness_score={liveness_score:.2f})")
 
-    # ── Step 2: AWS Rekognition Cloud Provider (Primary when available) ──────
-    from backend.face_service.core.aws_rekognition import is_aws_rekognition_available, aws_compare_faces
-
-    if doc_image_bytes and live_image_bytes and is_aws_rekognition_available():
-        # Strict border control standard: default to 85% to separate siblings/family members
-        aws_threshold_pct = max(80.0, threshold * 100.0 if threshold <= 1.0 else threshold)
-        
-        aws_matched, aws_sim, aws_conf, aws_detail, aws_meta = aws_compare_faces(
-            source_bytes=doc_image_bytes,
-            target_bytes=live_image_bytes,
-            similarity_threshold=aws_threshold_pct,
-        )
-        if "AWS Rekognition error" not in aws_detail and "not configured" not in aws_detail:
-            # Enforce strict cutoff against threshold
-            is_verified = (aws_sim >= (aws_threshold_pct / 100.0)) and aws_matched
-            detail_parts.append(f"[AWS Rekognition] {aws_detail}")
-            
-            if is_verified:
-                verdict = f"✅ Face verification PASSED via AWS Rekognition (Similarity: {aws_sim * 100:.1f}% ≥ {aws_threshold_pct:.1f}%)."
-                if liveness_score < LIVENESS_THRESHOLD:
-                    verdict += " ⚠️ Liveness suspect — secondary review recommended."
-            else:
-                verdict = (
-                    f"❌ Face verification FAILED via AWS Rekognition (Similarity: {aws_sim * 100:.1f}% < {aws_threshold_pct:.1f}% threshold). "
-                    "Biometric mismatch: possible sibling, close relative, or impostor detected."
-                )
-            detail_parts.append(verdict)
-            full_detail = " | ".join(detail_parts)
-            return is_verified, round(aws_sim, 4), round(aws_sim, 4), full_detail
-
-    # ── Step 3: Local ArcFace / InsightFace / DeepFace Pipeline (Fallback) ─────
+    # ── Local ArcFace / InsightFace / DeepFace Pipeline ───────────────────────
     if doc_embedding is None:
         if not doc_image_bytes:
             return False, 0.0, 0.0, "Missing document photo image or embedding."

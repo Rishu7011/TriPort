@@ -355,6 +355,14 @@ class TestVisaValidation:
 # ---------------------------------------------------------------------------
 
 class TestNationalIDValidation:
+    def test_valid_aadhaar_number_passes(self):
+        fields = [
+            field("id_number", "1234 5678 9012"),
+            field("date_of_birth", years_ago(30)),
+        ]
+        response = validate_document(DocumentType.NATIONAL_ID, fields)
+        assert response.passed is True
+
     def test_valid_national_id_passes(self):
         fields = [
             field("id_number", "IND-123456789"),
@@ -370,6 +378,29 @@ class TestNationalIDValidation:
         ]
         response = validate_document(DocumentType.NATIONAL_ID, fields)
         assert "id_number_format" in response.failed_rules
+
+
+class TestIndianIdentityDocumentValidation:
+    def test_valid_pan_card_passes(self):
+        response = validate_document(
+            DocumentType.PAN_CARD,
+            [field("pan_number", "ABCDE1234F"), field("date_of_birth", years_ago(30))],
+        )
+        assert response.passed is True
+
+    def test_invalid_pan_card_number_fails(self):
+        response = validate_document(
+            DocumentType.PAN_CARD,
+            [field("pan_number", "INVALID"), field("date_of_birth", years_ago(30))],
+        )
+        assert "pan_number_format" in response.failed_rules
+
+    def test_valid_voter_id_passes(self):
+        response = validate_document(
+            DocumentType.VOTER_ID,
+            [field("voter_id_number", "ABC1234567"), field("date_of_birth", years_ago(30))],
+        )
+        assert response.passed is True
 
 
 # ---------------------------------------------------------------------------

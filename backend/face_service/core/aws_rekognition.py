@@ -1,14 +1,14 @@
 """
 AWS Rekognition Integration Module for Face Verification and Analysis.
 
-Provides cloud-grade 1:1 facial comparison (CompareFaces), facial attribute
-detection (DetectFaces), and collection indexing with automatic error handling
-and graceful fallback when credentials are not configured or offline.
+Provides cloud-grade 1:1 facial comparison (CompareFaces) with automatic
+error handling when credentials are not configured.
 """
 
-import os
 import io
 from PIL import Image
+
+from backend.config import settings
 from backend.logging_config import get_logger
 
 logger = get_logger("face_service.aws_rekognition")
@@ -22,16 +22,9 @@ def get_rekognition_client():
     if _boto3_client is not None:
         return _boto3_client
 
-    try:
-        from dotenv import load_dotenv
-        load_dotenv("backend/.env")
-        load_dotenv(".env")
-    except Exception:
-        pass
-
-    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    aws_region = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "ap-south-1"))
+    aws_access_key = settings.aws_access_key_id
+    aws_secret_key = settings.aws_secret_access_key
+    aws_region = settings.aws_region
 
     if not aws_access_key or not aws_secret_key:
         logger.debug("AWS credentials not configured — Rekognition client unavailable")
@@ -65,13 +58,17 @@ def is_aws_rekognition_available() -> bool:
     return get_rekognition_client() is not None
 
 
+def use_aws_face_verification() -> bool:
+    """True when face verification must use AWS Rekognition (no local models)."""
+    return settings.face_verification_provider.strip().lower() == "aws"
+
+
 def _ensure_jpeg_or_png_bytes(img_bytes: bytes) -> bytes:
     """Ensure image bytes are in valid JPEG/PNG format supported by AWS Rekognition."""
     try:
         pil_img = Image.open(io.BytesIO(img_bytes))
         if pil_img.format in ("JPEG", "PNG"):
             return img_bytes
-        # Convert format to JPEG
         buf = io.BytesIO()
         pil_img.convert("RGB").save(buf, format="JPEG", quality=95)
         return buf.getvalue()
@@ -82,7 +79,7 @@ def _ensure_jpeg_or_png_bytes(img_bytes: bytes) -> bytes:
 def aws_compare_faces(
     source_bytes: bytes,
     target_bytes: bytes,
-    similarity_threshold: float = 70.0,
+    similarity_threshold: float | None = None,
 ) -> tuple[bool, float, float, str, dict]:
     """
     Compare document face photo (source) against live capture photo (target).
@@ -90,20 +87,20 @@ def aws_compare_faces(
     Args:
         source_bytes: Document photo bytes.
         target_bytes: Live webcam capture bytes.
-        similarity_threshold: Minimum match confidence (0.0–100.0, default: 70.0%).
+        similarity_threshold: Minimum match confidence (0.0–100.0).
 
     Returns:
-        tuple: (
-            matched: bool,
-            similarity: float (0.0 to 1.0),
-            confidence: float (0.0 to 1.0),
-            detail: str,
-            metadata: dict
-        )
+        tuple: (matched, similarity_0_1, confidence_0_1, detail, metadata)
     """
     client = get_rekognition_client()
     if client is None:
         return False, 0.0, 0.0, "AWS Rekognition not configured", {}
+
+    threshold_pct = (
+        similarity_threshold
+        if similarity_threshold is not None
+        else settings.aws_face_similarity_threshold
+    )
 
     try:
         src_clean = _ensure_jpeg_or_png_bytes(source_bytes)
@@ -112,7 +109,7 @@ def aws_compare_faces(
         response = client.compare_faces(
             SourceImage={"Bytes": src_clean},
             TargetImage={"Bytes": tgt_clean},
-            SimilarityThreshold=similarity_threshold,
+            SimilarityThreshold=threshold_pct,
             QualityFilter="AUTO",
         )
 
@@ -124,6 +121,8 @@ def aws_compare_faces(
             "source_face_confidence": source_face.get("Confidence", 0.0),
             "matches_count": len(face_matches),
             "unmatched_count": len(unmatched_faces),
+            "provider": "aws_rekognition",
+            "similarity_threshold_pct": threshold_pct,
         }
 
         if face_matches:
@@ -134,18 +133,17 @@ def aws_compare_faces(
 
             detail = (
                 f"AWS Rekognition CompareFaces: MATCH (Similarity={sim_pct:.1f}%, "
-                f"Confidence={face_conf * 100:.1f}%, threshold={similarity_threshold}%)"
+                f"Confidence={face_conf * 100:.1f}%, threshold={threshold_pct:.1f}%)"
             )
             logger.info("aws_compare_faces_match", similarity=sim_pct, matched=True)
             return True, sim_norm, face_conf, detail, metadata
 
-        # If there are unmatched faces in target
         if unmatched_faces:
             top_unmatched = unmatched_faces[0]
             face_conf = float(top_unmatched.get("Confidence", 90.0)) / 100.0
             detail = (
                 f"AWS Rekognition CompareFaces: NO MATCH — Face detected in live capture "
-                f"does not match document (threshold={similarity_threshold}%)"
+                f"does not match document (threshold={threshold_pct:.1f}%)"
             )
             logger.info("aws_compare_faces_mismatch", matched=False)
             return False, 0.0, face_conf, detail, metadata

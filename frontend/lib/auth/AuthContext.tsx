@@ -22,7 +22,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Offline demo user profiles for fallback if backend is momentarily unreachable
 const DEMO_PROFILES: Record<string, UserProfileResponse> = {
   "officer@triport.gov": {
     user_id: "00000000-0000-0000-0000-000000000001",
@@ -98,18 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await api.getMe();
         if (isMounted) {
           setUser(profile);
-          localStorage.setItem("triport_user", JSON.stringify(profile));
         }
       } catch {
         if (isMounted) {
-          const cached = localStorage.getItem("triport_user");
-          if (cached) {
-            try {
-              setUser(JSON.parse(cached));
-            } catch {
-              setUser(null);
-            }
-          }
+          setUser(null);
         }
       } finally {
         if (isMounted) {
@@ -137,16 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
       return profile;
     } catch {
-      const cached = localStorage.getItem("triport_user");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          setUser(parsed);
-          return parsed;
-        } catch {
-          // ignore
-        }
-      }
       return null;
     }
   };
@@ -160,16 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.login({ email, password });
       setStoredToken(response.access_token);
       setUser(response.user);
-      localStorage.setItem("triport_user", JSON.stringify(response.user));
       return response.user;
     } catch (err) {
-      // Fallback demo account check for offline resilience
       const fallback = DEMO_PROFILES[email.toLowerCase()];
       if (fallback) {
         const syntheticToken = `demo_token_${fallback.role}_${Date.now()}`;
         setStoredToken(syntheticToken);
         setUser(fallback);
-        localStorage.setItem("triport_user", JSON.stringify(fallback));
         return fallback;
       }
       throw err;
@@ -181,7 +159,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setStoredToken(null);
     setUser(null);
-    localStorage.removeItem("triport_user");
   };
 
   const role = user?.role || null;

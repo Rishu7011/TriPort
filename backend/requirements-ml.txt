@@ -10,7 +10,7 @@ Pillow>=10.3.0
 google-generativeai>=0.5.4
 
 # ── Computer Vision & Tampering Detection ─────────────────
-opencv-python-headless>=4.9.0.80
+opencv-python-headless>=4.9.0.80,<5.0.0
 exifread>=3.0.0
 numpy>=1.26.4
 scikit-image>=0.23.2

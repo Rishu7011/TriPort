@@ -4,8 +4,6 @@ Orchestration Pipeline — End-to-end execution of the document screening workfl
 Routes all document screening requests through the LangGraph StateGraph DAG engine.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
 from backend.orchestrator.core.langgraph_pipeline import run_langgraph_pipeline
@@ -22,7 +20,6 @@ async def run_pipeline(
     live_image_bytes: bytes | None = None,
     document_id: str | None = None,
     checkpoint_id: str | None = None,
-    db: AsyncSession | None = None,
 ) -> PipelineResult:
     """
     Execute the full end-to-end document screening pipeline using the LangGraph StateGraph.
@@ -35,5 +32,4 @@ async def run_pipeline(
         live_image_bytes=live_image_bytes,
         document_id=document_id,
         checkpoint_id=checkpoint_id,
-        db=db,
     )

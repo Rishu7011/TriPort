@@ -5,13 +5,8 @@ Checks extracted document fields (document number, name, DOB, nationality)
 against the watchlist / blacklist repository.
 """
 
-from typing import Any
-from sqlalchemy import select, or_, func
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import ExtractedField
-from backend.orchestrator.db.models import BlacklistEntry
 from backend.risk_engine.schemas.risk import BlacklistSubScore
 
 logger = get_logger("orchestrator.blacklist")
@@ -35,7 +30,6 @@ _DEMO_BLACKLIST = [
 
 async def check_blacklist(
     fields: list[ExtractedField],
-    db: AsyncSession | None = None,
 ) -> BlacklistSubScore:
     """
     Check extracted fields against the blacklist database (and in-memory seed list).
@@ -83,37 +77,6 @@ async def check_blacklist(
                 matched_fields=matched_fields,
                 reason=entry.get("reason"),
             )
-
-    # 2. Check Database if session available
-    if db is not None:
-        try:
-            conditions = []
-            if doc_num:
-                conditions.append(func.upper(BlacklistEntry.document_number) == doc_num)
-            if name:
-                conditions.append(func.upper(BlacklistEntry.full_name) == name)
-
-            if conditions:
-                stmt = select(BlacklistEntry).where(or_(*conditions))
-                res = await db.execute(stmt)
-                db_entries = res.scalars().all()
-
-                for entry in db_entries:
-                    if entry.document_number and doc_num and entry.document_number.upper() == doc_num:
-                        matched_fields.append(f"document_number ({doc_num})")
-                    if entry.full_name and name and entry.full_name.upper() == name:
-                        matched_fields.append(f"name ({name})")
-                    if entry.severity:
-                        severities.append(entry.severity)
-
-                    logger.warning(
-                        "Blacklist hit detected from Postgres database",
-                        doc_number=entry.document_number,
-                        name=entry.full_name,
-                        severity=entry.severity,
-                    )
-        except Exception as exc:
-            logger.warning("Database blacklist query skipped or failed", error=str(exc))
 
     if not matched_fields:
         return BlacklistSubScore(hit=False)

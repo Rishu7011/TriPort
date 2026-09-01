@@ -96,7 +96,7 @@ Uploads a document scan image, executes all 5 screening modules sequentially (wi
 
 - **Form Fields:**
   - `file` (UploadFile, required): Raw document image (JPEG/PNG).
-  - `document_type` (string, optional, default: `"passport"`): `"passport" | "visa" | "national_id" | "driving_license" | "permit"`.
+  - `document_type` (string, optional, default: `"passport"`): `"passport" | "visa" | "national_id" (Aadhaar) | "pan_card" | "voter_id" | "driving_license" | "permit" | "ferry_ticket"`.
   - `live_photo` (UploadFile, optional): Traveler webcam portrait for 1:1 biometric match & liveness check.
   - `checkpoint_id` (string, optional): Border checkpoint UUID.
 
@@ -192,6 +192,8 @@ Records an officer's final verdict into the immutable audit ledger.
   "notes": "Verified genuine passport and live facial match at Kiosk 3."
 }
 ```
+
+`decision` must be one of `approve`, `flag` (route to secondary inspection), or `reject` (deny/detain).
 
 - **Response (`200 OK`):**
 ```json

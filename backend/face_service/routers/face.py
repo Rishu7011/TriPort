@@ -64,7 +64,7 @@ async def generate_embedding(
 async def verify_faces(
     doc_photo: UploadFile = File(..., description="Portrait photo extracted from document"),
     live_photo: UploadFile = File(..., description="Live webcam capture photo of traveler"),
-    threshold: float = Form(default=0.85, description="High-security cutoff threshold (default: 0.85 / 85%)"),
+    threshold: float = Form(default=0.90, description="High-security cutoff threshold (default: 0.90 / 90%)"),
 ) -> OneToOneVerifyResponse:
     """Compare document portrait against live checkpoint capture."""
     try:
@@ -103,6 +103,17 @@ async def dedup_check(
     threshold: float = Form(default=0.65, description="Cosine similarity clustering cutoff"),
 ) -> DedupSearchResponse:
     """Check face against historical vector index for duplicate identities."""
+    from backend.face_service.core.aws_rekognition import use_aws_face_verification
+    import uuid
+
+    if use_aws_face_verification():
+        return DedupSearchResponse(
+            has_duplicates=False,
+            hits=[],
+            person_cluster_id=str(uuid.uuid4()),
+            detail="1:N dedup is disabled in AWS-only face mode (no local embeddings).",
+        )
+
     try:
         image_bytes = await file.read()
     except Exception as e:
@@ -169,7 +180,7 @@ async def check_liveness(
 async def batch_verify_faces(
     doc_photos: list[UploadFile] = File(..., description="List of document portrait photos"),
     live_photos: list[UploadFile] = File(..., description="List of live checkpoint photos"),
-    threshold: float = Form(default=0.60, description="Decision threshold"),
+    threshold: float = Form(default=0.90, description="Decision threshold"),
 ) -> BatchVerifyResponse:
     """Concurrently process a batch of traveler document + live photo pairs."""
     if len(doc_photos) != len(live_photos):

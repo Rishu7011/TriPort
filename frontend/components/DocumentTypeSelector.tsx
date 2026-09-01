@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { DocumentType } from "../lib/api/types";
-import { BookOpen, FileCheck, CreditCard, Car, Award } from "lucide-react";
+import { BookOpen, FileCheck, CreditCard, Car, Award, Vote } from "lucide-react";
 
 interface DocumentTypeSelectorProps {
   value: DocumentType;
@@ -16,7 +16,9 @@ const DOC_TYPES: Array<{
 }> = [
   { id: "passport", label: "Passport", icon: BookOpen },
   { id: "visa", label: "Visa", icon: FileCheck },
-  { id: "national_id", label: "National ID", icon: CreditCard },
+  { id: "national_id", label: "Aadhaar Card", icon: CreditCard },
+  { id: "pan_card", label: "PAN Card", icon: CreditCard },
+  { id: "voter_id", label: "Voter ID", icon: Vote },
   { id: "driving_license", label: "Driving License", icon: Car },
   { id: "permit", label: "Permit", icon: Award },
 ];

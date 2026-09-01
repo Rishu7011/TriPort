@@ -37,7 +37,7 @@ class OneToOneVerifyResponse(BaseModel):
         description="Raw cosine similarity between embedding vectors",
     )
     threshold: float = Field(
-        default=0.60,
+        default=0.90,
         description="Decision boundary threshold used for matching",
     )
     detail: str = Field(..., description="Human-readable decision explanation")

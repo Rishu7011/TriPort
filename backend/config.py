@@ -13,16 +13,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── PostgreSQL ──────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://triport:changeme@localhost:5432/triport"
-
-    # ── MinIO ───────────────────────────────────────────────
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin"
-    minio_bucket_documents: str = "documents"
-    minio_use_ssl: bool = False
-
     # ── Service URLs (used by orchestrator) ─────────────────
     ocr_service_url: str = "http://localhost:8001"
     validation_service_url: str = "http://localhost:8002"
@@ -32,6 +22,20 @@ class Settings(BaseSettings):
     audit_ledger_url: str = "http://localhost:8006"
     cross_checkpoint_service_url: str = "http://localhost:8008"
 
+    # When true, orchestrator calls service core modules directly instead of HTTP.
+    # Recommended for local dev without Docker Compose networking.
+    use_in_process_services: bool = True
+
+    # ── Face verification ─────────────────────────────────────
+    # "aws" = AWS Rekognition CompareFaces only (no local ArcFace/DeepFace/InsightFace)
+    # "local" = on-device embedding models (InsightFace / DeepFace fallback)
+    face_verification_provider: str = "aws"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "ap-south-1"
+    # Rekognition SimilarityThreshold (0–100). Default 90% matches the 1:1 cutoff.
+    aws_face_similarity_threshold: float = 90.0
+
     # ── Auth ────────────────────────────────────────────────
     secret_key: str = "supersecretkey-change-in-production"
     jwt_algorithm: str = "HS256"
@@ -39,7 +43,7 @@ class Settings(BaseSettings):
 
     # ── LLM fallback (Pluggable Vision Model: Gemini / OpenAI / Anthropic / Local) ─
     llm_provider: str = "gemini"  # "gemini", "openai", "anthropic", or "generic"
-    llm_api_key: str = ""
+    llm_api_key: str = "AQ.Ab8RN6LJTP7-BaBQFcsGZalp67adlaW3ULONnYNrlLQj_N7p1w"
     llm_model: str = "gemini-1.5-flash"
     llm_fallback_confidence_threshold: float = 0.6
 

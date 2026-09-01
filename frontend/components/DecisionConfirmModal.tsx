@@ -36,7 +36,8 @@ export function DecisionConfirmModal({
 
   if (!isOpen) return null;
 
-  const isDetain = verdict === "detain";
+  const isDetain = verdict === "reject";
+  const actionLabel = isDetain ? "DETAIN" : "ESCALATE";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +81,7 @@ export function DecisionConfirmModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display font-bold text-base text-text uppercase tracking-tight">
-                  CONFIRM {verdict.toUpperCase()} PROTOCOL
+                  CONFIRM {actionLabel} PROTOCOL
                 </h3>
               </div>
               <p className="font-mono text-xs text-text-muted mt-0.5">
@@ -182,7 +183,7 @@ export function DecisionConfirmModal({
               <span>
                 {submitting
                   ? "Writing to Ledger..."
-                  : `Commit ${verdict.toUpperCase()}`}
+                  : `Commit ${actionLabel}`}
               </span>
             </button>
           </div>

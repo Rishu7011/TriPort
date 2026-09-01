@@ -1,10 +1,10 @@
 # National ID Validation Rules
 
 - rule_name: id_number_format
-  description: "National ID must be alphanumeric without illegal special characters."
+  description: "National ID must be alphanumeric, or a 12-digit Aadhaar number grouped 4-4-4."
   rule_type: regex_format
   field: id_number
-  pattern: "^[A-Z0-9-]{6,18}$"
+  pattern: "^(?:[A-Z0-9-]{6,18}|[0-9]{4}\\s[0-9]{4}\\s[0-9]{4})$"
   error_message: "National ID format is invalid."
 
 - rule_name: id_dob_in_past

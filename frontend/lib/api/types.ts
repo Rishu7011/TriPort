@@ -29,9 +29,13 @@ export interface LoginResponse {
 export type DocumentType =
   | "passport"
   | "visa"
+  /** Aadhaar cards are processed by the backend's national-ID workflow. */
   | "national_id"
+  | "pan_card"
+  | "voter_id"
   | "driving_license"
-  | "permit";
+  | "permit"
+  | "ferry_ticket";
 
 export type CheckpointType = "airport" | "land_border" | "sea";
 
@@ -39,8 +43,8 @@ export type RiskBand = "low" | "medium" | "high" | "critical";
 
 export interface ExtractedFieldItem {
   field_name: string;
-  field_value: string;
-  confidence: number;
+  field_value: string | null;
+  confidence: number | null;
 }
 
 export interface MrzFields {
@@ -56,7 +60,7 @@ export interface MrzFields {
 
 export interface MrzResult {
   mrz_present: boolean;
-  checksum_valid: boolean;
+  checksum_valid: boolean | null;
   checksum_failures: string[];
   mrz_fields: MrzFields;
 }
@@ -153,11 +157,11 @@ export interface PipelineResult {
   document_id: string;
   degraded: boolean;
   service_statuses: ServiceStatusMap;
-  extraction: ExtractionResult;
-  validation: ValidationResult;
-  tampering: TamperingResult;
-  face: FaceVerificationResult;
-  risk_score: RiskScoreResponse;
+  extraction: ExtractionResult | null;
+  validation: ValidationResult | null;
+  tampering: TamperingResult | null;
+  face: FaceVerificationResult | null;
+  risk_score: RiskScoreResponse | null;
 }
 
 export interface UploadResponse {
@@ -166,7 +170,8 @@ export interface UploadResponse {
   pipeline: PipelineResult;
 }
 
-export type DecisionVerdict = "approve" | "escalate" | "reject" | "detain";
+/** Values accepted by POST /documents/{id}/decision. */
+export type DecisionVerdict = "approve" | "flag" | "reject";
 
 export interface DecisionRequest {
   officer_id?: string;

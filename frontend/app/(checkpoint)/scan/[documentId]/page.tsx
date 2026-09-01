@@ -26,6 +26,7 @@ import {
   FileText,
   CheckCircle2,
   History,
+  AlertCircle,
 } from "lucide-react";
 
 export default function ScanResultPage({
@@ -38,6 +39,7 @@ export default function ScanResultPage({
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Core forensic result states
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
@@ -45,6 +47,8 @@ export default function ScanResultPage({
   const [tampering, setTampering] = useState<TamperingResult | null>(null);
   const [face, setFace] = useState<FaceVerificationResult | null>(null);
   const [risk, setRisk] = useState<RiskScoreResponse | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
+  const [serviceIssues, setServiceIssues] = useState<string[]>([]);
 
   // Cached image URLs from upload session
   const [docPhotoUrl, setDocPhotoUrl] = useState<string | undefined>(undefined);
@@ -53,7 +57,7 @@ export default function ScanResultPage({
   );
 
   // Decision Modal State
-  const [modalVerdict, setModalVerdict] = useState<DecisionVerdict>("detain");
+  const [modalVerdict, setModalVerdict] = useState<DecisionVerdict>("reject");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [decisionSuccess, setDecisionSuccess] = useState<string | null>(null);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
@@ -61,180 +65,64 @@ export default function ScanResultPage({
   useEffect(() => {
     let isMounted = true;
 
-    const loadFallbackData = () => {
-      if (!isMounted) return;
-      setExtraction({
-        document_type: "passport",
-        fields: [
-          {
-            field_name: "passport_number",
-            field_value: "P1299384",
-            confidence: 0.99,
-          },
-          { field_name: "surname", field_value: "VANCE", confidence: 0.99 },
-          {
-            field_name: "given_names",
-            field_value: "ELARA",
-            confidence: 0.98,
-          },
-          {
-            field_name: "date_of_birth",
-            field_value: "1991-06-14",
-            confidence: 0.99,
-          },
-          {
-            field_name: "expiry_date",
-            field_value: "2031-06-14",
-            confidence: 0.98,
-          },
-          { field_name: "nationality", field_value: "GBR", confidence: 0.99 },
-          { field_name: "sex", field_value: "F", confidence: 0.99 },
-        ],
-        mrz: {
-          mrz_present: true,
-          checksum_valid: true,
-          checksum_failures: [],
-          mrz_fields: {
-            doc_number: "P1299384",
-            dob: "910614",
-            expiry: "310614",
-            nationality: "GBR",
-            surname: "VANCE",
-            given_names: "ELARA",
-          },
-        },
-      });
-
-      setValidation({
-        document_type: "passport",
-        passed: true,
-        failed_rules: [],
-        rule_results: [
-          {
-            rule_name: "expiry_not_passed",
-            passed: true,
-            detail: "Passport expiration date (2031-06-14) is valid.",
-          },
-          {
-            rule_name: "passport_validity_window_sufficient",
-            passed: true,
-            detail: "Validity window exceeds minimum 6 months.",
-          },
-          {
-            rule_name: "mrz_checksum_integrity",
-            passed: true,
-            detail: "All ICAO 9303 check digits verified valid.",
-          },
-        ],
-      });
-
-      setTampering({
-        flagged: false,
-        tampering_score: 0.06,
-        checks: [
-          {
-            check_type: "ela_compression_delta",
-            score: 0.05,
-            flagged: false,
-            detail: "Uniform error level distribution across substrate.",
-          },
-          {
-            check_type: "copy_move_analysis",
-            score: 0.02,
-            flagged: false,
-            detail: "No duplicated texture patches detected.",
-          },
-        ],
-      });
-
-      setFace({
-        one_to_one: {
-          matched: true,
-          match_score: 0.942,
-          cosine_similarity: 0.885,
-          threshold: 0.6,
-          detail: "ArcFace verified with 88.5% cosine similarity.",
-        },
-        dedup: {
-          has_duplicates: false,
-          hits: [],
-          person_cluster_id: "7b2e2d1a-4122-4809-94fc-32490ab81234",
-        },
-        person_cluster_id: "7b2e2d1a-4122-4809-94fc-32490ab81234",
-      });
-
-      setRisk({
-        score: 8.5,
-        band: "low",
-        reasons: [
-          "All security parameters passed within acceptable thresholds.",
-          "Biometric facial match verified at 88.5% cosine similarity.",
-          "MRZ checksum digits fully validated against ICAO Doc 9303 standards.",
-        ],
-        sub_scores: {
-          validation_score: 0.0,
-          tampering_score: 0.06,
-          face_match_score: 0.058,
-          blacklist_score: 0.0,
-        },
-      });
-    };
-
     const initializeData = async () => {
-      // 1. Check if cached from recent upload in sessionStorage
-      const cachedScan = sessionStorage.getItem(`triport_scan_${documentId}`);
-      const cachedDocImg = sessionStorage.getItem(`triport_doc_img_${documentId}`);
-      const cachedLiveImg = sessionStorage.getItem(
-        `triport_live_img_${documentId}`
-      );
-
-      if (cachedDocImg && isMounted) setDocPhotoUrl(cachedDocImg);
-      if (cachedLiveImg && isMounted) setLivePhotoUrl(cachedLiveImg);
-
-      if (cachedScan) {
-        try {
-          const parsed = JSON.parse(cachedScan);
-          if (parsed.pipeline && isMounted) {
-            setExtraction(parsed.pipeline.extraction);
-            setValidation(parsed.pipeline.validation);
-            setTampering(parsed.pipeline.tampering);
-            setFace(parsed.pipeline.face);
-            setRisk(parsed.pipeline.risk_score);
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // Fall through to live fetch
-        }
-      }
-
-      // 2. Otherwise fetch from backend endpoints
       try {
-        const [extData, valData, tampData, faceData, riskData] =
-          await Promise.allSettled([
-            api.getExtraction(documentId),
-            api.getValidation(documentId),
-            api.getTampering(documentId),
-            api.getFaceVerification(documentId),
-            api.getRiskScore(documentId),
-          ]);
+        const pipelineRes = await api.getPipelineResult(documentId);
+        if (!isMounted) return;
 
-        if (isMounted) {
-          if (extData.status === "fulfilled") setExtraction(extData.value);
-          if (valData.status === "fulfilled") setValidation(valData.value);
-          if (tampData.status === "fulfilled") setTampering(tampData.value);
-          if (faceData.status === "fulfilled") setFace(faceData.value);
-          if (riskData.status === "fulfilled") setRisk(riskData.value);
+        const pipeline = pipelineRes.pipeline;
+        setPipelineStatus(pipelineRes.status);
+        setExtraction(pipeline.extraction);
+        setValidation(pipeline.validation);
+        setTampering(pipeline.tampering);
+        setFace(pipeline.face);
+        setRisk(pipeline.risk_score);
 
-          if (
-            extData.status === "rejected" &&
-            riskData.status === "rejected"
-          ) {
-            loadFallbackData();
+        const issues: string[] = [];
+        const statuses = pipeline.service_statuses || {};
+        for (const [serviceName, status] of Object.entries(statuses)) {
+          const svc = status as { available?: boolean; error?: string | null };
+          if (svc.available === false) {
+            issues.push(
+              `${serviceName}: ${svc.error || "service unavailable"}`
+            );
           }
         }
-      } catch {
-        loadFallbackData();
+        if (pipeline.degraded) {
+          issues.unshift(
+            "One or more screening modules ran in degraded mode. Results below may be partial."
+          );
+        }
+        setServiceIssues(issues);
+
+        const [extData, faceData] = await Promise.allSettled([
+          api.getExtraction(documentId),
+          api.getFaceVerification(documentId),
+        ]);
+
+        if (extData.status === "fulfilled" && extData.value.image_url) {
+          setDocPhotoUrl(extData.value.image_url);
+        }
+        if (faceData.status === "fulfilled") {
+          const facePayload = faceData.value as {
+            doc_image_url?: string;
+            live_image_url?: string;
+          };
+          if (facePayload.doc_image_url) {
+            setDocPhotoUrl(facePayload.doc_image_url);
+          }
+          if (facePayload.live_image_url) {
+            setLivePhotoUrl(facePayload.live_image_url);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setLoadError(
+            err instanceof Error
+              ? err.message
+              : "Unable to retrieve this screening result from the gateway."
+          );
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -266,13 +154,13 @@ export default function ScanResultPage({
     extraction?.fields?.find((f) => f.field_name === "passport_number")
       ?.field_value ||
     extraction?.mrz?.mrz_fields?.doc_number ||
-    "DOC-99201";
+    "UNAVAILABLE";
 
   const nationality =
     extraction?.fields?.find((f) => f.field_name === "nationality")
       ?.field_value ||
     extraction?.mrz?.mrz_fields?.nationality ||
-    "GBR";
+    "N/A";
 
   // Decision Handlers
   const handleApprove = async () => {
@@ -288,20 +176,22 @@ export default function ScanResultPage({
       setDecisionSuccess(
         "Entry verdict 'APPROVE' successfully written to immutable SHA-256 ledger."
       );
-    } catch {
-      setDecisionSuccess("Entry verdict 'APPROVE' committed to ledger.");
+    } catch (err) {
+      setDecisionSuccess(
+        `Unable to record approval: ${err instanceof Error ? err.message : "gateway request failed"}.`
+      );
     } finally {
       setIsSubmittingDecision(false);
     }
   };
 
   const handleEscalateClick = () => {
-    setModalVerdict("escalate");
+    setModalVerdict("flag");
     setIsModalOpen(true);
   };
 
   const handleDetainClick = () => {
-    setModalVerdict("detain");
+    setModalVerdict("reject");
     setIsModalOpen(true);
   };
 
@@ -367,6 +257,29 @@ export default function ScanResultPage({
           )}
         </div>
 
+        {loadError && (
+          <div className="p-3 rounded bg-risk-medium/10 border border-risk-medium/30 flex items-center gap-2 text-risk-medium font-mono text-xs">
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+        )}
+
+        {serviceIssues.length > 0 && (
+          <div className="p-3 rounded bg-risk-medium/10 border border-risk-medium/30 text-risk-medium font-mono text-xs space-y-1">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertCircle size={16} />
+              <span>
+                Screening status: {pipelineStatus || "unknown"}
+              </span>
+            </div>
+            <ul className="list-disc pl-5 space-y-0.5">
+              {serviceIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* 1. Header Metadata Strip (Stitch Screen 4) */}
         <div className="bg-surface border border-border rounded-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -401,7 +314,7 @@ export default function ScanResultPage({
               <span>Audit Chain</span>
             </Link>
 
-            <RiskBadge band={risk?.band || "low"} score={risk?.score || 8.5} />
+            <RiskBadge band={risk?.band} score={risk?.score} />
           </div>
         </div>
 
@@ -461,7 +374,7 @@ export default function ScanResultPage({
         verdict={modalVerdict}
         documentId={documentId}
         travelerName={travelerName}
-        riskScore={risk?.score || 85.0}
+        riskScore={risk?.score ?? 0}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleConfirmModalSubmit}
       />

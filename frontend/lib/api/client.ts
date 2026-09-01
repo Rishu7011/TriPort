@@ -37,23 +37,18 @@ const API_BASE_URL =
 export function getStoredToken(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)triport_token=([^;]+)/);
-  if (match) return decodeURIComponent(match[1]);
-  return localStorage.getItem("triport_token");
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 export function setStoredToken(token: string | null) {
   if (typeof document === "undefined") return;
   if (token) {
-    // Set cookie for 7 days
-    // TODO: move to httpOnly cookie set by a route handler before production
     document.cookie = `triport_token=${encodeURIComponent(
       token
     )}; path=/; max-age=604800; SameSite=Lax`;
-    localStorage.setItem("triport_token", token);
   } else {
     document.cookie =
       "triport_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-    localStorage.removeItem("triport_token");
   }
 }
 
@@ -132,6 +127,9 @@ export const api = {
       method: "POST",
       body: formData,
     }),
+
+  getPipelineResult: (documentId: string): Promise<UploadResponse> =>
+    request<UploadResponse>(`/api/v1/documents/${documentId}/pipeline`),
 
   getExtraction: (documentId: string): Promise<ExtractionResult> =>
     request<ExtractionResult>(`/api/v1/documents/${documentId}/extraction`),

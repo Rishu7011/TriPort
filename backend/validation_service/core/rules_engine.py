@@ -17,9 +17,7 @@ This engine:
      - 'cross_field'   → evaluates cross-field condition within one document
      - 'cross_document'→ evaluates cross-document date comparisons (e.g. visa vs passport)
      - 'checksum'      → validates MRZ check-digit results already parsed by ocr_service
-  4. Caches loaded rules to the offline SQLite store so validation can continue
-     when Postgres is unreachable (land/sea low-connectivity scenario).
-  5. Returns a structured ValidationResponse containing passed status and
+  4. Returns a structured ValidationResponse containing passed status and
      detailed per-rule reasons.
 """
 
@@ -51,6 +49,8 @@ RULE_FILE_MAP: dict[DocumentType, str] = {
     DocumentType.NATIONAL_ID: "national_id_rules.yaml",
     DocumentType.DRIVING_LICENSE: "driving_license_rules.yaml",
     DocumentType.PERMIT: "permit_rules.yaml",
+    DocumentType.PAN_CARD: "pan_card_rules.yaml",
+    DocumentType.VOTER_ID: "voter_id_rules.yaml",
     # FERRY_TICKET: deferred to Future Scope
 }
 
@@ -63,8 +63,7 @@ def load_rules_for_doctype(document_type: DocumentType) -> list[dict[str, Any]]:
     new rule added to the file is picked up on the next request with zero
     service restart required (Phase 3 'Definition of Done' criterion).
 
-    On YAML load failure the engine falls through to the offline SQLite cache
-    (imported lazily to avoid a circular-import at module level).
+    On YAML load failure the engine returns an empty rule set for that document type.
     """
     filename = RULE_FILE_MAP.get(document_type)
     if not filename:
@@ -77,7 +76,7 @@ def load_rules_for_doctype(document_type: DocumentType) -> list[dict[str, Any]]:
     file_path = RULES_DIR / filename
     if not file_path.exists():
         logger.warning("Rule configuration file not found", path=str(file_path))
-        return _load_from_offline_cache(document_type.value)
+        return []
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -88,9 +87,6 @@ def load_rules_for_doctype(document_type: DocumentType) -> list[dict[str, Any]]:
             document_type=document_type.value,
             count=len(rules),
         )
-
-        # Persist fresh copy to offline cache for future degraded-mode use
-        _store_to_offline_cache(document_type.value, rules)
         return rules
 
     except Exception as e:
@@ -99,33 +95,7 @@ def load_rules_for_doctype(document_type: DocumentType) -> list[dict[str, Any]]:
             error=str(e),
             path=str(file_path),
         )
-        return _load_from_offline_cache(document_type.value)
-
-
-def _store_to_offline_cache(document_type_val: str, rules: list[dict[str, Any]]) -> None:
-    """Persist rules to SQLite offline cache (best-effort, non-blocking)."""
-    try:
-        from backend.validation_service.core.offline_cache import get_offline_cache
-        get_offline_cache().cache_rules(document_type_val, rules)
-    except Exception as e:
-        logger.debug("Offline cache store skipped", reason=str(e))
-
-
-def _load_from_offline_cache(document_type_val: str) -> list[dict[str, Any]]:
-    """Retrieve previously cached rules from SQLite (degraded-mode fallback)."""
-    try:
-        from backend.validation_service.core.offline_cache import get_offline_cache
-        cached = get_offline_cache().get_cached_rules(document_type_val)
-        if cached:
-            logger.warning(
-                "Using offline-cached rules",
-                document_type=document_type_val,
-                mode="offline_cached",
-            )
-            return cached
-    except Exception as e:
-        logger.debug("Offline cache read failed", reason=str(e))
-    return []
+        return []
 
 
 # ---------------------------------------------------------------------------

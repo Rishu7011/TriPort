@@ -1,50 +1,30 @@
 """
 Orchestrator Documents & Audit Router — /api/v1/documents/* and /api/v1/audit/*
 
-Endpoints implemented (plan.md §7):
-  - POST /api/v1/documents/upload
-  - GET  /api/v1/documents/{id}/extraction
-  - GET  /api/v1/documents/{id}/validation
-  - GET  /api/v1/documents/{id}/tampering
-  - GET  /api/v1/documents/{id}/face-verification
-  - GET  /api/v1/documents/{id}/risk-score
-  - POST /api/v1/documents/{id}/decision
-  - GET  /api/v1/audit/{document_id}
+Screening results are held in the in-memory scan store for the current process.
+No database or object storage is used.
 """
 
 import base64
-import io
-import uuid
 from typing import Any
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.audit_ledger.core.hash_chain import _IN_MEMORY_CHAIN
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
 from backend.orchestrator.auth.dependencies import require_roles
 from backend.orchestrator.auth.security import UserTokenData
 from backend.orchestrator.core.pipeline import run_pipeline
+from backend.orchestrator.core.scan_store import ScanRecord, get_scan
 from backend.orchestrator.core.service_clients import call_audit_ledger
-from backend.orchestrator.db.models import (
-    AuditLedgerEntry,
-    Document,
-    ExtractedField,
-    FaceEmbedding,
-    RiskScore,
-    TamperingResult,
-    ValidationResult,
-)
-from backend.orchestrator.db.session import get_db
 from backend.orchestrator.schemas.pipeline import (
     DecisionRequest,
     DecisionResponse,
-    DocumentNotFoundError,
     PipelineResult,
     UploadResponse,
 )
-from backend.orchestrator.storage.minio_client import get_document_image_url
 
 logger = get_logger("orchestrator.router")
 
@@ -55,7 +35,6 @@ AUDIT_ROLES = ["supervisor", "auditor", "admin"]
 
 
 def _normalize_tampering_detail(raw: Any) -> Any:
-    """Return a render-safe detail value for API consumers."""
     if raw is None:
         return "No detail provided."
     if isinstance(raw, (str, int, float, bool)):
@@ -67,53 +46,34 @@ def _normalize_tampering_detail(raw: Any) -> Any:
     return raw
 
 
-def _compute_tampering_score(checks: list[TamperingResult]) -> float:
-    """Mirror the tampering service weighting when only per-check rows exist."""
-    if not checks:
-        return 0.0
+def _get_scan_or_404(document_id: str) -> ScanRecord:
+    record = get_scan(document_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "document_not_found", "document_id": document_id},
+        )
+    return record
 
-    scores = {c.check_type: (c.score or 0.0) for c in checks}
-    weighted = (
-        0.35 * scores.get("ela", 0.0)
-        + 0.30 * scores.get("metadata", 0.0)
-        + 0.25 * scores.get("boundary", 0.0)
-        + 0.10 * scores.get("stamp_match", 0.0)
+
+def _face_response(record: ScanRecord) -> dict[str, Any]:
+    face = record.pipeline.face
+    if not face:
+        return {
+            "document_id": record.document_id,
+            "has_face_record": False,
+            "person_cluster_id": None,
+        }
+
+    payload = face.model_dump()
+    payload["document_id"] = record.document_id
+    payload["has_face_record"] = bool(face.one_to_one or face.dedup)
+    payload["person_cluster_id"] = (
+        face.dedup.person_cluster_id if face.dedup else None
     )
-    max_score = max(scores.values()) if scores else 0.0
-    return round(max(0.0, min(1.0, 0.6 * max_score + 0.4 * weighted)), 3)
-
-
-def _extract_ela_heatmap(checks: list[TamperingResult]) -> str | None:
-    for check in checks:
-        if check.check_type != "ela" or not isinstance(check.detail, dict):
-            continue
-        heatmap = check.detail.get("ela_heatmap_base64")
-        if isinstance(heatmap, str) and heatmap:
-            return heatmap
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Helper: verify document existence
-# ---------------------------------------------------------------------------
-async def _get_document_or_404(document_id: str, db: AsyncSession) -> Document:
-    try:
-        doc_uuid = uuid.UUID(document_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "document_not_found", "document_id": document_id},
-        )
-
-    stmt = select(Document).where(Document.id == doc_uuid)
-    res = await db.execute(stmt)
-    doc = res.scalar_one_or_none()
-    if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "document_not_found", "document_id": document_id},
-        )
-    return doc
+    payload["doc_image_url"] = record.doc_image_data_url
+    payload["live_image_url"] = record.live_image_data_url
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -132,13 +92,8 @@ async def upload_and_screen_document(
     provider: str = Form(default="local"),
     live_photo: UploadFile | None = File(None, description="Optional live traveler face photo"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> UploadResponse:
-    """
-    Ingest a document scan, run all AI modules + risk scoring + audit logging,
-    and return the complete screening report.
-    """
     try:
         image_bytes = await file.read()
         if len(image_bytes) == 0:
@@ -165,7 +120,6 @@ async def upload_and_screen_document(
         provider=provider,
         live_image_bytes=live_bytes,
         checkpoint_id=checkpoint_id or current_user.checkpoint_id,
-        db=db,
     )
 
     status_str = "degraded" if pipeline_result.degraded else "complete"
@@ -178,7 +132,7 @@ async def upload_and_screen_document(
 
 
 # ---------------------------------------------------------------------------
-# 1b. Face Photo Crop — Extract passport holder photo from document image
+# 1b. Face Photo Crop
 # ---------------------------------------------------------------------------
 @router.post(
     "/documents/face-crop",
@@ -188,23 +142,21 @@ async def extract_face_crop(
     file: UploadFile = File(..., description="Passport or ID document image"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> JSONResponse:
-    """
-    Use MTCNN face detection to locate and crop the holder photo from a
-    document scan. Returns the crop as a base64-encoded JPEG data URL so
-    the frontend can display the ID photo directly without canvas tricks.
-    """
     try:
         image_bytes = await file.read()
         if len(image_bytes) == 0:
             raise ValueError("Empty file")
     except Exception as exc:
-        raise HTTPException(status_code=422, detail={"error": "invalid_image", "reason": str(exc)}) from exc
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_image", "reason": str(exc)},
+        ) from exc
 
     try:
         from backend.face_service.core.embedding import extract_face_crop_bytes
+
         crop_bytes, face_detected = extract_face_crop_bytes(image_bytes)
     except Exception:
-        # Fallback: try calling embedding directly without the crop helper
         face_detected = False
         crop_bytes = None
 
@@ -217,27 +169,41 @@ async def extract_face_crop(
 
 
 # ---------------------------------------------------------------------------
-# 2. Document Extraction Details
-
+# 2–6. Screening result endpoints (in-memory)
 # ---------------------------------------------------------------------------
+@router.get(
+    "/documents/{document_id}/pipeline",
+    response_model=UploadResponse,
+    summary="Retrieve the full screening pipeline result for a document",
+)
+async def get_document_pipeline(
+    document_id: str,
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+) -> UploadResponse:
+    record = _get_scan_or_404(document_id)
+    return UploadResponse(
+        document_id=record.document_id,
+        status="degraded" if record.pipeline.degraded else "complete",
+        pipeline=record.pipeline,
+    )
+
+
 @router.get(
     "/documents/{document_id}/extraction",
     summary="Retrieve OCR extracted fields and MRZ status for a document",
 )
 async def get_document_extraction(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    doc = await _get_document_or_404(document_id, db)
-    stmt = select(ExtractedField).where(ExtractedField.document_id == doc.id)
-    res = await db.execute(stmt)
-    fields = res.scalars().all()
+    record = _get_scan_or_404(document_id)
+    extraction = record.pipeline.extraction
+    fields = extraction.fields if extraction else []
 
     return {
         "document_id": document_id,
-        "document_type": doc.document_type,
-        "uploaded_at": doc.uploaded_at,
+        "document_type": record.document_type,
+        "uploaded_at": record.uploaded_at,
         "fields": [
             {
                 "field_name": f.field_name,
@@ -246,33 +212,28 @@ async def get_document_extraction(
             }
             for f in fields
         ],
-        "image_url": get_document_image_url(doc.image_object_key),
+        "mrz": extraction.mrz.model_dump() if extraction and extraction.mrz else None,
+        "image_url": record.doc_image_data_url,
     }
 
 
-# ---------------------------------------------------------------------------
-# 3. Document Validation Details
-# ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/validation",
     summary="Retrieve business rules validation results",
 )
 async def get_document_validation(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    doc = await _get_document_or_404(document_id, db)
-    stmt = select(ValidationResult).where(ValidationResult.document_id == doc.id)
-    res = await db.execute(stmt)
-    results = res.scalars().all()
+    record = _get_scan_or_404(document_id)
+    validation = record.pipeline.validation
+    results = validation.rule_results if validation else []
 
     failed = [r.rule_name for r in results if not r.passed]
-    passed = len(failed) == 0
-
     return {
         "document_id": document_id,
-        "passed": passed,
+        "document_type": record.document_type,
+        "passed": len(failed) == 0,
         "failed_rules": failed,
         "rule_results": [
             {
@@ -285,87 +246,63 @@ async def get_document_validation(
     }
 
 
-# ---------------------------------------------------------------------------
-# 4. Document Tampering Details
-# ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/tampering",
     summary="Retrieve forensic tampering and ELA results",
 )
 async def get_document_tampering(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    doc = await _get_document_or_404(document_id, db)
-    stmt = select(TamperingResult).where(TamperingResult.document_id == doc.id)
-    res = await db.execute(stmt)
-    checks = res.scalars().all()
-
-    flagged = any(c.flagged for c in checks)
-    tampering_score = _compute_tampering_score(checks)
-    ela_heatmap_base64 = _extract_ela_heatmap(checks)
+    record = _get_scan_or_404(document_id)
+    tampering = record.pipeline.tampering
+    checks = tampering.checks if tampering else []
 
     return {
         "document_id": document_id,
-        "flagged": flagged,
-        "tampering_score": tampering_score,
+        "flagged": tampering.flagged if tampering else False,
+        "tampering_score": tampering.tampering_score if tampering else 0.0,
         "checks": [
             {
-                "check_type": c.check_type,
+                "check_type": (
+                    c.check_type.value
+                    if hasattr(c.check_type, "value")
+                    else str(c.check_type)
+                ),
                 "score": c.score,
                 "flagged": c.flagged,
                 "detail": _normalize_tampering_detail(c.detail),
             }
             for c in checks
         ],
-        "ela_heatmap_base64": ela_heatmap_base64,
-        "image_url": get_document_image_url(doc.image_object_key),
+        "ela_heatmap_base64": tampering.ela_heatmap_base64 if tampering else None,
+        "image_url": record.doc_image_data_url,
     }
 
 
-# ---------------------------------------------------------------------------
-# 5. Face Verification Details
-# ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/face-verification",
     summary="Retrieve biometric match score and deduplication clusters",
 )
 async def get_document_face(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    doc = await _get_document_or_404(document_id, db)
-    stmt = select(FaceEmbedding).where(FaceEmbedding.document_id == doc.id)
-    res = await db.execute(stmt)
-    face_row = res.scalar_one_or_none()
-
-    return {
-        "document_id": document_id,
-        "has_face_record": face_row is not None,
-        "person_cluster_id": str(face_row.person_cluster_id) if (face_row and face_row.person_cluster_id) else None,
-    }
+    record = _get_scan_or_404(document_id)
+    return _face_response(record)
 
 
-# ---------------------------------------------------------------------------
-# 6. Risk Score Details
-# ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/risk-score",
     summary="Retrieve computed risk score, band, and reasons",
 )
 async def get_document_risk(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    doc = await _get_document_or_404(document_id, db)
-    stmt = select(RiskScore).where(RiskScore.document_id == doc.id)
-    res = await db.execute(stmt)
-    risk_row = res.scalar_one_or_none()
-
-    if not risk_row:
+    record = _get_scan_or_404(document_id)
+    risk = record.pipeline.risk_score
+    if not risk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "risk_score_not_found", "document_id": document_id},
@@ -373,10 +310,11 @@ async def get_document_risk(
 
     return {
         "document_id": document_id,
-        "score": risk_row.score,
-        "band": risk_row.band,
-        "reasons": risk_row.reasons,
-        "computed_at": risk_row.computed_at,
+        "score": risk.score,
+        "band": risk.band.value,
+        "reasons": risk.reasons,
+        "sub_scores": risk.sub_scores.model_dump() if risk.sub_scores else None,
+        "computed_at": record.uploaded_at,
     }
 
 
@@ -391,13 +329,10 @@ async def get_document_risk(
 async def record_officer_decision(
     document_id: str,
     body: DecisionRequest,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ) -> DecisionResponse:
-    """Record an officer's final decision for a document scan."""
-    doc = await _get_document_or_404(document_id, db)
+    _get_scan_or_404(document_id)
 
-    # Append to tamper-evident audit ledger
     ledger_payload = {
         "decision": body.decision,
         "notes": body.notes,
@@ -405,7 +340,7 @@ async def record_officer_decision(
     }
     ledger_res = await call_audit_ledger(
         event_type="officer_decision",
-        document_id=str(doc.id),
+        document_id=document_id,
         payload=ledger_payload,
         officer_id=body.officer_id or current_user.user_id,
     )
@@ -437,32 +372,28 @@ async def record_officer_decision(
 )
 async def get_document_audit_trail(
     document_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(AUDIT_ROLES)),
 ):
-    """Fetch complete immutable audit history for a document."""
-    doc = await _get_document_or_404(document_id, db)
+    _get_scan_or_404(document_id)
 
-    stmt = (
-        select(AuditLedgerEntry)
-        .where(AuditLedgerEntry.document_id == doc.id)
-        .order_by(AuditLedgerEntry.sequence_num.asc())
-    )
-    res = await db.execute(stmt)
-    entries = res.scalars().all()
+    entries = [
+        event
+        for event in _IN_MEMORY_CHAIN
+        if str(event.get("document_id")) == document_id
+    ]
 
     return {
         "document_id": document_id,
         "event_count": len(entries),
         "events": [
             {
-                "sequence_num": e.sequence_num,
-                "event_type": e.event_type,
-                "payload_hash": e.payload_hash,
-                "prev_record_hash": e.prev_record_hash,
-                "record_hash": e.record_hash,
-                "officer_id": str(e.officer_id) if e.officer_id else None,
-                "created_at": e.created_at,
+                "sequence_num": e.get("sequence_num"),
+                "event_type": e.get("event_type"),
+                "payload_hash": e.get("payload_hash"),
+                "prev_record_hash": e.get("prev_record_hash"),
+                "record_hash": e.get("record_hash"),
+                "officer_id": e.get("officer_id"),
+                "created_at": e.get("created_at"),
             }
             for e in entries
         ],
@@ -470,7 +401,7 @@ async def get_document_audit_trail(
 
 
 # ---------------------------------------------------------------------------
-# 9. Cross-Checkpoint Cluster History Dossier (Phase 6C)
+# 9. Cross-Checkpoint Cluster History
 # ---------------------------------------------------------------------------
 @router.get(
     "/clusters/{person_cluster_id}",
@@ -478,20 +409,19 @@ async def get_document_audit_trail(
 )
 async def get_cluster_history_endpoint(
     person_cluster_id: str,
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    """
-    Retrieve comprehensive multi-checkpoint traveler dossier, including all linked
-    documents, conflicting names/passports, impossible travel anomalies, and repeat offender status.
-    """
     from backend.cross_checkpoint_service.core.face_graph import get_cluster_history
 
     try:
-        history = await get_cluster_history(person_cluster_id, db=db)
+        history = await get_cluster_history(person_cluster_id, db=None)
         return history
     except Exception as exc:
-        logger.error("Failed to query cluster history in orchestrator", cluster_id=person_cluster_id, error=str(exc))
+        logger.error(
+            "Failed to query cluster history in orchestrator",
+            cluster_id=person_cluster_id,
+            error=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch cluster history: {exc}",
@@ -499,47 +429,30 @@ async def get_cluster_history_endpoint(
 
 
 # ---------------------------------------------------------------------------
-# 10. Secondary Inspection Queue (Phase 7B)
+# 10. Secondary Inspection Queue
 # ---------------------------------------------------------------------------
 @router.get(
     "/documents/secondary-queue",
     summary="List all documents routed to the Secondary Inspection Queue",
 )
 async def get_secondary_inspection_queue(
-    db: AsyncSession = Depends(get_db),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
 ):
-    """
-    Fetch all high-risk or critical documents routed to secondary inspection.
-    """
-    stmt = (
-        select(Document, RiskScore)
-        .join(RiskScore, RiskScore.document_id == Document.id)
-        .where(RiskScore.band.in_(["high", "critical"]))
-        .order_by(RiskScore.computed_at.desc())
-        .limit(50)
-    )
-    res = await db.execute(stmt)
-    rows = res.fetchall()
+    from backend.orchestrator.core.scan_store import list_secondary_queue
 
     queue_items = []
-    for doc, risk in rows:
+    for record in list_secondary_queue():
+        risk = record.pipeline.risk_score
         queue_items.append(
             {
-                "document_id": str(doc.id),
-                "document_type": doc.document_type,
-                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
-                "risk_score": risk.score,
-                "risk_band": risk.band,
-                "reasons": risk.reasons or [],
+                "document_id": record.document_id,
+                "document_type": record.document_type,
+                "uploaded_at": record.uploaded_at,
+                "risk_score": risk.score if risk else None,
+                "risk_band": risk.band.value if risk else None,
+                "reasons": risk.reasons if risk else [],
                 "status": "secondary_inspection",
             }
         )
 
-    return {
-        "total_queued": len(queue_items),
-        "queue": queue_items,
-    }
-
-
-
+    return {"queue": queue_items, "count": len(queue_items)}

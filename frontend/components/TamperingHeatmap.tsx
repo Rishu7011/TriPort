@@ -195,8 +195,8 @@ export function TamperingHeatmap({
               ))
             ) : (
               <div className="py-1.5 flex items-center justify-between font-mono text-[11px] text-text-muted">
-                <span>ELA Compression Delta</span>
-                <span className="text-brand">Within Normal Boundaries</span>
+                <span>No tampering checks returned</span>
+                <span>Unavailable</span>
               </div>
             )}
           </div>

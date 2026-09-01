@@ -36,6 +36,7 @@ LIVENESS (for live webcam photos only — called from one_to_one.py):
 import io
 import cv2
 import numpy as np
+from typing import Any
 from PIL import Image
 
 from backend.logging_config import get_logger
@@ -402,6 +403,20 @@ def _compute_fallback_embedding(img_rgb: np.ndarray) -> list[float]:
     return features.tolist()
 
 
+def _detect_faces_opencv(img_rgb: np.ndarray) -> tuple[int, Any]:
+    """Return face count and detections using Haar cascades when available."""
+    if not hasattr(cv2, "CascadeClassifier"):
+        return 0, None
+
+    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+    detected_faces = face_cascade.detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30)
+    )
+    return len(detected_faces), detected_faces
+
+
 # ---------------------------------------------------------------------------
 # PUBLIC API
 # ---------------------------------------------------------------------------
@@ -446,13 +461,7 @@ def extract_face_embedding(
         return True, embedding, 1, detail
 
     # ── Face count pre-check (OpenCV Haar for face_count reporting) ──────────
-    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-    detected_faces = face_cascade.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30)
-    )
-    face_count = len(detected_faces)
+    face_count, _ = _detect_faces_opencv(img_rgb)
 
     if face_count == 0 and enforce_detection:
         logger.warning("No face detected in provided image")
@@ -521,27 +530,28 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
 
     # ── Strategy 2: OpenCV Haar Cascade ──────────────────────────────────────
     try:
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        face_cascade = cv2.CascadeClassifier(cascade_path)
-        gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-        faces_haar = face_cascade.detectMultiScale(
-            gray, scaleFactor=1.05, minNeighbors=3, minSize=(40, 40)
-        )
-        if len(faces_haar) > 0:
-            # Pick the largest face
-            x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
-            pad_x = int(fw * 0.20)
-            pad_y = int(fh * 0.25)
-            x1 = max(0, x - pad_x)
-            y1 = max(0, y - pad_y)
-            x2 = min(w, x + fw + pad_x)
-            y2 = min(h, y + fh + pad_y)
-            face_crop_rgb = img_rgb[y1:y2, x1:x2]
-            pil_crop = Image.fromarray(face_crop_rgb)
-            buf = io.BytesIO()
-            pil_crop.save(buf, format="JPEG", quality=92)
-            logger.info("Face crop extracted via OpenCV Haar cascade", bbox=[x1, y1, x2, y2])
-            return buf.getvalue(), True
+        if hasattr(cv2, "CascadeClassifier"):
+            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            face_cascade = cv2.CascadeClassifier(cascade_path)
+            gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+            faces_haar = face_cascade.detectMultiScale(
+                gray, scaleFactor=1.05, minNeighbors=3, minSize=(40, 40)
+            )
+            if len(faces_haar) > 0:
+                # Pick the largest face
+                x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
+                pad_x = int(fw * 0.20)
+                pad_y = int(fh * 0.25)
+                x1 = max(0, x - pad_x)
+                y1 = max(0, y - pad_y)
+                x2 = min(w, x + fw + pad_x)
+                y2 = min(h, y + fh + pad_y)
+                face_crop_rgb = img_rgb[y1:y2, x1:x2]
+                pil_crop = Image.fromarray(face_crop_rgb)
+                buf = io.BytesIO()
+                pil_crop.save(buf, format="JPEG", quality=92)
+                logger.info("Face crop extracted via OpenCV Haar cascade", bbox=[x1, y1, x2, y2])
+                return buf.getvalue(), True
     except Exception as exc:
         logger.debug("OpenCV Haar crop attempt failed", error=str(exc))
 

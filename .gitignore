@@ -14,6 +14,8 @@
 *.cert
 *.crt
 secrets/
+*accessKeys*.csv
+TriPort_accessKeys*.csv
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Datasets  (keep download_datasets.sh, not the actual data)

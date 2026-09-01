@@ -6,9 +6,7 @@ Endpoints:
       Apply YAML rules engine to extracted document fields.
       Supports all 5 active document types and optional cross-document checks.
 
-  POST /api/v1/validation/database-check
-      Run SLTD + national blacklist + visa-validity checks against mock DB tables.
-      Falls back to offline SQLite cache when Postgres is unreachable.
+      Run SLTD + national blacklist + visa-validity checks against in-memory mock data.
 
   POST /api/v1/validation/regional-validate
       Apply country-specific format rules for land-border neighboring countries
@@ -16,16 +14,12 @@ Endpoints:
 
   GET  /api/v1/validation/regional-countries
       List nationality codes that have dedicated regional rule files.
-
-  GET  /api/v1/validation/cache-stats
-      Offline cache statistics for monitoring and health checks.
 """
 
 from fastapi import APIRouter, HTTPException, status
 
 from backend.logging_config import get_logger
 from backend.validation_service.core.database_check import run_all_database_checks
-from backend.validation_service.core.offline_cache import get_offline_cache
 from backend.validation_service.core.regional_rules import (
     apply_regional_rules,
     get_supported_regional_countries,
@@ -97,9 +91,8 @@ async def validate_extracted_fields(request: ValidationRequest) -> ValidationRes
     status_code=status.HTTP_200_OK,
     summary="Cross-check document against SLTD, national blacklist, and visa validity databases",
     description=(
-        "Runs all three mock government database queries concurrently. "
-        "Returns composite hit status. Falls back to offline SQLite cache "
-        "when Postgres is unreachable and logs mode='offline_cached'."
+        "Runs all three mock government database queries concurrently "
+        "against in-memory seed data."
     ),
 )
 async def database_cross_check(request: DatabaseCheckRequest) -> DatabaseCheckResponse:
@@ -190,15 +183,3 @@ async def regional_validate(request: RegionalValidationRequest) -> ValidationRes
 async def list_regional_countries() -> list[str]:
     """Return all country codes that have a regional YAML rule file configured."""
     return get_supported_regional_countries()
-
-
-@router.get(
-    "/cache-stats",
-    status_code=status.HTTP_200_OK,
-    summary="Offline cache statistics",
-    description="Returns count of cached rule sets, blacklist entries, and pending sync decisions.",
-)
-async def cache_stats() -> dict:
-    """Return offline SQLite cache statistics."""
-    stats = get_offline_cache().stats()
-    return {"status": "ok", "cache": stats}

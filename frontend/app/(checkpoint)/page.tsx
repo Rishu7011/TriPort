@@ -128,27 +128,8 @@ export default function OfficerScreeningPage() {
 
       const res = await api.uploadDocument(formData);
 
-      // Cache the result in sessionStorage so the results page can render instantly
       if (res && res.document_id) {
-        sessionStorage.setItem(
-          `triport_scan_${res.document_id}`,
-          JSON.stringify(res)
-        );
-
-        // Also store preview URLs if possible
-        if (docFile) {
-          const docUrl = URL.createObjectURL(docFile);
-          sessionStorage.setItem(`triport_doc_img_${res.document_id}`, docUrl);
-        }
-        if (livePhoto) {
-          const liveUrl = URL.createObjectURL(livePhoto);
-          sessionStorage.setItem(
-            `triport_live_img_${res.document_id}`,
-            liveUrl
-          );
-        }
-
-        // Navigate to the scan results route
+        setIsScreening(false);
         router.push(`/scan/${res.document_id}`);
       }
     } catch (err: unknown) {

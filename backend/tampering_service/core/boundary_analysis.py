@@ -35,6 +35,9 @@ def get_face_cascade():
     global _face_cascade
     if _face_cascade is None:
         try:
+            if not hasattr(cv2, "CascadeClassifier"):
+                logger.warning("OpenCV CascadeClassifier unavailable in this build")
+                return None
             cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
             _face_cascade = cv2.CascadeClassifier(cascade_path)
         except Exception as e:

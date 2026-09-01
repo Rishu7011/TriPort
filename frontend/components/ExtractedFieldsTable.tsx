@@ -67,8 +67,11 @@ export function ExtractedFieldsTable({
           <tbody className="divide-y divide-border/60 font-mono text-xs">
             {fields && fields.length > 0 ? (
               fields.map((f, idx) => {
-                const confPct = Math.round(f.confidence * 100);
-                const isLowConf = confPct < 75;
+                const confPct =
+                  typeof f.confidence === "number"
+                    ? Math.round(f.confidence * 100)
+                    : null;
+                const isLowConf = confPct !== null && confPct < 75;
 
                 return (
                   <tr
@@ -87,7 +90,7 @@ export function ExtractedFieldsTable({
                           isLowConf ? "text-risk-medium font-bold" : "text-brand"
                         }`}
                       >
-                        {confPct}%
+                        {confPct === null ? "—" : `${confPct}%`}
                       </span>
                     </td>
                   </tr>

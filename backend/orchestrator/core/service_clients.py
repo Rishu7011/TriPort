@@ -45,6 +45,10 @@ logger = get_logger("orchestrator.service_clients")
 CLIENT_TIMEOUT = httpx.Timeout(5.0, connect=3.0)
 
 
+def _use_in_process() -> bool:
+    return bool(getattr(settings, "use_in_process_services", True))
+
+
 # ---------------------------------------------------------------------------
 # 1. OCR Service Client
 # ---------------------------------------------------------------------------
@@ -55,23 +59,24 @@ async def call_ocr_service(
     provider: str = "local",
 ) -> ExtractionResponse:
     """Invoke OCR extraction via HTTP or fallback to core pipeline."""
-    url = f"{settings.ocr_service_url}/api/v1/ocr/extract"
-    files = {"file": ("document.jpg", image_bytes, "image/jpeg")}
-    data = {
-        "checkpoint_type": checkpoint_type.value,
-        "provider": provider,
-    }
-    if document_type:
-        data["document_type"] = document_type.value
+    if not _use_in_process():
+        url = f"{settings.ocr_service_url}/api/v1/ocr/extract"
+        files = {"file": ("document.jpg", image_bytes, "image/jpeg")}
+        data = {
+            "checkpoint_type": checkpoint_type.value,
+            "provider": provider,
+        }
+        if document_type:
+            data["document_type"] = document_type.value
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url, files=files, data=data)
-                if res.status_code == 200:
-                    return ExtractionResponse.model_validate(res.json())
-        except Exception as exc:
-            logger.debug("OCR HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url, files=files, data=data)
+                    if res.status_code == 200:
+                        return ExtractionResponse.model_validate(res.json())
+            except Exception as exc:
+                logger.debug("OCR HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     # In-process direct fallback
     logger.info("Executing OCR via internal core pipeline", document_type=document_type.value if document_type else "auto")
@@ -145,21 +150,22 @@ async def call_validation_service(
     related_document_fields: list[ExtractedField] | None = None,
 ) -> ValidationResponse:
     """Invoke Document Validation via HTTP or fallback to core engine."""
-    url = f"{settings.validation_service_url}/api/v1/validation/validate"
-    req_payload = ValidationRequest(
-        document_type=document_type,
-        fields=fields,
-        related_document_fields=related_document_fields,
-    ).model_dump(mode="json")
+    if not _use_in_process():
+        url = f"{settings.validation_service_url}/api/v1/validation/validate"
+        req_payload = ValidationRequest(
+            document_type=document_type,
+            fields=fields,
+            related_document_fields=related_document_fields,
+        ).model_dump(mode="json")
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url, json=req_payload)
-                if res.status_code == 200:
-                    return ValidationResponse.model_validate(res.json())
-        except Exception as exc:
-            logger.debug("Validation HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url, json=req_payload)
+                    if res.status_code == 200:
+                        return ValidationResponse.model_validate(res.json())
+            except Exception as exc:
+                logger.debug("Validation HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     # In-process direct fallback
     logger.info("Executing Validation via internal core engine", document_type=document_type.value)
@@ -176,17 +182,18 @@ async def call_validation_service(
 # ---------------------------------------------------------------------------
 async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
     """Invoke Tampering Detection via HTTP or fallback to core forensics."""
-    url = f"{settings.tampering_service_url}/api/v1/tampering/detect"
-    files = {"file": ("document.jpg", image_bytes, "image/jpeg")}
+    if not _use_in_process():
+        url = f"{settings.tampering_service_url}/api/v1/tampering/detect"
+        files = {"file": ("document.jpg", image_bytes, "image/jpeg")}
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url, files=files)
-                if res.status_code == 200:
-                    return TamperingResponse.model_validate(res.json())
-        except Exception as exc:
-            logger.debug("Tampering HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url, files=files)
+                    if res.status_code == 200:
+                        return TamperingResponse.model_validate(res.json())
+            except Exception as exc:
+                logger.debug("Tampering HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     # In-process direct fallback
     logger.info("Executing Tampering analysis via internal core forensics")
@@ -275,70 +282,87 @@ async def call_face_service(
 
     # 1. Check 1:1 if live photo provided
     if live_image_bytes:
-        url_verify = f"{settings.face_service_url}/api/v1/face/verify"
-        files = {
-            "doc_photo": ("doc.jpg", doc_image_bytes, "image/jpeg"),
-            "live_photo": ("live.jpg", live_image_bytes, "image/jpeg"),
-        }
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                    res = await client.post(url_verify, files=files)
-                    if res.status_code == 200:
-                        one_to_one_res = OneToOneVerifyResponse.model_validate(res.json())
-                        break
-            except Exception:
-                pass
+        if not _use_in_process():
+            url_verify = f"{settings.face_service_url}/api/v1/face/verify"
+            files = {
+                "doc_photo": ("doc.jpg", doc_image_bytes, "image/jpeg"),
+                "live_photo": ("live.jpg", live_image_bytes, "image/jpeg"),
+            }
+            for attempt in range(2):
+                try:
+                    async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                        res = await client.post(url_verify, files=files)
+                        if res.status_code == 200:
+                            one_to_one_res = OneToOneVerifyResponse.model_validate(res.json())
+                            break
+                except Exception:
+                    pass
 
         if one_to_one_res is None:
-            from backend.face_service.core.one_to_one import verify_one_to_one
-            matched, score, sim, detail = verify_one_to_one(doc_image_bytes, live_image_bytes)
+            from backend.face_service.core.one_to_one import (
+                DEFAULT_COSINE_THRESHOLD,
+                verify_one_to_one,
+            )
+            matched, score, sim, detail = verify_one_to_one(
+                doc_image_bytes, live_image_bytes
+            )
             one_to_one_res = OneToOneVerifyResponse(
                 matched=matched,
                 match_score=score,
                 cosine_similarity=sim,
-                threshold=0.60,
+                threshold=DEFAULT_COSINE_THRESHOLD,
                 detail=detail,
             )
 
     # 2. Check 1:N deduplication
-    url_dedup = f"{settings.face_service_url}/api/v1/face/dedup"
-    files_dedup = {"file": ("doc.jpg", doc_image_bytes, "image/jpeg")}
-    data_dedup = {"current_doc_id": current_doc_id} if current_doc_id else {}
+    if not _use_in_process():
+        url_dedup = f"{settings.face_service_url}/api/v1/face/dedup"
+        files_dedup = {"file": ("doc.jpg", doc_image_bytes, "image/jpeg")}
+        data_dedup = {"current_doc_id": current_doc_id} if current_doc_id else {}
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url_dedup, files=files_dedup, data=data_dedup)
-                if res.status_code == 200:
-                    dedup_res = DedupSearchResponse.model_validate(res.json())
-                    break
-        except Exception:
-            pass
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url_dedup, files=files_dedup, data=data_dedup)
+                    if res.status_code == 200:
+                        dedup_res = DedupSearchResponse.model_validate(res.json())
+                        break
+            except Exception:
+                pass
 
     if dedup_res is None:
-        from backend.face_service.core.embedding import extract_face_embedding
-        from backend.face_service.core.dedup_search import search_duplicates
+        if settings.face_verification_provider.strip().lower() == "aws":
+            import uuid
 
-        ok, emb, _, msg = extract_face_embedding(doc_image_bytes)
-        if ok and emb:
-            has_dups, hits, cluster_id, detail = await search_duplicates(
-                embedding=emb,
-                current_doc_id=current_doc_id,
-            )
-            dedup_res = DedupSearchResponse(
-                has_duplicates=has_dups,
-                hits=hits,
-                person_cluster_id=cluster_id,
-                detail=detail,
-            )
-        else:
             dedup_res = DedupSearchResponse(
                 has_duplicates=False,
                 hits=[],
-                person_cluster_id="",
-                detail=f"Face embedding extraction skipped: {msg}",
+                person_cluster_id=str(uuid.uuid4()),
+                detail="1:N dedup skipped — AWS-only face mode (no local embeddings).",
             )
+        else:
+            from backend.face_service.core.embedding import extract_face_embedding
+            from backend.face_service.core.dedup_search import search_duplicates
+
+            ok, emb, _, msg = extract_face_embedding(doc_image_bytes)
+            if ok and emb:
+                has_dups, hits, cluster_id, detail = await search_duplicates(
+                    embedding=emb,
+                    current_doc_id=current_doc_id,
+                )
+                dedup_res = DedupSearchResponse(
+                    has_duplicates=has_dups,
+                    hits=hits,
+                    person_cluster_id=cluster_id,
+                    detail=detail,
+                )
+            else:
+                dedup_res = DedupSearchResponse(
+                    has_duplicates=False,
+                    hits=[],
+                    person_cluster_id="",
+                    detail=f"Face embedding extraction skipped: {msg}",
+                )
 
     return FullFaceVerificationResponse(
         document_id=current_doc_id,
@@ -352,17 +376,18 @@ async def call_face_service(
 # ---------------------------------------------------------------------------
 async def call_risk_engine(request: RiskScoreRequest) -> RiskScoreResponse:
     """Invoke Risk Engine via HTTP or fallback to internal scoring logic."""
-    url = f"{settings.risk_engine_url}/score/"
-    payload = request.model_dump(mode="json")
+    if not _use_in_process():
+        url = f"{settings.risk_engine_url}/score/"
+        payload = request.model_dump(mode="json")
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url, json=payload)
-                if res.status_code == 200:
-                    return RiskScoreResponse.model_validate(res.json())
-        except Exception as exc:
-            logger.debug("Risk Engine HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url, json=payload)
+                    if res.status_code == 200:
+                        return RiskScoreResponse.model_validate(res.json())
+            except Exception as exc:
+                logger.debug("Risk Engine HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     logger.info("Executing Risk Engine via internal scoring core", document_id=request.document_id)
     from backend.risk_engine.core.scoring import build_risk_response
@@ -400,14 +425,15 @@ async def call_cross_checkpoint_service(
         current_risk_band=current_risk_band,
     )
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
-                res = await client.post(url, json=req.model_dump(mode="json"))
-                if res.status_code == 200:
-                    return ClusterAnalysisResponse.model_validate(res.json())
-        except Exception as exc:
-            logger.debug("Cross-checkpoint HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
+    if not _use_in_process():
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+                    res = await client.post(url, json=req.model_dump(mode="json"))
+                    if res.status_code == 200:
+                        return ClusterAnalysisResponse.model_validate(res.json())
+            except Exception as exc:
+                logger.debug("Cross-checkpoint HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     logger.info("Executing Cross-Checkpoint analysis via internal core engine", cluster_id=person_cluster_id)
     return await analyze_cluster(
