@@ -13,9 +13,8 @@ python-multipart==0.0.9
 # HTTP Client
 httpx==0.27.0
 
-# Lightweight Local OCR Engine (PaddleOCR CPU Mode: ~180MB RAM)
-paddlepaddle==2.6.2
-paddleocr>=2.7.3
+# Lightweight Local OCR Engine (Google Tesseract OCR: ~15MB RAM, 0.3s CPU speed)
+pytesseract>=0.3.10
 opencv-python-headless>=4.9.0.80
 
 # Document & Image Processing

@@ -33,11 +33,22 @@ _ocr_reader: Any = None
 def get_ocr_reader() -> tuple[str, Any]:
     """
     Singleton lazy-loader for local OCR engines.
-    Tries PaddleOCR first (fastest, lightest), then EasyOCR.
+    Tries PyTesseract first (lightest, 15MB RAM, rock solid C++ binary), then PaddleOCR, then EasyOCR.
     """
     global _ocr_reader, _ocr_engine_type
     if _ocr_reader is None:
-        # Patch paddlepaddle 2.6.2 C++ AnalysisConfig if set_optimization_level is missing
+        # 1. Try PyTesseract first (lightweight, stable, zero SIGSEGV)
+        try:
+            import pytesseract
+            pytesseract.get_tesseract_version()
+            _ocr_reader = pytesseract
+            _ocr_engine_type = "tesseract"
+            logger.info("Tesseract OCR engine initialized successfully")
+            return _ocr_engine_type, _ocr_reader
+        except Exception as e:
+            logger.debug("PyTesseract engine check skipped", error=str(e))
+
+        # 2. Try PaddleOCR second
         try:
             import paddle
             if hasattr(paddle, "base") and hasattr(paddle.base, "libpaddle"):
@@ -46,7 +57,6 @@ def get_ocr_reader() -> tuple[str, Any]:
         except Exception as patch_exc:
             logger.debug("Paddle AnalysisConfig patch check skipped", error=str(patch_exc))
 
-        # 1. Try PaddleOCR first
         try:
             from paddleocr import PaddleOCR
             _ocr_reader = PaddleOCR(use_angle_cls=False, lang="en")
@@ -58,7 +68,7 @@ def get_ocr_reader() -> tuple[str, Any]:
         except Exception as e:
             logger.warning("Failed to initialize PaddleOCR engine", error=str(e))
 
-        # 2. Try EasyOCR second
+        # 3. Try EasyOCR third
         try:
             import easyocr
             _ocr_reader = easyocr.Reader(["en"], gpu=False)
@@ -67,7 +77,7 @@ def get_ocr_reader() -> tuple[str, Any]:
             return _ocr_engine_type, _ocr_reader
         except ImportError:
             logger.debug("EasyOCR package not installed; running in Cloud Mode")
-            raise RuntimeError("No local OCR engine installed (PaddleOCR or EasyOCR)")
+            raise RuntimeError("No local OCR engine installed (PyTesseract, PaddleOCR or EasyOCR)")
         except Exception as e:
             logger.warning("Failed to initialize EasyOCR engine", error=str(e))
             raise RuntimeError(f"OCR engine initialization error: {e}") from e
@@ -177,14 +187,35 @@ def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray
 
 
 def extract_raw_ocr_lines(image_bytes: bytes) -> list[tuple[str, float]]:
-    """Extract raw text lines and confidences using PaddleOCR or EasyOCR."""
+    """Extract raw text lines and confidences using PyTesseract, PaddleOCR or EasyOCR."""
     valid_bytes = ensure_image_bytes(image_bytes)
     img_array = _bytes_to_numpy_image(valid_bytes)
     engine_type, reader = get_ocr_reader()
 
     lines_with_conf: list[tuple[str, float]] = []
 
-    if engine_type == "paddleocr":
+    if engine_type == "tesseract":
+        import pytesseract
+        pil_img = Image.fromarray(img_array)
+        data = pytesseract.image_to_data(pil_img, output_type=pytesseract.Output.DICT)
+        lines_dict: dict[tuple[int, int], list[tuple[str, float]]] = {}
+        n_boxes = len(data.get("text", []))
+        for i in range(n_boxes):
+            text = str(data["text"][i]).strip()
+            conf_val = float(data["conf"][i])
+            if text and conf_val > 0:
+                line_num = data["line_num"][i]
+                block_num = data["block_num"][i]
+                key = (block_num, line_num)
+                if key not in lines_dict:
+                    lines_dict[key] = []
+                lines_dict[key].append((text, conf_val / 100.0))
+        for key in sorted(lines_dict.keys()):
+            line_texts = [t for t, _ in lines_dict[key]]
+            confs = [c for _, c in lines_dict[key]]
+            avg_conf = sum(confs) / len(confs)
+            lines_with_conf.append((" ".join(line_texts), round(avg_conf, 2)))
+    elif engine_type == "paddleocr":
         raw_results = reader.ocr(img_array, cls=True)
         if raw_results and raw_results[0]:
             for line in raw_results[0]:
