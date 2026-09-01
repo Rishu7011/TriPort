@@ -2,21 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install minimal system dependencies for PDF and image processing
+# Install system dependencies required for OpenCV and image processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY backend/ocr_service/requirements-render.txt ./requirements-render.txt
-RUN pip install --no-cache-dir -r requirements-render.txt
+# Copy requirements
+COPY backend/validation_and_tampering/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend codebase
 COPY backend/ ./backend/
 
 ENV PYTHONPATH=/app
-ENV LLM_PROVIDER=gemini
-ENV LLM_MODEL=gemini-3.5-flash-lite
 
-# Render dynamic port binding
-CMD exec uvicorn backend.ocr_service.main:app --host 0.0.0.0 --port ${PORT:-8001}
+# Start unified validation & tampering service for Render deployment
+CMD exec uvicorn backend.validation_and_tampering.main:app --host 0.0.0.0 --port ${PORT:-8000}
