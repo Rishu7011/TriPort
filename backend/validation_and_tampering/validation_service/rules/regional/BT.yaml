@@ -1,0 +1,41 @@
+# Bhutan — Country-Specific Document Format Rules
+#
+# Context: Bhutan shares a land border and Bhutanese nationals cross at
+# checkpoints like Phuntsholing/Jaigaon and Gelephu/Sarpang.
+#
+# Sources:
+#   - Bhutan Passport: 2-letter prefix 'BH' followed by 6-7 digits.
+#     Some older passports use prefix 'BT' — both patterns must pass.
+#   - Bhutan Citizenship Identity Card (CID):
+#     11-digit numeric format assigned by the Civil Registration and Census.
+#     Format: YYYYDDDDDD (year + unique serial — 11 digits total).
+
+- rule_name: bt_passport_number_format
+  description: "Bhutanese passport number must follow BH or BT prefix + 6-7 digits."
+  rule_type: regex_format
+  field: passport_number
+  pattern: "^(BH|BT)\\d{6,7}$"
+  error_message: "Bhutanese passport number does not match expected format (BH1234567 or BT1234567)."
+
+- rule_name: bt_citizenship_id_format
+  description: >
+    Bhutan Citizenship Identity Card (CID) number must be exactly 11 digits
+    (Civil Registration and Census Department format).
+  rule_type: regex_format
+  field: id_number
+  pattern: "^\\d{11}$"
+  error_message: "Bhutan CID number must be exactly 11 numeric digits."
+
+- rule_name: bt_dob_in_past
+  description: "Date of birth must be in the past."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "Date of birth is invalid or in the future."
+
+- rule_name: bt_doc_expiry_valid
+  description: "Document expiry date must be in the future."
+  rule_type: date_check
+  field: date_of_expiry
+  condition: "> today"
+  error_message: "Bhutanese travel document has expired."

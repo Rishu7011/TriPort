@@ -1,0 +1,41 @@
+# Passport Validation Rules (Data-driven rules engine)
+# Rule Types supported:
+#   - date_check: validates date relationships against 'today' or other fields
+#   - regex_format: validates field string format using regular expressions
+#   - cross_field: checks logical consistency between multiple fields
+#   - checksum: verifies MRZ or check digit integrity
+
+- rule_name: expiry_not_passed
+  description: "Passport expiration date must be in the future relative to current date."
+  rule_type: date_check
+  field: expiry_date
+  condition: "> today"
+  error_message: "Passport has expired."
+
+- rule_name: passport_validity_window_sufficient
+  description: "Passport must have at least 6 months of validity remaining for travel."
+  rule_type: date_check
+  field: expiry_date
+  condition: "> today + 180d"
+  error_message: "Passport has less than 6 months validity remaining."
+
+- rule_name: dob_plausibility
+  description: "Date of birth must be in the past and holder must be at least 0 and under 125 years old."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "Date of birth is invalid or in the future."
+
+- rule_name: passport_number_format
+  description: "Passport number must match standard format (1 letter followed by 7-8 digits)."
+  rule_type: regex_format
+  field: doc_number
+  pattern: "^[A-Z][0-9]{7,8}$"
+  error_message: "Passport number does not conform to standard format (e.g. A1234567)."
+
+- rule_name: nationality_code_format
+  description: "Nationality must be a valid 3-letter ICAO country code."
+  rule_type: regex_format
+  field: nationality
+  pattern: "^[A-Z]{3}$"
+  error_message: "Nationality must be a 3-letter ISO/ICAO code."
