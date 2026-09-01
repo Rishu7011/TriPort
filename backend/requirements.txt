@@ -45,7 +45,9 @@ langchain-core>=1.6.1
 paddlepaddle>=2.6.0
 paddleocr>=2.7.0
 easyocr>=1.7.1
+pytesseract>=0.3.10
 Pillow>=10.3.0
+PyMuPDF>=1.24.0
 google-generativeai>=0.5.4
 
 # ── Computer Vision & Tampering Detection ─────────────────

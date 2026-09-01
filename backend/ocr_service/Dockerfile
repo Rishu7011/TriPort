@@ -14,15 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Copy requirements and install
-COPY backend/ocr_service/requirements-render.txt ./requirements-render.txt
-RUN pip install --no-cache-dir -r requirements-render.txt
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend codebase
 COPY backend/ ./backend/
 
 ENV PYTHONPATH=/app
-ENV LLM_PROVIDER=gemini
-ENV LLM_MODEL=gemini-1.5-flash
+ENV LLM_PROVIDER=local
 
-# Render dynamic port binding
 CMD exec uvicorn backend.ocr_service.main:app --host 0.0.0.0 --port ${PORT:-8001}
