@@ -96,3 +96,11 @@ class FullFaceVerificationResponse(BaseModel):
     one_to_one: OneToOneVerifyResponse | None = None
     dedup: DedupSearchResponse | None = None
     liveness: LivenessResponse | None = None
+    bypassed: bool = Field(
+        default=False,
+        description="True if biometric check was bypassed due to document integrity/tampering issues",
+    )
+    bypassed_reason: str | None = Field(
+        default=None,
+        description="Explanation why biometric comparison was bypassed",
+    )

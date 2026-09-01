@@ -145,6 +145,21 @@ export const api = {
       `/api/v1/documents/${documentId}/face-verification`
     ),
 
+  verifyLiveFace: (
+    documentId: string,
+    formData: FormData
+  ): Promise<{
+    document_id: string;
+    face: FaceVerificationResult;
+    risk_score: RiskScoreResponse;
+    live_image_url: string;
+    doc_image_url: string;
+  }> =>
+    request(`/api/v1/documents/${documentId}/verify-live-face`, {
+      method: "POST",
+      body: formData,
+    }),
+
   getRiskScore: (documentId: string): Promise<RiskScoreResponse> =>
     request<RiskScoreResponse>(`/api/v1/documents/${documentId}/risk-score`),
 

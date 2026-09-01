@@ -239,6 +239,28 @@ def verify_one_to_one(
 
     aws_only = use_aws_face_verification()
 
+    # ── Auto-crop face region from document photo if full document is provided ─
+    if doc_image_bytes:
+        from backend.face_service.core.embedding import extract_face_crop_bytes
+        crop_bytes, face_found = extract_face_crop_bytes(doc_image_bytes)
+        if face_found and crop_bytes:
+            logger.info("Auto-cropped face region from document photo for comparison")
+            doc_image_bytes = crop_bytes
+
+    # ── If precomputed embeddings are explicitly provided, use vector similarity
+    if doc_embedding is not None and live_embedding is not None:
+        sim = compute_cosine_similarity(doc_embedding, live_embedding)
+        final_matched = sim >= threshold
+        calibrated_score = float(np.clip(
+            (sim - (threshold - 0.20)) / (1.0 - (threshold - 0.20)),
+            0.0, 1.0,
+        ))
+        if final_matched:
+            verdict = f"✅ Face verification PASSED (cosine similarity {sim:.3f} ≥ {threshold:.2f})."
+        else:
+            verdict = f"❌ Face verification FAILED (cosine similarity {sim:.3f} < {threshold:.2f})."
+        return final_matched, round(calibrated_score, 4), round(sim, 4), verdict
+
     # ── AWS Rekognition (primary / exclusive when face_verification_provider=aws) ─
     if doc_image_bytes and live_image_bytes:
         if aws_only and not is_aws_rekognition_available():
@@ -282,10 +304,10 @@ def verify_one_to_one(
                 detail_parts.append(verdict)
                 return is_verified, round(aws_sim, 4), round(aws_sim, 4), " | ".join(detail_parts)
 
-            if aws_only:
+            if aws_only and "InvalidParameterException" not in aws_detail:
                 return False, 0.0, 0.0, aws_detail
 
-    if aws_only:
+    if aws_only and not doc_image_bytes and not live_image_bytes:
         return (
             False,
             0.0,

@@ -129,6 +129,8 @@ export interface FaceVerificationResult {
   dedup?: FaceDedupResult;
   has_face_record?: boolean;
   person_cluster_id?: string | null;
+  bypassed?: boolean;
+  bypassed_reason?: string | null;
 }
 
 export interface RiskSubScores {

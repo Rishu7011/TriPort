@@ -52,6 +52,9 @@ export default function ScanResultPage({
 
   // Cached image URLs from upload session
   const [docPhotoUrl, setDocPhotoUrl] = useState<string | undefined>(undefined);
+  const [rawDocPhotoUrl, setRawDocPhotoUrl] = useState<string | undefined>(
+    undefined
+  );
   const [livePhotoUrl, setLivePhotoUrl] = useState<string | undefined>(
     undefined
   );
@@ -101,13 +104,18 @@ export default function ScanResultPage({
         ]);
 
         if (extData.status === "fulfilled" && extData.value.image_url) {
+          setRawDocPhotoUrl(extData.value.image_url);
           setDocPhotoUrl(extData.value.image_url);
         }
         if (faceData.status === "fulfilled") {
           const facePayload = faceData.value as {
             doc_image_url?: string;
+            raw_doc_image_url?: string;
             live_image_url?: string;
           };
+          if (facePayload.raw_doc_image_url) {
+            setRawDocPhotoUrl(facePayload.raw_doc_image_url);
+          }
           if (facePayload.doc_image_url) {
             setDocPhotoUrl(facePayload.doc_image_url);
           }
@@ -204,6 +212,18 @@ export default function ScanResultPage({
     setDecisionSuccess(
       `Verdict '${modalVerdict.toUpperCase()}' committed to SHA-256 ledger.`
     );
+  };
+
+  const handleLiveVerificationComplete = (updatedData: {
+    face: FaceVerificationResult;
+    risk_score: any;
+    live_image_url: string;
+    doc_image_url?: string;
+  }) => {
+    if (updatedData.face) setFace(updatedData.face);
+    if (updatedData.risk_score) setRisk(updatedData.risk_score);
+    if (updatedData.live_image_url) setLivePhotoUrl(updatedData.live_image_url);
+    if (updatedData.doc_image_url) setDocPhotoUrl(updatedData.doc_image_url);
   };
 
   if (loading) {
@@ -318,6 +338,86 @@ export default function ScanResultPage({
           </div>
         </div>
 
+        {/* 1b. Staged Screening Protocol Status Ribbon */}
+        {(() => {
+          const isDocFailed =
+            (tampering && (tampering.flagged || tampering.tampering_score >= 0.4)) ||
+            (extraction?.mrz && extraction.mrz.checksum_valid === false) ||
+            (validation && (!validation.passed || validation.failed_rules.length > 0));
+          const isBiometricsBypassed = face?.bypassed || false;
+          const hasLiveCapture = Boolean(livePhotoUrl);
+          const isBiometricsMatched = face?.one_to_one?.matched ?? false;
+
+          return (
+            <div className="bg-surface border border-border rounded-md p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 font-mono text-xs">
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Stage 1 Pill */}
+                <div className="flex items-center gap-2">
+                  <span className="text-text-muted uppercase text-[10px] tracking-wider">
+                    Stage 1 (Document Forensics):
+                  </span>
+                  {isDocFailed ? (
+                    <span className="text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-2 py-0.5 rounded font-bold">
+                      ANOMALY FLAGGED
+                    </span>
+                  ) : (
+                    <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
+                      VERIFIED & CLEAN
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-text-muted hidden md:inline">➔</span>
+
+                {/* Stage 2 Pill */}
+                <div className="flex items-center gap-2">
+                  <span className="text-text-muted uppercase text-[10px] tracking-wider">
+                    Stage 2 (Biometrics):
+                  </span>
+                  {isBiometricsBypassed ? (
+                    <span className="text-risk-high bg-risk-high/10 border border-risk-high/30 px-2 py-0.5 rounded font-bold">
+                      BYPASSED (DOC CHECK FAILED)
+                    </span>
+                  ) : !hasLiveCapture ? (
+                    <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold animate-pulse">
+                      AWAITING LIVE CAMERA PHOTO
+                    </span>
+                  ) : isBiometricsMatched ? (
+                    <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
+                      1:1 MATCH CONFIRMED
+                    </span>
+                  ) : (
+                    <span className="text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-2 py-0.5 rounded font-bold">
+                      MISMATCH DETECTED
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Protocol Routing Tag */}
+              <div className="flex items-center gap-2">
+                <span className="text-text-muted uppercase text-[10px]">
+                  Routing:
+                </span>
+                {isDocFailed || isBiometricsBypassed || (hasLiveCapture && !isBiometricsMatched) ? (
+                  <span className="text-risk-high bg-risk-high/10 border border-risk-high/30 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>HUMAN OFFICER VERIFICATION</span>
+                  </span>
+                ) : !hasLiveCapture ? (
+                  <span className="text-text-muted bg-surface-raised border border-border px-2 py-0.5 rounded">
+                    PENDING LIVE CAPTURE
+                  </span>
+                ) : (
+                  <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
+                    AUTOMATED CLEARANCE
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 2. Main Multi-Panel Forensic Stage & Decision Column */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left / Center Forensic Modules Stage (~67%) */}
@@ -327,16 +427,19 @@ export default function ScanResultPage({
               <ExtractedFieldsTable extraction={extraction} />
               <TamperingHeatmap
                 tampering={tampering}
-                rawImageUrl={docPhotoUrl}
+                rawImageUrl={rawDocPhotoUrl || docPhotoUrl}
               />
             </div>
 
-            {/* Bottom: Biometric Facial Verification ArcFace Panel */}
+            {/* Bottom: Biometric Facial Verification ArcFace Panel with Live Camera */}
             <div className="min-h-[280px]">
               <FaceMatchPanel
                 face={face}
                 docPhotoUrl={docPhotoUrl}
                 livePhotoUrl={livePhotoUrl}
+                documentType={extraction?.document_type}
+                documentId={documentId}
+                onVerifyLiveCapture={handleLiveVerificationComplete}
               />
             </div>
           </div>

@@ -58,11 +58,15 @@ def _get_scan_or_404(document_id: str) -> ScanRecord:
 
 def _face_response(record: ScanRecord) -> dict[str, Any]:
     face = record.pipeline.face
+    doc_crop_url = record.doc_face_crop_data_url or record.doc_image_data_url
     if not face:
         return {
             "document_id": record.document_id,
             "has_face_record": False,
             "person_cluster_id": None,
+            "doc_image_url": doc_crop_url,
+            "raw_doc_image_url": record.doc_image_data_url,
+            "live_image_url": record.live_image_data_url,
         }
 
     payload = face.model_dump()
@@ -71,7 +75,8 @@ def _face_response(record: ScanRecord) -> dict[str, Any]:
     payload["person_cluster_id"] = (
         face.dedup.person_cluster_id if face.dedup else None
     )
-    payload["doc_image_url"] = record.doc_image_data_url
+    payload["doc_image_url"] = doc_crop_url
+    payload["raw_doc_image_url"] = record.doc_image_data_url
     payload["live_image_url"] = record.live_image_data_url
     return payload
 
@@ -280,6 +285,20 @@ async def get_document_tampering(
     }
 
 
+from backend.orchestrator.core.blacklist import check_blacklist
+from backend.orchestrator.core.service_clients import (
+    call_audit_ledger,
+    call_face_service,
+    call_risk_engine,
+)
+from backend.risk_engine.schemas.risk import (
+    FaceSubScore,
+    RiskScoreRequest,
+    TamperingSubScore,
+    ValidationSubScore,
+)
+
+
 @router.get(
     "/documents/{document_id}/face-verification",
     summary="Retrieve biometric match score and deduplication clusters",
@@ -290,6 +309,126 @@ async def get_document_face(
 ):
     record = _get_scan_or_404(document_id)
     return _face_response(record)
+
+
+@router.post(
+    "/documents/{document_id}/verify-live-face",
+    summary="Submit live camera photo and run biometric face verification against document",
+)
+async def verify_live_face(
+    document_id: str,
+    file: UploadFile = File(..., description="Live camera snapshot (JPEG/PNG)"),
+    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+):
+    record = _get_scan_or_404(document_id)
+    try:
+        live_bytes = await file.read()
+        if len(live_bytes) == 0:
+            raise ValueError("Live photo is empty")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "invalid_live_image", "reason": str(exc)},
+        ) from exc
+
+    # Retrieve document image bytes from stored data URL
+    doc_data_url = record.doc_image_data_url or ""
+    try:
+        if "," in doc_data_url:
+            doc_bytes = base64.b64decode(doc_data_url.split(",", 1)[1])
+        else:
+            doc_bytes = base64.b64decode(doc_data_url)
+    except Exception:
+        doc_bytes = b""
+
+    # Execute Face Service (crops doc image, computes 1:1 match & 1:N deduplication)
+    face_res = await call_face_service(
+        doc_image_bytes=doc_bytes,
+        live_image_bytes=live_bytes,
+        current_doc_id=document_id,
+    )
+
+    # Encode live photo to base64 Data URL
+    live_b64 = base64.b64encode(live_bytes).decode("utf-8")
+    record.live_image_data_url = f"data:image/jpeg;base64,{live_b64}"
+    record.pipeline.face = face_res
+
+    # Re-evaluate composite risk score
+    ext = record.pipeline.extraction
+    tamp = record.pipeline.tampering
+    val = record.pipeline.validation
+    one_to_one = face_res.one_to_one
+    dedup = face_res.dedup
+
+    face_sub = FaceSubScore(
+        cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
+        matched=one_to_one.matched if one_to_one else None,
+        has_duplicates=dedup.has_duplicates if dedup else False,
+        dedup_hit_count=len(dedup.hits) if dedup else 0,
+    )
+
+    val_sub = ValidationSubScore(
+        total_rules=len(val.rule_results) if val else 0,
+        failed_rules=len(val.failed_rules) if val else 0,
+        failed_rule_names=val.failed_rules if val else [],
+        rule_details={r.rule_name: r.detail for r in (val.rule_results if val else []) if not r.passed},
+    )
+
+    tamp_sub = TamperingSubScore(
+        overall_score=tamp.tampering_score if tamp else 0.0,
+        flagged=tamp.flagged if tamp else False,
+        flagged_checks=[
+            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type))
+            for c in (tamp.checks if tamp else []) if c.flagged
+        ],
+        check_details={
+            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)): c.detail
+            for c in (tamp.checks if tamp else []) if c.flagged
+        },
+    )
+
+    fields = ext.fields if ext else []
+    bl_score = await check_blacklist(fields=fields)
+
+    risk_req = RiskScoreRequest(
+        document_id=document_id,
+        checkpoint_type=record.checkpoint_type,
+        validation_sub=val_sub,
+        tampering_sub=tamp_sub,
+        face_sub=face_sub,
+        blacklist_sub=bl_score,
+        cross_checkpoint_sub=None,
+    )
+
+    updated_risk = await call_risk_engine(risk_req)
+    record.pipeline.risk_score = updated_risk
+
+    # Append to immutable audit ledger
+    await call_audit_ledger(
+        event_type="face_verification",
+        document_id=document_id,
+        officer_id=current_user.user_id,
+        payload={
+            "matched": one_to_one.matched if one_to_one else False,
+            "match_score": one_to_one.match_score if one_to_one else 0.0,
+            "provider": one_to_one.provider if one_to_one else "local",
+            "cluster_id": dedup.person_cluster_id if dedup else None,
+            "checkpoint_id": current_user.checkpoint_id,
+        },
+    )
+
+    return {
+        "document_id": document_id,
+        "face": _face_response(record),
+        "risk_score": {
+            "score": updated_risk.score,
+            "band": updated_risk.band.value,
+            "reasons": updated_risk.reasons,
+            "sub_scores": updated_risk.sub_scores.model_dump() if updated_risk.sub_scores else None,
+        },
+        "live_image_url": record.live_image_data_url,
+        "doc_image_url": record.doc_face_crop_data_url or record.doc_image_data_url,
+    }
 
 
 @router.get(

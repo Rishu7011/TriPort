@@ -36,6 +36,7 @@ class ScanRecord:
     uploaded_at: str
     pipeline: PipelineResult
     doc_image_data_url: str | None = None
+    doc_face_crop_data_url: str | None = None
     live_image_data_url: str | None = None
     inspection_status: str = "standard_clearance"
 
@@ -100,10 +101,26 @@ def save_scan(
     document_type: str,
     checkpoint_id: str | None,
     image_bytes: bytes,
+    doc_face_crop_bytes: bytes | None = None,
     live_image_bytes: bytes | None = None,
     inspection_status: str = "standard_clearance",
 ) -> ScanRecord:
     """Store a completed screening run in memory."""
+    if doc_face_crop_bytes is None:
+        try:
+            from backend.face_service.core.embedding import extract_face_crop_bytes
+            c_bytes, found = extract_face_crop_bytes(image_bytes)
+            if found and c_bytes:
+                doc_face_crop_bytes = c_bytes
+        except Exception:
+            pass
+
+    doc_crop_url = (
+        _bytes_to_data_url(doc_face_crop_bytes)
+        if doc_face_crop_bytes
+        else _bytes_to_data_url(image_bytes)
+    )
+
     record = ScanRecord(
         document_id=pipeline.document_id,
         document_type=document_type,
@@ -111,6 +128,7 @@ def save_scan(
         uploaded_at=_utc_now_iso(),
         pipeline=pipeline,
         doc_image_data_url=_bytes_to_data_url(image_bytes),
+        doc_face_crop_data_url=doc_crop_url,
         live_image_data_url=(
             _bytes_to_data_url(live_image_bytes) if live_image_bytes else None
         ),

@@ -280,12 +280,17 @@ async def call_face_service(
     one_to_one_res: OneToOneVerifyResponse | None = None
     dedup_res: DedupSearchResponse | None = None
 
+    # Auto-crop face from document image if available
+    from backend.face_service.core.embedding import extract_face_crop_bytes
+    crop_bytes, face_found = extract_face_crop_bytes(doc_image_bytes)
+    effective_doc_bytes = crop_bytes if (face_found and crop_bytes) else doc_image_bytes
+
     # 1. Check 1:1 if live photo provided
     if live_image_bytes:
         if not _use_in_process():
             url_verify = f"{settings.face_service_url}/api/v1/face/verify"
             files = {
-                "doc_photo": ("doc.jpg", doc_image_bytes, "image/jpeg"),
+                "doc_photo": ("doc.jpg", effective_doc_bytes, "image/jpeg"),
                 "live_photo": ("live.jpg", live_image_bytes, "image/jpeg"),
             }
             for attempt in range(2):
@@ -304,7 +309,7 @@ async def call_face_service(
                 verify_one_to_one,
             )
             matched, score, sim, detail = verify_one_to_one(
-                doc_image_bytes, live_image_bytes
+                effective_doc_bytes, live_image_bytes
             )
             one_to_one_res = OneToOneVerifyResponse(
                 matched=matched,
@@ -317,7 +322,7 @@ async def call_face_service(
     # 2. Check 1:N deduplication
     if not _use_in_process():
         url_dedup = f"{settings.face_service_url}/api/v1/face/dedup"
-        files_dedup = {"file": ("doc.jpg", doc_image_bytes, "image/jpeg")}
+        files_dedup = {"file": ("doc.jpg", effective_doc_bytes, "image/jpeg")}
         data_dedup = {"current_doc_id": current_doc_id} if current_doc_id else {}
 
         for attempt in range(2):
@@ -344,7 +349,7 @@ async def call_face_service(
             from backend.face_service.core.embedding import extract_face_embedding
             from backend.face_service.core.dedup_search import search_duplicates
 
-            ok, emb, _, msg = extract_face_embedding(doc_image_bytes)
+            ok, emb, _, msg = extract_face_embedding(effective_doc_bytes)
             if ok and emb:
                 has_dups, hits, cluster_id, detail = await search_duplicates(
                     embedding=emb,

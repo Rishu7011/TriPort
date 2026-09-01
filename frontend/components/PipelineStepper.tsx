@@ -24,33 +24,33 @@ interface StepInfo {
 
 const STEPS: StepInfo[] = [
   {
-    id: "ocr",
-    name: "OCR Extraction",
-    sub: "ICAO 9303 MRZ Parsing",
-    icon: FileSearch,
-  },
-  {
-    id: "validation",
-    name: "Validation Rules",
-    sub: "Checksums & Expiry Check",
-    icon: CheckSquare,
-  },
-  {
-    id: "tampering",
-    name: "Forensic Tampering",
-    sub: "ELA & Copy-Move Analysis",
+    id: "forensics",
+    name: "Document Forensics",
+    sub: "OCR & 5-Layer ELA Tampering",
     icon: Sparkles,
   },
   {
+    id: "validation",
+    name: "Integrity Rules",
+    sub: "Checksums & Validity Checks",
+    icon: CheckSquare,
+  },
+  {
+    id: "gate",
+    name: "Integrity Gate",
+    sub: "Anomaly Check ➔ Biometrics",
+    icon: FileSearch,
+  },
+  {
     id: "face",
-    name: "Biometric Face Match",
-    sub: "ArcFace & Cluster Dedup",
+    name: "Biometric Match",
+    sub: "1:1 Face & Dedup Clusters",
     icon: UserCheck,
   },
   {
     id: "risk",
-    name: "Risk Engine",
-    sub: "Score & Ledger Chaining",
+    name: "Risk & Ledger",
+    sub: "SHA-256 Immutable Audit",
     icon: ShieldCheck,
   },
 ];

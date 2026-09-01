@@ -488,7 +488,9 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
 
     Uses a cascading strategy:
       1. InsightFace RetinaFace bounding box (if available)
-      2. OpenCV Haar cascade (always available via cv2)
+      2. MediaPipe Face Detection / Mesh (if available)
+      3. OpenCV Haar cascades (multiple cascade profiles + histogram equalization)
+      4. DeepFace face detector (if available)
 
     Returns:
         (crop_bytes, face_detected)
@@ -502,6 +504,25 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         return None, False
 
     h, w = img_rgb.shape[:2]
+    if h < 20 or w < 20:
+        return None, False
+
+    def _crop_and_encode(x1: int, y1: int, x2: int, y2: int, pad_pct: float = 0.22) -> bytes | None:
+        pw = int((x2 - x1) * pad_pct)
+        ph = int((y2 - y1) * (pad_pct + 0.08))  # slightly more vertical headroom for hair & chin
+        nx1 = max(0, x1 - pw)
+        ny1 = max(0, y1 - ph)
+        nx2 = min(w, x2 + pw)
+        ny2 = min(h, y2 + ph)
+
+        crop_rgb = img_rgb[ny1:ny2, nx1:nx2]
+        if crop_rgb.shape[0] < 10 or crop_rgb.shape[1] < 10:
+            return None
+
+        pil_crop = Image.fromarray(crop_rgb)
+        buf = io.BytesIO()
+        pil_crop.save(buf, format="JPEG", quality=95)
+        return buf.getvalue()
 
     # ── Strategy 1: InsightFace RetinaFace bounding box ──────────────────────
     app = _get_insightface_app()
@@ -509,51 +530,105 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         try:
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
             faces = app.get(img_bgr)
+            if not faces and _is_tight_crop(img_rgb):
+                padded_rgb = _pad_for_detection(img_rgb, pad_fraction=0.30)
+                padded_bgr = cv2.cvtColor(padded_rgb, cv2.COLOR_RGB2BGR)
+                faces = app.get(padded_bgr)
             if faces:
                 best = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
                 x1, y1, x2, y2 = [int(v) for v in best.bbox]
-                # Add 20% padding around the face
-                pad_x = int((x2 - x1) * 0.20)
-                pad_y = int((y2 - y1) * 0.25)
-                x1 = max(0, x1 - pad_x)
-                y1 = max(0, y1 - pad_y)
-                x2 = min(w, x2 + pad_x)
-                y2 = min(h, y2 + pad_y)
-                face_crop_rgb = img_rgb[y1:y2, x1:x2]
-                pil_crop = Image.fromarray(face_crop_rgb)
-                buf = io.BytesIO()
-                pil_crop.save(buf, format="JPEG", quality=92)
-                logger.info("Face crop extracted via InsightFace RetinaFace", bbox=[x1, y1, x2, y2])
-                return buf.getvalue(), True
+                crop = _crop_and_encode(x1, y1, x2, y2, pad_pct=0.20)
+                if crop:
+                    logger.info("Face crop extracted via InsightFace RetinaFace", bbox=[x1, y1, x2, y2])
+                    return crop, True
         except Exception as exc:
             logger.debug("InsightFace crop attempt failed", error=str(exc))
 
-    # ── Strategy 2: OpenCV Haar Cascade ──────────────────────────────────────
+    # ── Strategy 2: MediaPipe Face Detection ─────────────────────────────────
+    try:
+        import mediapipe as mp
+        mp_face_detection = mp.solutions.face_detection
+        with mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.45) as detector:
+            results = detector.process(img_rgb)
+            if results.detections:
+                best_det = max(
+                    results.detections,
+                    key=lambda d: d.location_data.relative_bounding_box.width * d.location_data.relative_bounding_box.height,
+                )
+                bb = best_det.location_data.relative_bounding_box
+                x1 = int(bb.xmin * w)
+                y1 = int(bb.ymin * h)
+                x2 = int((bb.xmin + bb.width) * w)
+                y2 = int((bb.ymin + bb.height) * h)
+                crop = _crop_and_encode(x1, y1, x2, y2, pad_pct=0.20)
+                if crop:
+                    logger.info("Face crop extracted via MediaPipe FaceDetection", bbox=[x1, y1, x2, y2])
+                    return crop, True
+    except Exception as exc:
+        logger.debug("MediaPipe FaceDetection crop attempt failed", error=str(exc))
+
+    # ── Strategy 3: OpenCV Haar Cascades ──────────────────────────────────────
     try:
         if hasattr(cv2, "CascadeClassifier"):
-            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-            face_cascade = cv2.CascadeClassifier(cascade_path)
+            cascade_names = [
+                "haarcascade_frontalface_default.xml",
+                "haarcascade_frontalface_alt2.xml",
+                "haarcascade_frontalface_alt.xml",
+                "haarcascade_profileface.xml",
+            ]
             gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-            faces_haar = face_cascade.detectMultiScale(
-                gray, scaleFactor=1.05, minNeighbors=3, minSize=(40, 40)
-            )
-            if len(faces_haar) > 0:
-                # Pick the largest face
-                x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
-                pad_x = int(fw * 0.20)
-                pad_y = int(fh * 0.25)
-                x1 = max(0, x - pad_x)
-                y1 = max(0, y - pad_y)
-                x2 = min(w, x + fw + pad_x)
-                y2 = min(h, y + fh + pad_y)
-                face_crop_rgb = img_rgb[y1:y2, x1:x2]
-                pil_crop = Image.fromarray(face_crop_rgb)
-                buf = io.BytesIO()
-                pil_crop.save(buf, format="JPEG", quality=92)
-                logger.info("Face crop extracted via OpenCV Haar cascade", bbox=[x1, y1, x2, y2])
-                return buf.getvalue(), True
+            # Also try equalized gray to help with glare / low contrast document photos
+            gray_eq = cv2.equalizeHist(gray)
+
+            for c_name in cascade_names:
+                cascade_path = cv2.data.haarcascades + c_name
+                face_cascade = cv2.CascadeClassifier(cascade_path)
+                if face_cascade.empty():
+                    continue
+
+                for g_img in (gray, gray_eq):
+                    faces_haar = face_cascade.detectMultiScale(
+                        g_img, scaleFactor=1.05, minNeighbors=3, minSize=(35, 35)
+                    )
+                    if len(faces_haar) > 0:
+                        x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
+                        crop = _crop_and_encode(x, y, x + fw, y + fh, pad_pct=0.22)
+                        if crop:
+                            logger.info(
+                                "Face crop extracted via OpenCV Haar cascade",
+                                cascade=c_name,
+                                bbox=[x, y, x + fw, y + fh],
+                            )
+                            return crop, True
     except Exception as exc:
         logger.debug("OpenCV Haar crop attempt failed", error=str(exc))
+
+    # ── Strategy 4: DeepFace extract_faces fallback ──────────────────────────
+    try:
+        from deepface import DeepFace
+        for backend in ["opencv", "ssd", "retinaface"]:
+            try:
+                extracted = DeepFace.extract_faces(
+                    img_path=img_rgb,
+                    detector_backend=backend,
+                    enforce_detection=False,
+                    align=True,
+                )
+                if extracted and len(extracted) > 0:
+                    fa = extracted[0].get("facial_area", {})
+                    x = fa.get("x", 0)
+                    y = fa.get("y", 0)
+                    fw = fa.get("w", 0)
+                    fh = fa.get("h", 0)
+                    if fw > 20 and fh > 20:
+                        crop = _crop_and_encode(x, y, x + fw, y + fh, pad_pct=0.18)
+                        if crop:
+                            logger.info("Face crop extracted via DeepFace", backend=backend, bbox=[x, y, x + fw, y + fh])
+                            return crop, True
+            except Exception:
+                continue
+    except Exception as exc:
+        logger.debug("DeepFace crop attempt failed", error=str(exc))
 
     logger.info("No face detected for crop — returning None")
     return None, False

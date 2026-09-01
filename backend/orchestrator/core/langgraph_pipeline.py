@@ -463,6 +463,78 @@ async def audit_ledger_node(state: ScreeningState) -> dict:
 # 3. Conditional Routers (Edges)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 3. Conditional Routers (Edges) & Gating Nodes
+# ---------------------------------------------------------------------------
+
+def check_document_integrity(state: ScreeningState) -> str:
+    """
+    Conditional Gate: If OCR/MRZ, Tampering, or Validation checks fail or find anomalies,
+    bypass the biometric scan and route directly to human verification (secondary inspection).
+    Only clean, genuine documents proceed to biometric verification.
+    """
+    ext = state.get("extraction")
+    tamp = state.get("tampering")
+    val = state.get("validation")
+    bl = state.get("blacklist")
+
+    # 1. Forensic Tampering flagged
+    if tamp and (tamp.flagged or tamp.tampering_score >= 0.40):
+        return "flagged"
+
+    # 2. MRZ Checksum failed
+    if ext and ext.mrz and ext.mrz.checksum_valid is False:
+        return "flagged"
+
+    # 3. Validation business rules failed (e.g. expired document, insufficient validity)
+    if val and (not val.passed or len(val.failed_rules) > 0):
+        return "flagged"
+
+    # 4. Blacklist hit
+    if bl and getattr(bl, "hit", False):
+        return "flagged"
+
+    return "clean"
+
+
+async def document_gate_node(state: ScreeningState) -> dict:
+    """
+    Document Forensics Gate:
+    If OCR/MRZ, Tampering, or Validation flagged anomalies, mark biometrics as bypassed
+    and route directly to Human Officer Verification.
+    """
+    integrity = check_document_integrity(state)
+    if integrity == "flagged":
+        reasons = []
+        tamp = state.get("tampering")
+        if tamp and (tamp.flagged or tamp.tampering_score >= 0.40):
+            reasons.append("Forensic tampering anomaly detected (ELA/metadata/boundary)")
+        ext = state.get("extraction")
+        if ext and ext.mrz and ext.mrz.checksum_valid is False:
+            reasons.append("MRZ check digit checksum failure")
+        val = state.get("validation")
+        if val and (not val.passed or len(val.failed_rules) > 0):
+            reasons.append(f"Validation rules failed: {', '.join(val.failed_rules)}")
+        bl = state.get("blacklist")
+        if bl and getattr(bl, "hit", False):
+            reasons.append("Watchlist / Blacklist match")
+
+        reason_str = "; ".join(reasons) or "Document integrity failed"
+        bypassed_face = FullFaceVerificationResponse(
+            document_id=state["document_id"],
+            bypassed=True,
+            bypassed_reason=f"Biometric scan bypassed: {reason_str}. Directly routed to human officer verification.",
+        )
+        logger.warning(
+            "Document integrity gate flagged anomalies — bypassing biometric scan for human verification",
+            doc_id=state["document_id"],
+            reasons=reasons,
+        )
+        return {"face": bypassed_face}
+
+    return {}
+
+
 def check_ocr_quality(state: ScreeningState) -> str:
     """
     Conditional Edge: Route to LLM Vision Fallback if OCR confidence is low
@@ -494,8 +566,24 @@ def check_ocr_quality(state: ScreeningState) -> str:
 def route_by_threat_level(state: ScreeningState) -> str:
     """
     Conditional Edge: Route to Secondary Inspection Queue if risk band is High/Critical,
-    or a Blacklist/Watchlist hit occurred, or repeat offender was flagged.
+    or a Blacklist/Watchlist hit occurred, or repeat offender was flagged, or document failed gate.
     """
+    face = state.get("face")
+    if face and face.bypassed:
+        return "secondary"
+
+    tamp = state.get("tampering")
+    if tamp and (tamp.flagged or tamp.tampering_score >= 0.40):
+        return "secondary"
+
+    ext = state.get("extraction")
+    if ext and ext.mrz and ext.mrz.checksum_valid is False:
+        return "secondary"
+
+    val = state.get("validation")
+    if val and (not val.passed or len(val.failed_rules) > 0):
+        return "secondary"
+
     risk = state.get("risk_score")
     bl = state.get("blacklist")
     cc = state.get("cross_checkpoint")
@@ -525,22 +613,22 @@ def build_screening_graph():
     workflow.add_node("ocr_extraction", ocr_extraction_node)
     workflow.add_node("llm_vision_fallback", llm_vision_fallback_node)
     workflow.add_node("tampering_detection", tampering_detection_node)
-    workflow.add_node("face_verification", face_verification_node)
     workflow.add_node("validation_rules", validation_rules_node)
     workflow.add_node("blacklist_check", blacklist_check_node)
+    workflow.add_node("document_gate", document_gate_node)
+    workflow.add_node("face_verification", face_verification_node)
     workflow.add_node("cross_checkpoint", cross_checkpoint_node)
     workflow.add_node("risk_engine", risk_engine_node)
     workflow.add_node("secondary_inspection", secondary_inspection_node)
     workflow.add_node("standard_clearance", standard_clearance_node)
     workflow.add_node("audit_ledger", audit_ledger_node)
 
-    # ── Initial Parallel Fan-Out ──────────────────────────────────────────────
+    # ── Stage 1: Initial Document Forensics Fan-Out ──────────────────────────
     workflow.add_edge(START, "buffer_images")
     workflow.add_edge(START, "ocr_extraction")
     workflow.add_edge(START, "tampering_detection")
-    workflow.add_edge(START, "face_verification")
 
-    # ── Conditional Edge 1: OCR Quality / LLM Fallback ───────────────────────
+    # ── Stage 1b: OCR Quality / LLM Fallback & Rule Checks ───────────────────
     workflow.add_conditional_edges(
         "ocr_extraction",
         check_ocr_quality,
@@ -551,24 +639,33 @@ def build_screening_graph():
     )
     workflow.add_edge("llm_vision_fallback", "validation_rules")
     workflow.add_edge("ocr_extraction", "blacklist_check")
-    workflow.add_edge("face_verification", "cross_checkpoint")
 
-    # ── Aggregation / Fan-In to Risk Engine ───────────────────────────────────
-    # A list source is a LangGraph fan-in: risk scoring must wait for every
-    # independent branch and run exactly once. Separate edges here would
-    # schedule the node once per completed branch, duplicating audit and DB work.
+    # ── Stage 2: Fan-In to Document Integrity Gate ───────────────────────────
     workflow.add_edge(
         [
             "validation_rules",
             "tampering_detection",
             "blacklist_check",
-            "cross_checkpoint",
             "buffer_images",
         ],
-        "risk_engine",
+        "document_gate",
     )
 
-    # ── Conditional Edge 2: Risk Threat Level Escalation ─────────────────────
+    # ── Stage 2b: Conditional Gate ➔ Biometrics vs Direct Human Verification ──
+    workflow.add_conditional_edges(
+        "document_gate",
+        check_document_integrity,
+        {
+            "clean": "face_verification",
+            "flagged": "risk_engine",
+        },
+    )
+
+    # ── Stage 3: Biometric Verification & Person Clustering (Clean Documents Only)
+    workflow.add_edge("face_verification", "cross_checkpoint")
+    workflow.add_edge("cross_checkpoint", "risk_engine")
+
+    # ── Stage 4: Risk Scoring & Threat Routing ────────────────────────────────
     workflow.add_conditional_edges(
         "risk_engine",
         route_by_threat_level,
@@ -578,7 +675,7 @@ def build_screening_graph():
         },
     )
 
-    # ── Audit ─────────────────────────────────────────────────────────────────
+    # ── Stage 5: Immutable SHA-256 Audit Trail ───────────────────────────────
     workflow.add_edge("secondary_inspection", "audit_ledger")
     workflow.add_edge("standard_clearance", "audit_ledger")
     workflow.add_edge("audit_ledger", END)
