@@ -298,16 +298,16 @@ export function PipelineStepper({
           <span className="text-text-muted">Target SLA: ~5-8s</span>
         </div>
         <div className="text-brand">
-          &gt; [0.00s] Ingesting document scan image...
+          &gt; Ingesting document scan image...
         </div>
         {activeStepIndex >= 1 && (
-          <div>&gt; [0.60s] EasyOCR & MRZ checksum validation active</div>
+          <div>&gt; EasyOCR &amp; MRZ checksum validation active...</div>
         )}
         {activeStepIndex >= 2 && (
-          <div>&gt; [1.60s] 5-Layer Forensic ELA & Splicing Detection executing</div>
+          <div>&gt; 5-Layer Forensic ELA &amp; Splicing Detection executing...</div>
         )}
         {activeStepIndex >= 3 && (
-          <div>&gt; [2.80s] YAML rules verified • Face crop extracted for Stage 2 review</div>
+          <div>&gt; YAML rules verified • Face crop extracted for Stage 2 review...</div>
         )}
         {!isLoading && (
           <div className="text-brand font-bold flex items-center gap-1">

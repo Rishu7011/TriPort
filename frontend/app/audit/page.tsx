@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarNav } from "../../components/SidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
@@ -22,20 +22,31 @@ export default function AuditSearchPage() {
     router.push(`/audit/${encodeURIComponent(searchDocId.trim())}`);
   };
 
-  const sampleDocIds = [
+  const [sampleDocIds, setSampleDocIds] = useState([
     {
-      id: "3e365d37-623b-40fa-8a02-1e0cdfa58799",
-      label: "ELARA VANCE (Approved Genuine Passport)",
+      id: "6d6f9122-6ead-4aa3-89df-30fc1826578b",
+      label: "LIVE AUDIT RECORD — PASSPORT CLEARANCE",
     },
     {
-      id: "7b2e2d1a-4122-4809-94fc-32490ab81234",
-      label: "VIKTOR KASPAROV (Multi-Identity Syndicate)",
+      id: "04acbdd3-dc59-44c8-be77-d3c3c5266b4e",
+      label: "LIVE AUDIT RECORD — DOCUMENT SCREENING",
     },
-    {
-      id: "d1-8849-kasparov",
-      label: "KASPAROV (Attari Land Border Anomaly)",
-    },
-  ];
+  ]);
+
+  useEffect(() => {
+    import("@/lib/api/client").then(({ api }) => {
+      api.getRecentScans(5).then((scans) => {
+        if (scans && scans.length > 0) {
+          setSampleDocIds(
+            scans.map((s) => ({
+              id: s.document_id,
+              label: `${s.document_type.toUpperCase()} • RISK: ${String(s.risk_band || "NORMAL").toUpperCase()}`,
+            }))
+          );
+        }
+      }).catch(() => {});
+    });
+  }, []);
 
   return (
     <RequireRole roles={["supervisor", "auditor", "admin", "officer"]}>

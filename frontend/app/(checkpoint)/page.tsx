@@ -52,7 +52,7 @@ export default function OfficerScreeningPage() {
         if (isMounted) {
           setRecentScans([
             {
-              document_id: "3e365d37-623b-40fa-8a02-1e0cdfa58799",
+              document_id: "6d6f9122-6ead-4aa3-89df-30fc1826578b",
               document_type: "passport",
               checkpoint_id: "00000000-0000-0000-0000-000000000010",
               uploaded_at: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
@@ -61,7 +61,7 @@ export default function OfficerScreeningPage() {
               reasons: ["All security parameters passed."],
             },
             {
-              document_id: "7b2e2d1a-4122-4809-94fc-32490ab81234",
+              document_id: "04acbdd3-dc59-44c8-be77-d3c3c5266b4e",
               document_type: "passport",
               checkpoint_id: "00000000-0000-0000-0000-000000000010",
               uploaded_at: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
@@ -127,7 +127,7 @@ export default function OfficerScreeningPage() {
 
       if (res && res.document_id) {
         setCachedScan(res.document_id, res);
-        router.push(`/scan/${res.document_id}`);
+        window.location.assign(`/scan/${res.document_id}`);
       } else {
         setIsScreening(false);
       }

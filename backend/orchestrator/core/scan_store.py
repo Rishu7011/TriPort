@@ -120,14 +120,15 @@ def _normalize_storage_url(url: str | None) -> str | None:
 def _scan_event_to_record(row: ScanEvent) -> ScanRecord:
     """Reconstruct a ScanRecord view model from a loaded ScanEvent row."""
     pipeline: PipelineResult | None = None
-    if row.pipeline_snapshot:
+    snapshot = row.__dict__.get("pipeline_snapshot")
+    if snapshot:
         try:
-            pipeline = PipelineResult.model_validate(row.pipeline_snapshot)
+            pipeline = PipelineResult.model_validate(snapshot)
         except Exception:
             pipeline = None
 
     if pipeline is None:
-        # Minimal fallback — should not happen in normal operation
+        # Minimal fallback — when snapshot is deferred or unparsed
         pipeline = PipelineResult(document_id=str(row.id))
 
     return ScanRecord(
@@ -185,19 +186,30 @@ async def save_scan(
 
     set_cached_doc_crop(doc_id, doc_face_crop_bytes or image_bytes)
 
-    # ── 2. Immediate Data URLs for instant client display (0ms remote storage wait) ──
+    # ── 2. Immediate Lightweight Data URLs for instant client display (0ms remote storage wait) ──
     import base64
-    immediate_doc_url = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    immediate_crop_url = (
-        f"data:image/jpeg;base64,{base64.b64encode(doc_face_crop_bytes).decode('ascii')}"
-        if doc_face_crop_bytes
-        else None
-    )
-    immediate_live_url = (
-        f"data:image/jpeg;base64,{base64.b64encode(live_image_bytes).decode('ascii')}"
-        if live_image_bytes
-        else None
-    )
+    import io
+    from PIL import Image
+
+    def _to_preview_data_url(raw_b: bytes | None, max_dim: int = 1000) -> str | None:
+        if not raw_b:
+            return None
+        try:
+            with Image.open(io.BytesIO(raw_b)) as im:
+                im = im.convert("RGB")
+                w, h = im.size
+                if max(w, h) > max_dim:
+                    scale = max_dim / float(max(w, h))
+                    im = im.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+                buf = io.BytesIO()
+                im.save(buf, format="JPEG", quality=85)
+                return f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+        except Exception:
+            return f"data:image/jpeg;base64,{base64.b64encode(raw_b[:500000]).decode('ascii')}"
+
+    immediate_doc_url = _to_preview_data_url(image_bytes, max_dim=1000)
+    immediate_crop_url = _to_preview_data_url(doc_face_crop_bytes, max_dim=600)
+    immediate_live_url = _to_preview_data_url(live_image_bytes, max_dim=800)
 
     # ── 3. Resolve UUID for scan_event_id and checkpoint_id ─────────────────
     try:
@@ -281,6 +293,9 @@ async def save_scan(
             pass
 
     pipeline_dict = pipeline.model_dump(mode="json")
+    # Strip any heavy base64 strings from snapshot to keep DB row under 5KB
+    if "tampering" in pipeline_dict and isinstance(pipeline_dict["tampering"], dict):
+        pipeline_dict["tampering"].pop("ela_heatmap_base64", None)
 
     # ── 4. Upsert scan_events ────────────────────────────────────────────────
     existing = await db.get(ScanEvent, scan_id)
@@ -452,8 +467,10 @@ async def get_scan(db: AsyncSession, document_id: str) -> ScanRecord | None:
 
 async def list_recent_scans(db: AsyncSession, limit: int = 20) -> list[ScanRecord]:
     """Fetch the most recent scans ordered by upload time descending."""
+    from sqlalchemy.orm import defer
     stmt = (
         select(ScanEvent)
+        .options(defer(ScanEvent.pipeline_snapshot))
         .order_by(ScanEvent.uploaded_at.desc())
         .limit(limit)
     )
@@ -467,8 +484,10 @@ async def list_recent_scans(db: AsyncSession, limit: int = 20) -> list[ScanRecor
 
 async def list_high_risk_scans(db: AsyncSession, limit: int = 20) -> list[ScanRecord]:
     """Fetch scans with risk band high or critical."""
+    from sqlalchemy.orm import defer
     stmt = (
         select(ScanEvent)
+        .options(defer(ScanEvent.pipeline_snapshot))
         .join(RiskResult, RiskResult.scan_event_id == ScanEvent.id, isouter=True)
         .where(RiskResult.band.in_(["high", "critical"]))
         .order_by(RiskResult.score.desc())
@@ -484,8 +503,10 @@ async def list_high_risk_scans(db: AsyncSession, limit: int = 20) -> list[ScanRe
 
 async def list_secondary_queue(db: AsyncSession, limit: int = 50) -> list[ScanRecord]:
     """Fetch scans in secondary inspection or high/critical risk."""
+    from sqlalchemy.orm import defer
     stmt = (
         select(ScanEvent)
+        .options(defer(ScanEvent.pipeline_snapshot))
         .join(RiskResult, RiskResult.scan_event_id == ScanEvent.id, isouter=True)
         .where(
             (ScanEvent.inspection_status == "secondary_inspection")

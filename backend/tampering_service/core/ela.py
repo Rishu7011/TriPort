@@ -88,9 +88,17 @@ def compute_ela(
     orig_bgr = cv2.cvtColor(orig_gray, cv2.COLOR_GRAY2BGR)
     blended = cv2.addWeighted(heatmap_bgr, 0.65, orig_bgr, 0.35, 0)
 
-    # Convert blended heatmap to PNG bytes
-    is_success, buffer_png = cv2.imencode(".png", blended)
-    heatmap_png_bytes = buffer_png.tobytes() if is_success else b""
+    # Downscale blended heatmap to max 800px and compress as JPEG (~60KB instead of 25MB)
+    bh_h, bh_w = blended.shape[:2]
+    max_dim = 800
+    if max(bh_h, bh_w) > max_dim:
+        scale = max_dim / float(max(bh_h, bh_w))
+        blended_thumb = cv2.resize(blended, (int(bh_w * scale), int(bh_h * scale)), interpolation=cv2.INTER_AREA)
+    else:
+        blended_thumb = blended
+
+    is_success, buffer_jpg = cv2.imencode(".jpg", blended_thumb, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    heatmap_png_bytes = buffer_jpg.tobytes() if is_success else b""
 
     # 5. Statistical Anomaly Calculation on RAW (un-amplified) differences
     mean_err = float(np.mean(raw_gray_diff))
@@ -133,8 +141,8 @@ def compute_ela(
 
 
 def ela_to_base64(heatmap_bytes: bytes) -> str:
-    """Convert PNG heatmap bytes to a base64 data URI string."""
+    """Convert heatmap bytes to a base64 data URI string."""
     if not heatmap_bytes:
         return ""
     b64_str = base64.b64encode(heatmap_bytes).decode("utf-8")
-    return f"data:image/png;base64,{b64_str}"
+    return f"data:image/jpeg;base64,{b64_str}"
