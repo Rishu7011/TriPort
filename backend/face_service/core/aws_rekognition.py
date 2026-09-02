@@ -156,3 +156,68 @@ def aws_compare_faces(
         err_msg = str(exc)
         logger.warning("AWS Rekognition CompareFaces call failed", error=err_msg)
         return False, 0.0, 0.0, f"AWS Rekognition error: {err_msg}", {"error": err_msg}
+
+
+def aws_detect_face_crop(
+    image_bytes: bytes,
+    pad_pct: float = 0.20,
+) -> tuple[bytes | None, bool]:
+    """
+    Detect and crop the face using AWS Rekognition DetectFaces.
+
+    Returns:
+        tuple: (crop_bytes, face_detected)
+    """
+    client = get_rekognition_client()
+    if client is None:
+        return None, False
+
+    try:
+        clean_bytes = _ensure_jpeg_or_png_bytes(image_bytes)
+        resp = client.detect_faces(
+            Image={"Bytes": clean_bytes},
+            Attributes=["DEFAULT"],
+        )
+        face_details = resp.get("FaceDetails", [])
+        if not face_details:
+            return None, False
+
+        # Pick the face with highest confidence and largest area
+        best_face = max(
+            face_details,
+            key=lambda f: f.get("Confidence", 0.0)
+            * (f.get("BoundingBox", {}).get("Width", 0) * f.get("BoundingBox", {}).get("Height", 0)),
+        )
+        confidence = best_face.get("Confidence", 0.0)
+        box = best_face.get("BoundingBox", {})
+
+        pil_img = Image.open(io.BytesIO(clean_bytes)).convert("RGB")
+        w, h = pil_img.size
+
+        left = box.get("Left", 0.0) * w
+        top = box.get("Top", 0.0) * h
+        width = box.get("Width", 0.0) * w
+        height = box.get("Height", 0.0) * h
+
+        # Add balanced padding
+        pw = width * pad_pct
+        ph = height * (pad_pct + 0.08)
+
+        x1 = max(0, int(left - pw))
+        y1 = max(0, int(top - ph))
+        x2 = min(w, int(left + width + pw))
+        y2 = min(h, int(top + height + ph))
+
+        crop_img = pil_img.crop((x1, y1, x2, y2))
+        buf = io.BytesIO()
+        crop_img.save(buf, format="JPEG", quality=95)
+        logger.info(
+            "Face crop extracted via AWS Rekognition DetectFaces",
+            bbox=[x1, y1, x2, y2],
+            confidence=round(confidence, 2),
+        )
+        return buf.getvalue(), True
+    except Exception as exc:
+        logger.warning("AWS Rekognition DetectFaces crop failed", error=str(exc))
+        return None, False
+

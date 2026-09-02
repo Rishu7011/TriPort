@@ -6,16 +6,15 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph_DAG-FF6F00.svg?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org)
-[![Google Gemini](https://img.shields.io/badge/Google_Gemini-Vision_Multimodal-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
-[![InsightFace](https://img.shields.io/badge/Biometrics-ArcFace_512d-7B1FA2.svg?logo=face&logoColor=white)](https://github.com/deepinsight/insightface)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js_15_App_Router-black.svg?logo=next.js&logoColor=white)](https://nextjs.org)
+[![AWS Rekognition](https://img.shields.io/badge/Biometrics-AWS_Rekognition_&_ArcFace-FF9900.svg?logo=amazon-aws&logoColor=white)](https://aws.amazon.com/rekognition/)
+[![Supabase](https://img.shields.io/badge/Database_&_Storage-Supabase_PostgreSQL_+_pgvector-3ECF8E.svg?logo=supabase&logoColor=white)](https://supabase.com)
 [![Cryptography](https://img.shields.io/badge/Security-SHA256_HashChain_&_AES256-107C41.svg?logo=gnupg&logoColor=white)](https://cryptography.io)
 [![Tests](https://img.shields.io/badge/Pytest-196_Passed_100%25-brightgreen.svg?logo=pytest&logoColor=white)](backend/tests/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <b>Sub-second parallelized document extraction, 5-layer forensic tampering detection (ELA), ArcFace 1:1/1:N biometric deduplication, cross-checkpoint impossible-velocity multi-identity graphs, LangGraph state orchestration with automated Secondary Inspection routing, and SHA-256 cryptographic audit ledgers.</b>
+  <b>Sub-second parallelized document extraction, 5-layer forensic tampering detection (ELA), AWS Rekognition & ArcFace biometric verification, cross-checkpoint impossible-velocity multi-identity graphs, LangGraph state orchestration with automated Secondary Inspection routing, and SHA-256 cryptographic audit ledgers.</b>
 </p>
 
 ---
@@ -43,16 +42,17 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
 
 ## ✨ Key Highlights
 
-- ⚡ **Sub-Second Parallel DAG**: Initial ML workloads (**MinIO + OCR + 5-Layer Tampering + ArcFace Biometrics**) execute concurrently in parallel fan-out, cutting screening latency by **>60%**.
+- ⚡ **Sub-Second Parallel DAG**: Initial ML workloads (**OCR + 5-Layer Tampering + Biometrics**) execute concurrently in parallel fan-out, cutting screening latency by **>60%**.
 - 🔍 **5-Layer Forensic Tampering Engine**:
-  - **Error Level Analysis (ELA)** recompression delta heatmaps.
+  - **Error Level Analysis (ELA)** recompression delta heatmaps uploaded to Supabase Storage.
   - **EXIF Metadata & Software Signature Analysis**.
   - **Photo Boundary Discontinuity & Noise Variance (Sobel)**.
   - **Entry/Exit Stamp Perceptual Hash (dHash) Matching**.
   - **Typography & Stroke-Width Consistency Analysis**.
 - 👤 **State-of-the-Art Biometrics**:
-  - **ArcFace 512-dimensional facial embeddings** (Cosine distance < 0.40).
-  - **MediaPipe EAR anti-spoofing liveness verification**.
+  - **AWS Rekognition CompareFaces & DetectFaces** cloud biometric comparison.
+  - **ArcFace 512-dimensional facial embeddings** (Cosine distance < 0.40) and DeepFace fallback.
+  - **ICAO 9303 layout heuristics** ensuring reliable portrait cropping across diverse document formats.
   - **1:N PostgreSQL `pgvector` biometric deduplication & cluster tracking**.
 - 🌐 **Cross-Checkpoint Face Graph Engine**:
   - Detects conflicting names and swapped document numbers across crossings.
@@ -64,7 +64,7 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
 - 🔒 **Cryptographic SHA-256 Audit Ledger**:
   - Tamper-evident sequential hash chaining (`Block[N] = SHA256(Payload[N] || PrevHash || Timestamp)`).
   - Mathematical proof of zero retroactive mutations via `verify_chain()`.
-  - Field-level **AES-256-GCM** encryption for PII and document scans at rest.
+  - Signed Supabase Storage URLs for evidentiary scans and live traveler photos.
 - 📡 **Edge Inference & Offline Sync**:
   - Standalone **ONNX Runtime** edge model runner for resource-constrained posts.
   - Local **SQLite WAL buffer** with automatic background reconciliation to central PostgreSQL.
@@ -76,13 +76,13 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
 
 ```
                                   ┌────────────────────────────────────────────────────────┐
-                                  │               Next.js 14 Officer Interface             │
+                                  │               Next.js 15 Officer Interface             │
                                   │      (Live Camera Feed • Document Scanner • Alerts)    │
                                   └───────────────────────────┬────────────────────────────┘
                                                               │ REST / Multipart Upload
                                                               ▼
                                   ┌────────────────────────────────────────────────────────┐
-                                  │           ⚡ Orchestrator Gateway (FastAPI :8007)       │
+                                  │           ⚡ Orchestrator Gateway (FastAPI :8000)       │
                                   │       (LangGraph StateGraph DAG • Auth • Routing)      │
                                   └─────┬──────────────┬──────────────┬──────────────┬─────┘
                                         │              │              │              │
@@ -91,9 +91,9 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
   ┌───────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐ ┌────────────────────────┐ ┌────────────────────────┐
   │      OCR Service      │ │  Tampering Service   │ │     Face Service     │ │   Validation Service   │ │Cross-Checkpoint Service│
   │     (Port :8001)      │ │     (Port :8003)     │ │     (Port :8004)     │ │      (Port :8002)      │ │      (Port :8008)      │
-  │ • EasyOCR Extraction  │ │ • Error Level (ELA)  │ │ • ArcFace 512d Vector│ │ • YAML Rules Engine  │ │ • Face Graph Analytics │
-  │ • ICAO MRZ Checksums  │ │ • EXIF Metadata      │ │ • EAR Blink Liveness │ │ • Regional Rules (5) │ │ • Impossible Velocity  │
-  │ • Gemini Vision Model │ │ • Sobel Boundary     │ │ • 1:N pgvector Dedup │ │ • SLTD Watchlist DB  │ │ • Repeat Offender Band │
+  │ • EasyOCR Extraction  │ │ • Error Level (ELA)  │ │ • AWS Rekognition    │ │ • YAML Rules Engine  │ │ • Face Graph Analytics │
+  │ • ICAO MRZ Checksums  │ │ • EXIF Metadata      │ │ • ArcFace 512d Vector│ │ • Regional Rules (5) │ │ • Impossible Velocity  │
+  │ • Gemini Vision Model │ │ • Sobel Boundary     │ │ • 1:N pgvector Dedup │ │ • Supabase Watchlist │ │ • Repeat Offender Band │
   │ • Batch Queue         │ │ • Stamp dHash Match  │ │ • Cluster Assignment │ │ • Offline Cache      │ │ • Central Dossier API  │
   └───────────┬───────────┘ └──────────┬───────────┘ └──────────┬───────────┘ └───────────┬────────────┘ └───────────┬────────────┘
               │                        │                        │                         │                          │
@@ -113,10 +113,11 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
                                   ┌───────────────────────────┴────────────────────────────┐
                                   ▼                                                        ▼
                     ┌───────────────────────────┐                            ┌───────────────────────────┐
-                    │   PostgreSQL + pgvector   │                            │    MinIO Object Storage   │
-                    │(Docs, Embeddings, Ledger) │                            │(AES-256 Encrypted Blobs)  │
+                    │   Supabase PostgreSQL     │                            │     Supabase Storage      │
+                    │ (pgvector, Docs, Clusters)│                            │(Signed URLs for JPG Scans)│
                     └───────────────────────────┘                            └───────────────────────────┘
 ```
+
 
 ---
 
@@ -342,44 +343,57 @@ uv pip install -r backend/requirements-core.txt -r backend/requirements-ml.txt
 ```
 
 ### 3. Environment Configuration
+Separate environment files are configured for backend and frontend:
+
+**Backend (`backend/.env`):**
 ```bash
-cp .env.example .env
-# Edit .env and configure your keys (e.g. LLM_API_KEY for Gemini fallback)
+cp backend/.env.example backend/.env
+# Configure DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION=ap-south-1, FACE_VERIFICATION_PROVIDER=aws
 ```
 
-### 4. Start Core Infrastructure (Docker)
+**Frontend (`frontend/.env.local`):**
 ```bash
-docker-compose up -d postgres minio
+cp frontend/.env.local.example frontend/.env.local
+# Set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+# Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
-### 5. Launch Backend Services
-You can run services individually for development or all via Docker:
+### 4. Launch Backend Orchestrator
+You can run the FastAPI orchestrator gateway from either the project root or inside the `backend/` directory:
 
+**Option A — From project root (`TriPort/`):**
 ```bash
-# Start Cross-Checkpoint Service
-backend/.venv/bin/uvicorn backend.cross_checkpoint_service.main:app --port 8008 --reload
-
-# Start Orchestrator Gateway
-backend/.venv/bin/uvicorn backend.orchestrator.main:app --port 8007 --reload
+uvicorn backend.orchestrator.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Interactive OpenAPI Swagger UI is available at:
-- **Orchestrator**: `http://localhost:8007/docs`
-- **Cross-Checkpoint Service**: `http://localhost:8008/docs`
-- **Face Service**: `http://localhost:8004/docs`
-- **Tampering Service**: `http://localhost:8003/docs`
-- **Validation Service**: `http://localhost:8002/docs`
-- **OCR Service**: `http://localhost:8001/docs`
+**Option B — From inside `backend/` directory:**
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Interactive OpenAPI Swagger UI:
+- **FastAPI Screening Gateway**: `http://localhost:8000/docs`
+
+### 5. Launch Frontend Console (Next.js 15)
+```bash
+cd frontend
+bun install # or npm install
+bun run dev # or npm run dev
+```
+Open **`http://localhost:3000`** to access the Officer Screening Console.
 
 ### 6. Verify Cryptographic Ledger Integrity
 Run the standalone ledger verification CLI to test mathematical hash chain integrity:
 ```bash
-# Validate live chain
 python scripts/verify_ledger_integrity.py
 
 # Simulate a database corruption attack and confirm detection
 python scripts/verify_ledger_integrity.py --corrupt-test
 ```
+
 
 ---
 

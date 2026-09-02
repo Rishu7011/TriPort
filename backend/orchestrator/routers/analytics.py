@@ -1,12 +1,14 @@
 """
 Analytics & Command Dashboard Router — /api/v1/analytics/*
 
-Aggregate statistics and feeds are derived from the in-memory scan store.
+All aggregate stats and blacklist CRUD now read from / write to Supabase
+via the async SQLAlchemy session. Removed in-memory scan store references.
 """
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.audit_ledger.core.hash_chain import verify_chain
 from backend.logging_config import get_logger
@@ -20,6 +22,7 @@ from backend.orchestrator.core.scan_store import (
     remove_blacklist_entry,
     summary_stats,
 )
+from backend.orchestrator.db.session import get_db
 
 logger = get_logger("orchestrator.analytics")
 
@@ -84,37 +87,42 @@ def _to_recent_scan(record) -> RecentScan:
 @router.get("/summary", response_model=SummaryStats)
 async def get_summary_stats(
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    return SummaryStats(**summary_stats())
+    return SummaryStats(**await summary_stats(db))
 
 
 @router.get("/scans/recent", response_model=list[RecentScan])
 async def get_recent_scans(
     limit: int = 20,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    return [_to_recent_scan(record) for record in list_recent_scans(limit)]
+    return [_to_recent_scan(record) for record in await list_recent_scans(db, limit)]
 
 
 @router.get("/scans/high-risk", response_model=list[RecentScan])
 async def get_high_risk_scans(
     limit: int = 20,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    return [_to_recent_scan(record) for record in list_high_risk_scans(limit)]
+    return [_to_recent_scan(record) for record in await list_high_risk_scans(db, limit)]
 
 
 @router.get("/audit/chain-status")
 async def get_chain_integrity_status(
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    return await verify_chain(db=None)
+    return await verify_chain(db=db)
 
 
 @router.get("/blacklist", response_model=list[BlacklistEntryOut])
 async def list_blacklist_entries(
     limit: int = 100,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
     return [
         BlacklistEntryOut(
@@ -127,7 +135,7 @@ async def list_blacklist_entries(
             reason=entry.reason,
             created_at=entry.created_at,
         )
-        for entry in list_blacklist(limit)
+        for entry in await list_blacklist(db, limit)
     ]
 
 
@@ -135,6 +143,7 @@ async def list_blacklist_entries(
 async def add_blacklist_entry_route(
     entry: BlacklistEntryIn,
     current_user: UserTokenData = Depends(require_roles(ADMIN_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
     if not entry.document_number and not entry.full_name:
         raise HTTPException(
@@ -142,13 +151,15 @@ async def add_blacklist_entry_route(
             detail="At least one of document_number or full_name must be provided.",
         )
 
-    created = add_blacklist_entry(
+    created = await add_blacklist_entry(
+        db,
         document_number=entry.document_number,
         full_name=entry.full_name,
         date_of_birth=entry.date_of_birth,
         nationality=entry.nationality,
         severity=entry.severity,
         reason=entry.reason,
+        created_by=current_user.user_id,
     )
 
     logger.info("Blacklist entry added", entry_id=created.id, by=current_user.user_id)
@@ -168,13 +179,14 @@ async def add_blacklist_entry_route(
 async def remove_blacklist_entry_route(
     entry_id: str,
     current_user: UserTokenData = Depends(require_roles(ADMIN_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
     try:
         uuid.UUID(entry_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Invalid entry ID format")
 
-    if not remove_blacklist_entry(entry_id):
+    if not await remove_blacklist_entry(db, entry_id):
         raise HTTPException(status_code=404, detail="Blacklist entry not found")
 
     logger.info("Blacklist entry removed", entry_id=entry_id, by=current_user.user_id)

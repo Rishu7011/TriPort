@@ -16,6 +16,7 @@ import time
 import uuid
 from typing import Annotated, Any, TypedDict
 from langgraph.graph import StateGraph, START, END
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import (
@@ -84,6 +85,7 @@ class ScreeningState(TypedDict, total=False):
     border_checkpoint_id: str | None
     provider: str
     image_object_key: str | None
+    db: Any | None
 
     # Microservice outputs
     extraction: ExtractionResponse | None
@@ -272,7 +274,8 @@ async def blacklist_check_node(state: ScreeningState) -> dict:
     """Cross-check extracted fields against national & Interpol watchlists."""
     ext = state.get("extraction")
     fields = ext.fields if ext else []
-    bl_score = await check_blacklist(fields=fields)
+    db = state.get("db")
+    bl_score = await check_blacklist(fields=fields, db=db)
     return {"blacklist": bl_score}
 
 
@@ -469,10 +472,13 @@ async def audit_ledger_node(state: ScreeningState) -> dict:
 
 def check_document_integrity(state: ScreeningState) -> str:
     """
-    Conditional Gate: If OCR/MRZ, Tampering, or Validation checks fail or find anomalies,
-    bypass the biometric scan and route directly to human verification (secondary inspection).
-    Only clean, genuine documents proceed to biometric verification.
+    Conditional Gate: If a live traveler photo is provided, always route to biometric
+    face verification (AWS Rekognition / ArcFace) so the officer receives the 1:1 facial comparison.
+    Only bypass biometrics when NO live photo is captured AND document integrity is flagged.
     """
+    if state.get("live_image_bytes") is not None:
+        return "clean"
+
     ext = state.get("extraction")
     tamp = state.get("tampering")
     val = state.get("validation")
@@ -497,14 +503,19 @@ def check_document_integrity(state: ScreeningState) -> str:
     return "clean"
 
 
+
 async def document_gate_node(state: ScreeningState) -> dict:
     """
     Document Forensics Gate:
-    If OCR/MRZ, Tampering, or Validation flagged anomalies, mark biometrics as bypassed
-    and route directly to Human Officer Verification.
+    If no live photo was captured AND document integrity flagged anomalies,
+    mark biometrics as bypassed and route directly to Human Officer Verification.
+    If a live photo IS provided, always allow face verification to run so the
+    officer has the full biometric comparison.
     """
+    has_live_photo = state.get("live_image_bytes") is not None
     integrity = check_document_integrity(state)
-    if integrity == "flagged":
+
+    if integrity == "flagged" and not has_live_photo:
         reasons = []
         tamp = state.get("tampering")
         if tamp and (tamp.flagged or tamp.tampering_score >= 0.40):
@@ -526,13 +537,14 @@ async def document_gate_node(state: ScreeningState) -> dict:
             bypassed_reason=f"Biometric scan bypassed: {reason_str}. Directly routed to human officer verification.",
         )
         logger.warning(
-            "Document integrity gate flagged anomalies — bypassing biometric scan for human verification",
+            "Document integrity gate flagged anomalies — bypassing biometric scan (no live capture provided)",
             doc_id=state["document_id"],
             reasons=reasons,
         )
         return {"face": bypassed_face}
 
     return {}
+
 
 
 def check_ocr_quality(state: ScreeningState) -> str:
@@ -698,6 +710,7 @@ async def run_langgraph_pipeline(
     live_image_bytes: bytes | None = None,
     document_id: str | None = None,
     checkpoint_id: str | None = None,
+    db: AsyncSession | None = None,
 ) -> PipelineResult:
     """
     Execute the document screening pipeline using the LangGraph StateGraph engine.
@@ -714,6 +727,7 @@ async def run_langgraph_pipeline(
         "border_checkpoint_id": checkpoint_id,
         "provider": provider,
         "image_object_key": None,
+        "db": db,
         "extraction": None,
         "validation": None,
         "tampering": None,
@@ -787,15 +801,6 @@ async def run_langgraph_pipeline(
         face=final_state.get("face"),
         cross_checkpoint=final_state.get("cross_checkpoint"),
         risk_score=final_state.get("risk_score"),
-    )
-
-    save_scan(
-        result,
-        document_type=document_type.value,
-        checkpoint_id=checkpoint_id,
-        image_bytes=image_bytes,
-        live_image_bytes=live_image_bytes,
-        inspection_status=final_state.get("inspection_status", "standard_clearance"),
     )
 
     return result

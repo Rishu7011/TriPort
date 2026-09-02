@@ -29,7 +29,7 @@ const DEMO_PROFILES: Record<string, UserProfileResponse> = {
     role: "officer",
     name: "Officer J. Miller",
     badge_number: "TP-7492",
-    checkpoint_id: "CP-DEL-T3",
+    checkpoint_id: "00000000-0000-0000-0000-000000000010",
     permissions: ["document:upload", "document:view", "decision:record"],
   },
   "supervisor@triport.gov": {
@@ -38,7 +38,7 @@ const DEMO_PROFILES: Record<string, UserProfileResponse> = {
     role: "supervisor",
     name: "Supervisor S. Rao",
     badge_number: "TP-SUP-014",
-    checkpoint_id: "CP-DEL-T3",
+    checkpoint_id: "00000000-0000-0000-0000-000000000010",
     permissions: [
       "document:upload",
       "document:view",

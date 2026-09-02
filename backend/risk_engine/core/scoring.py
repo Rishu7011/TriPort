@@ -226,9 +226,11 @@ def compute_risk_score(request: RiskScoreRequest) -> tuple[float, RiskBand, SubS
         tampering_score=round(t_score, 4),
         face_match_score=round(f_score, 4),
         blacklist_hit_score=round(b_score, 4),
+        blacklist_score=round(b_score, 4),
         cross_checkpoint_score=round(cc_score, 4),
         weights=active_weights,
     )
+
 
     logger.info(
         "risk_score_computed",

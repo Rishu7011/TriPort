@@ -524,6 +524,19 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         pil_crop.save(buf, format="JPEG", quality=95)
         return buf.getvalue()
 
+    # ── Strategy 0: AWS Rekognition DetectFaces (Cloud-grade accuracy) ────────
+    try:
+        from backend.face_service.core.aws_rekognition import (
+            aws_detect_face_crop,
+            is_aws_rekognition_available,
+        )
+        if is_aws_rekognition_available():
+            aws_crop, aws_found = aws_detect_face_crop(image_bytes, pad_pct=0.20)
+            if aws_found and aws_crop:
+                return aws_crop, True
+    except Exception as exc:
+        logger.debug("AWS Rekognition DetectFaces crop attempt failed", error=str(exc))
+
     # ── Strategy 1: InsightFace RetinaFace bounding box ──────────────────────
     app = _get_insightface_app()
     if app is not None:
@@ -577,7 +590,6 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
                 "haarcascade_profileface.xml",
             ]
             gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-            # Also try equalized gray to help with glare / low contrast document photos
             gray_eq = cv2.equalizeHist(gray)
 
             for c_name in cascade_names:
@@ -630,5 +642,19 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
     except Exception as exc:
         logger.debug("DeepFace crop attempt failed", error=str(exc))
 
+    # ── Strategy 5: ICAO 9303 Passport Photo Window Heuristic ─────────────────
+    # If the document is a standard landscape ID-3 passport (w > h), standard
+    # specifications position the portrait in the left quadrant.
+    if w >= 300 and h >= 200 and w > h:
+        px1 = int(w * 0.04)
+        py1 = int(h * 0.16)
+        px2 = int(w * 0.32)
+        py2 = int(h * 0.65)
+        crop = _crop_and_encode(px1, py1, px2, py2, pad_pct=0.0)
+        if crop:
+            logger.info("Face crop extracted via ICAO 9303 layout positioning", bbox=[px1, py1, px2, py2])
+            return crop, True
+
     logger.info("No face detected for crop — returning None")
     return None, False
+

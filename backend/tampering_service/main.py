@@ -1,10 +1,17 @@
-"""Tampering Service — ELA, metadata forensics, boundary analysis, stamp matching."""
+import sys
+from pathlib import Path
+
+# Ensure repo root is on sys.path so 'import backend.xxx' works from any directory
+_repo_root = str(Path(__file__).resolve().parents[2])
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.logging_config import configure_logging, get_logger
+
 from backend.tampering_service.routers import tampering
 
 configure_logging()

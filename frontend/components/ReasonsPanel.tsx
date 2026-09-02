@@ -24,11 +24,21 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
 
   const score = riskScore.score || 0;
   const reasons = riskScore.reasons || [];
-  const subScores = riskScore.sub_scores || {
-    validation_score: 0.0,
-    tampering_score: 0.0,
-    face_match_score: 0.0,
-    blacklist_score: 0.0,
+  const rawSubScores = (riskScore.sub_scores as any) || {};
+
+  const validationScore = Number(rawSubScores.validation_score ?? 0);
+  const tamperingScore = Number(rawSubScores.tampering_score ?? 0);
+  const faceScore = Number(rawSubScores.face_match_score ?? 0);
+  const watchlistScore = Number(
+    rawSubScores.blacklist_score ??
+    rawSubScores.blacklist_hit_score ??
+    rawSubScores.watchlist_score ??
+    0
+  );
+
+  const formatPct = (val: number) => {
+    const num = isNaN(val) ? 0 : val;
+    return `${(num * 100).toFixed(0)}%`;
   };
 
   return (
@@ -71,12 +81,12 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
               <span className="text-text-muted">Validation:</span>
               <span
                 className={
-                  subScores.validation_score > 0
+                  validationScore > 0
                     ? "text-risk-critical font-bold"
                     : "text-brand"
                 }
               >
-                {(subScores.validation_score * 100).toFixed(0)}%
+                {formatPct(validationScore)}
               </span>
             </div>
 
@@ -84,12 +94,12 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
               <span className="text-text-muted">Tampering:</span>
               <span
                 className={
-                  subScores.tampering_score > 0.3
+                  tamperingScore > 0.3
                     ? "text-risk-critical font-bold"
                     : "text-brand"
                 }
               >
-                {(subScores.tampering_score * 100).toFixed(0)}%
+                {formatPct(tamperingScore)}
               </span>
             </div>
 
@@ -97,12 +107,12 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
               <span className="text-text-muted">Biometrics:</span>
               <span
                 className={
-                  subScores.face_match_score > 0.4
+                  faceScore > 0.4
                     ? "text-risk-critical font-bold"
                     : "text-brand"
                 }
               >
-                {(subScores.face_match_score * 100).toFixed(0)}%
+                {formatPct(faceScore)}
               </span>
             </div>
 
@@ -110,16 +120,17 @@ export function ReasonsPanel({ riskScore, validation }: ReasonsPanelProps) {
               <span className="text-text-muted">Watchlist:</span>
               <span
                 className={
-                  subScores.blacklist_score > 0
+                  watchlistScore > 0
                     ? "text-risk-critical font-bold"
                     : "text-brand"
                 }
               >
-                {(subScores.blacklist_score * 100).toFixed(0)}%
+                {formatPct(watchlistScore)}
               </span>
             </div>
           </div>
         </div>
+
 
         {/* Human Readable Finding Reasons */}
         <div className="flex-1">

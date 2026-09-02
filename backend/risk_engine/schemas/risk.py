@@ -171,10 +171,12 @@ class SubScoreBreakdown(BaseModel):
     tampering_score: float = Field(..., description="Normalized tampering sub-score (0–1)")
     face_match_score: float = Field(..., description="Normalized face risk sub-score (0–1)")
     blacklist_hit_score: float = Field(..., description="Blacklist contribution (0 or 1, tiered)")
+    blacklist_score: float = Field(default=0.0, description="Alias for blacklist_hit_score")
     cross_checkpoint_score: float = Field(
         default=0.0,
         description="Normalized cross-checkpoint fraud sub-score (0–1)",
     )
+
     weights: dict[str, float] = Field(
         default_factory=lambda: {
             "validation": 0.30,

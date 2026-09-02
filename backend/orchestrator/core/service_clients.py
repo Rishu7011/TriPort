@@ -456,8 +456,24 @@ async def call_audit_ledger(
     document_id: str,
     payload: dict[str, Any],
     officer_id: str | None = None,
+    db: Any | None = None,
 ) -> dict[str, Any] | None:
     """Append event to the tamper-evident audit ledger (safe call; never raises)."""
+    if _use_in_process():
+        try:
+            from backend.audit_ledger.core.hash_chain import append_event
+            resp = await append_event(
+                event_type=event_type,
+                payload=payload,
+                document_id=document_id,
+                officer_id=officer_id,
+                db=db,
+            )
+            return resp.model_dump(mode="json")
+        except Exception as exc:
+            logger.debug("Internal audit ledger append event error", error=str(exc))
+            return None
+
     url = f"{settings.audit_ledger_url}/events/"
     data = {
         "event_type": event_type,
@@ -471,6 +487,7 @@ async def call_audit_ledger(
             if res.status_code in [200, 201]:
                 return res.json()
     except Exception as exc:
-        logger.debug("Audit ledger append event skipped or pending Phase 4", error=str(exc))
+        logger.debug("Audit ledger HTTP call failed", error=str(exc))
     return None
+
 

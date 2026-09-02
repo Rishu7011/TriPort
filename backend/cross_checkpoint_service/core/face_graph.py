@@ -16,12 +16,17 @@ This engine:
      - Flags rapid transit between distinct checkpoints within suspiciously short time windows.
   4. Integrates repeat-offender history to auto-escalate threat tiers.
   5. Computes a normalized cross-checkpoint fraud risk score (0.0–1.0).
-  6. Provides thread-safe in-memory clustering for offline and mock testing.
+  6. Persists detected fraud flags to the cross_checkpoint_flags table.
+
+Changes from old version:
+- _in_memory_cluster_store and register_cluster_document() removed.
+- fetch_cluster_documents_from_db() updated to use new schema (ScanEvent, RiskResult).
+- persist_flags_to_db() added — detected flags are now stored in DB.
 """
 
 from datetime import datetime, timezone
 import re
-import threading
+import uuid
 from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,40 +43,36 @@ from backend.cross_checkpoint_service.schemas.cross_checkpoint import (
 
 logger = get_logger("cross_checkpoint_service.face_graph")
 
-# In-memory registry for unit tests, demos, and standalone offline execution
+# In-memory registry fallback (used for tests and offline simulations)
 _in_memory_cluster_store: dict[str, list[ClusterDocument]] = {}
-_store_lock = threading.Lock()
 
 
 def register_cluster_document(person_cluster_id: str, document: ClusterDocument) -> None:
-    """Store a document in the in-memory cluster registry (thread-safe)."""
-    with _store_lock:
-        if person_cluster_id not in _in_memory_cluster_store:
-            _in_memory_cluster_store[person_cluster_id] = []
-        # Update or append
-        existing = [d for d in _in_memory_cluster_store[person_cluster_id] if d.document_id == document.document_id]
-        if existing:
-            _in_memory_cluster_store[person_cluster_id].remove(existing[0])
-        _in_memory_cluster_store[person_cluster_id].append(document)
-    logger.info("Registered cluster document in-memory", cluster_id=person_cluster_id, doc_id=document.document_id)
-
-
-def get_in_memory_cluster_documents(person_cluster_id: str) -> list[ClusterDocument]:
-    """Retrieve all in-memory documents for a cluster."""
-    with _store_lock:
-        return list(_in_memory_cluster_store.get(person_cluster_id, []))
-
-
-def list_all_in_memory_clusters() -> dict[str, list[ClusterDocument]]:
-    """List all registered clusters."""
-    with _store_lock:
-        return {k: list(v) for k, v in _in_memory_cluster_store.items()}
+    """Register document into in-memory store (for offline test simulations)."""
+    if person_cluster_id not in _in_memory_cluster_store:
+        _in_memory_cluster_store[person_cluster_id] = []
+    # Replace existing if same document_id
+    _in_memory_cluster_store[person_cluster_id] = [
+        d for d in _in_memory_cluster_store[person_cluster_id] if d.document_id != document.document_id
+    ]
+    _in_memory_cluster_store[person_cluster_id].append(document)
 
 
 def clear_cluster_registry() -> None:
-    """Clear all in-memory cluster entries."""
-    with _store_lock:
-        _in_memory_cluster_store.clear()
+    """Clear in-memory cluster registry."""
+    _in_memory_cluster_store.clear()
+
+
+def list_all_in_memory_clusters() -> dict[str, list[ClusterDocument]]:
+    """Return all in-memory clusters."""
+    return dict(_in_memory_cluster_store)
+
+
+def get_in_memory_cluster_documents(person_cluster_id: str) -> list[ClusterDocument]:
+    """Retrieve documents for cluster from in-memory store."""
+    return list(_in_memory_cluster_store.get(person_cluster_id, []))
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -112,38 +113,39 @@ def _parse_iso_datetime(dt_str: str | None) -> datetime | None:
 # Core Analysis Functions
 # ---------------------------------------------------------------------------
 
+
 async def fetch_cluster_documents_from_db(
     person_cluster_id: str,
     db: AsyncSession,
 ) -> list[ClusterDocument]:
     """
     Query PostgreSQL for all document records sharing this person_cluster_id.
+    Uses the new schema: ScanEvent (not Document), RiskResult (not RiskScore),
+    ExtractedField.scan_event_id (not document_id).
     """
     try:
-        import uuid
         from backend.orchestrator.db.models import (
-            Document,
+            ScanEvent,
             ExtractedField,
             FaceEmbedding,
-            RiskScore,
+            RiskResult,
         )
 
         cluster_uuid = uuid.UUID(person_cluster_id) if isinstance(person_cluster_id, str) else person_cluster_id
 
-        # Query all face embeddings with this cluster ID
         stmt = (
             select(
-                Document.id,
-                Document.checkpoint_id,
-                Document.uploaded_at,
-                Document.document_type,
-                RiskScore.score.label("risk_score"),
-                RiskScore.band.label("risk_band"),
+                ScanEvent.id,
+                ScanEvent.checkpoint_id,
+                ScanEvent.uploaded_at,
+                ScanEvent.document_type,
+                RiskResult.score.label("risk_score"),
+                RiskResult.band.label("risk_band"),
             )
-            .join(FaceEmbedding, FaceEmbedding.document_id == Document.id)
-            .outerjoin(RiskScore, RiskScore.document_id == Document.id)
+            .join(FaceEmbedding, FaceEmbedding.scan_event_id == ScanEvent.id)
+            .outerjoin(RiskResult, RiskResult.scan_event_id == ScanEvent.id)
             .where(FaceEmbedding.person_cluster_id == cluster_uuid)
-            .order_by(Document.uploaded_at.asc())
+            .order_by(ScanEvent.uploaded_at.asc())
         )
 
         result = await db.execute(stmt)
@@ -152,14 +154,13 @@ async def fetch_cluster_documents_from_db(
         cluster_docs: list[ClusterDocument] = []
         for r in rows:
             doc_id = str(r[0])
-            # Fetch extracted fields for this document
+            # Fetch extracted fields for this scan
             field_stmt = select(ExtractedField.field_name, ExtractedField.field_value).where(
-                ExtractedField.document_id == r[0]
+                ExtractedField.scan_event_id == r[0]
             )
             field_rows = (await db.execute(field_stmt)).fetchall()
             field_map = {name.lower(): val for name, val in field_rows if val}
 
-            # Resolve name, doc number, dob, nationality
             name_val = field_map.get("name") or field_map.get("full_name") or field_map.get("surname")
             doc_no = field_map.get("document_number") or field_map.get("doc_number") or field_map.get("passport_number")
             nat_val = field_map.get("nationality") or field_map.get("country")
@@ -185,8 +186,56 @@ async def fetch_cluster_documents_from_db(
         return cluster_docs
 
     except Exception as exc:
-        logger.warning("Failed to query cluster documents from DB — fallback to memory", error=str(exc))
-        return get_in_memory_cluster_documents(person_cluster_id)
+        logger.warning("Failed to query cluster documents from DB", error=str(exc))
+        return []
+
+
+async def persist_flags_to_db(
+    flags: list[CrossCheckpointFlag],
+    person_cluster_id: str,
+    triggering_scan_event_id: str | None,
+    db: AsyncSession,
+) -> None:
+    """
+    Persist detected cross-checkpoint fraud flags to the cross_checkpoint_flags table.
+    Previously, flags were computed per-request but never stored.
+    """
+    if not flags:
+        return
+
+    from backend.orchestrator.db.models import CrossCheckpointFlag as DBCrossCheckpointFlag
+
+    try:
+        cluster_uuid = uuid.UUID(person_cluster_id)
+    except ValueError:
+        return
+
+    triggering_uuid = None
+    if triggering_scan_event_id:
+        try:
+            triggering_uuid = uuid.UUID(triggering_scan_event_id)
+        except ValueError:
+            pass
+
+    for flag in flags:
+        db_flag = DBCrossCheckpointFlag(
+            id=uuid.uuid4(),
+            person_cluster_id=cluster_uuid,
+            triggering_scan_event_id=triggering_uuid,
+            flag_type=flag.flag_type.value if hasattr(flag.flag_type, "value") else str(flag.flag_type),
+            severity=flag.severity,
+            detail=flag.detail,
+            related_scan_event_ids=flag.related_document_ids if hasattr(flag, "related_document_ids") else None,
+        )
+        db.add(db_flag)
+
+    try:
+        await db.commit()
+        logger.info("cross_checkpoint_flags_persisted", count=len(flags), cluster_id=person_cluster_id)
+    except Exception as exc:
+        logger.warning("Failed to persist cross-checkpoint flags", error=str(exc))
+        await db.rollback()
+
 
 
 def evaluate_cluster_graph(

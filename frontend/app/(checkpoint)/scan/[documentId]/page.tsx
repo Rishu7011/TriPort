@@ -105,8 +105,8 @@ export default function ScanResultPage({
 
         if (extData.status === "fulfilled" && extData.value.image_url) {
           setRawDocPhotoUrl(extData.value.image_url);
-          setDocPhotoUrl(extData.value.image_url);
         }
+
         if (faceData.status === "fulfilled") {
           const facePayload = faceData.value as {
             doc_image_url?: string;
@@ -118,11 +118,16 @@ export default function ScanResultPage({
           }
           if (facePayload.doc_image_url) {
             setDocPhotoUrl(facePayload.doc_image_url);
+          } else if (extData.status === "fulfilled" && extData.value.image_url) {
+            setDocPhotoUrl(extData.value.image_url);
           }
           if (facePayload.live_image_url) {
             setLivePhotoUrl(facePayload.live_image_url);
           }
+        } else if (extData.status === "fulfilled" && extData.value.image_url) {
+          setDocPhotoUrl(extData.value.image_url);
         }
+
       } catch (err) {
         if (isMounted) {
           setLoadError(

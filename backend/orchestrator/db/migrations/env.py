@@ -17,6 +17,14 @@ then apply it. Much safer.
 import asyncio
 import os
 from logging.config import fileConfig
+from pathlib import Path
+
+# Load .env so DATABASE_URL is available when running alembic from the terminal
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parents[3] / ".env")  # backend/.env
+except ImportError:
+    pass  # python-dotenv not installed — rely on shell env
 
 from alembic import context
 from sqlalchemy import pool
@@ -38,11 +46,26 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Read DATABASE_URL from environment — never hardcode credentials."""
-    url = os.environ.get("DATABASE_URL", "")
-    # asyncpg uses postgresql+asyncpg:// scheme
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    import re
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. "
+            "Ensure your .env file exists at the repo root with DATABASE_URL defined."
+        )
+    # Normalise to psycopg async driver scheme
+    for old in ("postgresql+asyncpg://", "postgres+asyncpg://", "postgres://", "postgresql://"):
+        if url.startswith(old):
+            url = "postgresql+psycopg://" + url[len(old):]
+            break
+    # Remove old ssl query params and add sslmode=require for Supabase
+    url = re.sub(r"[?&]sslmode=[^&]*", "", url)
+    url = re.sub(r"[?&]ssl=[^&]*", "", url)
+    if "sslmode=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
     return url
+
 
 
 def run_migrations_offline() -> None:

@@ -206,7 +206,7 @@ export default function NationalCommandPage() {
                         </span>
                       </td>
                       <td className="p-3 text-text font-bold">
-                        {scan.checkpoint_id || "CP-DEL-T3"}
+                        {scan.checkpoint_id || "00000000-0000-0000-0000-000000000010"}
                       </td>
                       <td className="p-3 text-text-muted truncate max-w-[160px]">
                         {scan.document_id}

@@ -291,7 +291,7 @@ export const MOCK_CLUSTER_DETAIL: ClusterHistoryResponse = {
     {
       document_id: "d1-8849-kasparov",
       checkpoint_type: "airport",
-      checkpoint_id: "CP-DEL-T3",
+      checkpoint_id: "00000000-0000-0000-0000-000000000010",
       checkpoint_name: "Indira Gandhi Intl Airport T3",
       uploaded_at: "2026-08-30T14:02:11Z",
       document_type: "passport",

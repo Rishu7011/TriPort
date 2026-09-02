@@ -54,7 +54,7 @@ export default function OfficerScreeningPage() {
             {
               document_id: "3e365d37-623b-40fa-8a02-1e0cdfa58799",
               document_type: "passport",
-              checkpoint_id: "CP-DEL-T3",
+              checkpoint_id: "00000000-0000-0000-0000-000000000010",
               uploaded_at: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
               risk_score: 8.5,
               risk_band: "low",
@@ -63,7 +63,7 @@ export default function OfficerScreeningPage() {
             {
               document_id: "7b2e2d1a-4122-4809-94fc-32490ab81234",
               document_type: "passport",
-              checkpoint_id: "CP-DEL-T3",
+              checkpoint_id: "00000000-0000-0000-0000-000000000010",
               uploaded_at: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
               risk_score: 94.2,
               risk_band: "critical",
@@ -121,7 +121,7 @@ export default function OfficerScreeningPage() {
       formData.append("file", docFile);
       formData.append("document_type", documentType);
       formData.append("checkpoint_type", checkpointType);
-      formData.append("checkpoint_id", user?.checkpoint_id || "CP-DEL-T3");
+      formData.append("checkpoint_id", user?.checkpoint_id || "00000000-0000-0000-0000-000000000010");
       if (livePhoto) {
         formData.append("live_photo", livePhoto);
       }
@@ -289,7 +289,7 @@ export default function OfficerScreeningPage() {
                               {scan.document_id}
                             </td>
                             <td className="p-3 text-text-muted">
-                              {scan.checkpoint_id || "CP-DEL-T3"}
+                              {scan.checkpoint_id || "00000000-0000-0000-0000-000000000010"}
                             </td>
                             <td className="p-3">
                               <RiskBadge

@@ -1,24 +1,33 @@
 """
 Orchestrator Documents & Audit Router — /api/v1/documents/* and /api/v1/audit/*
 
-Screening results are held in the in-memory scan store for the current process.
-No database or object storage is used.
+All endpoints now read from and write to Supabase via the async SQLAlchemy session.
+In-memory scan store references replaced with DB-backed scan_store functions.
 """
 
 import base64
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.audit_ledger.core.hash_chain import _IN_MEMORY_CHAIN
+from backend.audit_ledger.core.hash_chain import append_event
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
 from backend.orchestrator.auth.dependencies import require_roles
 from backend.orchestrator.auth.security import UserTokenData
 from backend.orchestrator.core.pipeline import run_pipeline
-from backend.orchestrator.core.scan_store import ScanRecord, get_scan
-from backend.orchestrator.core.service_clients import call_audit_ledger
+from backend.orchestrator.core import scan_store
+from backend.orchestrator.core.service_clients import call_audit_ledger, call_face_service, call_risk_engine
+from backend.orchestrator.db.session import get_db
+from backend.orchestrator.db.models import (
+    AuditLedgerEntry,
+    FaceVerificationResult,
+    OfficerDecision,
+    ScanEvent,
+)
 from backend.orchestrator.schemas.pipeline import (
     DecisionRequest,
     DecisionResponse,
@@ -46,8 +55,9 @@ def _normalize_tampering_detail(raw: Any) -> Any:
     return raw
 
 
-def _get_scan_or_404(document_id: str) -> ScanRecord:
-    record = get_scan(document_id)
+async def _get_scan_or_404(db: AsyncSession, document_id: str) -> scan_store.ScanRecord:
+    """Fetch a scan from DB or raise 404."""
+    record = await scan_store.get_scan(db, document_id)
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -56,7 +66,7 @@ def _get_scan_or_404(document_id: str) -> ScanRecord:
     return record
 
 
-def _face_response(record: ScanRecord) -> dict[str, Any]:
+def _face_response(record: scan_store.ScanRecord) -> dict[str, Any]:
     face = record.pipeline.face
     doc_crop_url = record.doc_face_crop_data_url or record.doc_image_data_url
     if not face:
@@ -96,8 +106,10 @@ async def upload_and_screen_document(
     checkpoint_type: CheckpointType = Form(default=CheckpointType.AIRPORT),
     provider: str = Form(default="local"),
     live_photo: UploadFile | None = File(None, description="Optional live traveler face photo"),
+    live_image: UploadFile | None = File(None, description="Optional live traveler face photo (alias)"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
     try:
         image_bytes = await file.read()
@@ -109,14 +121,19 @@ async def upload_and_screen_document(
             detail={"error": "invalid_image", "reason": str(exc)},
         ) from exc
 
+    effective_live_file = live_photo or live_image
     live_bytes: bytes | None = None
-    if live_photo:
+    if effective_live_file:
         try:
-            live_bytes = await live_photo.read()
+            live_bytes = await effective_live_file.read()
             if len(live_bytes) == 0:
                 live_bytes = None
-        except Exception:
+        except Exception as exc:
+            logger.warning("live_photo_read_failed", error=str(exc))
             live_bytes = None
+
+    # Resolve checkpoint: prefer form value, fall back to JWT claim
+    effective_checkpoint_id = checkpoint_id or current_user.checkpoint_id
 
     pipeline_result: PipelineResult = await run_pipeline(
         image_bytes=image_bytes,
@@ -124,11 +141,33 @@ async def upload_and_screen_document(
         checkpoint_type=checkpoint_type,
         provider=provider,
         live_image_bytes=live_bytes,
-        checkpoint_id=checkpoint_id or current_user.checkpoint_id,
+        checkpoint_id=effective_checkpoint_id,
+        db=db,
+    )
+
+
+    # Persist to Supabase (images → Storage, results → scan_events + child tables)
+    await scan_store.save_scan(
+        db,
+        pipeline_result,
+        document_type=document_type.value if hasattr(document_type, "value") else str(document_type),
+        checkpoint_id=effective_checkpoint_id,
+        image_bytes=image_bytes,
+        live_image_bytes=live_bytes,
+        inspection_status="standard_clearance",
+        officer_id=current_user.user_id,
+    )
+
+    # Append to audit ledger
+    await append_event(
+        event_type="scan",
+        payload={"document_type": str(document_type), "checkpoint_id": effective_checkpoint_id},
+        document_id=pipeline_result.document_id,
+        officer_id=current_user.user_id,
+        db=db,
     )
 
     status_str = "degraded" if pipeline_result.degraded else "complete"
-
     return UploadResponse(
         document_id=pipeline_result.document_id,
         status=status_str,
@@ -137,7 +176,7 @@ async def upload_and_screen_document(
 
 
 # ---------------------------------------------------------------------------
-# 1b. Face Photo Crop
+# 1b. Face Photo Crop (no DB needed — pure computation)
 # ---------------------------------------------------------------------------
 @router.post(
     "/documents/face-crop",
@@ -159,7 +198,6 @@ async def extract_face_crop(
 
     try:
         from backend.face_service.core.embedding import extract_face_crop_bytes
-
         crop_bytes, face_detected = extract_face_crop_bytes(image_bytes)
     except Exception:
         face_detected = False
@@ -174,7 +212,7 @@ async def extract_face_crop(
 
 
 # ---------------------------------------------------------------------------
-# 2–6. Screening result endpoints (in-memory)
+# 2. Get full pipeline result (DB-backed)
 # ---------------------------------------------------------------------------
 @router.get(
     "/documents/{document_id}/pipeline",
@@ -184,8 +222,9 @@ async def extract_face_crop(
 async def get_document_pipeline(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     return UploadResponse(
         document_id=record.document_id,
         status="degraded" if record.pipeline.degraded else "complete",
@@ -200,8 +239,9 @@ async def get_document_pipeline(
 async def get_document_extraction(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     extraction = record.pipeline.extraction
     fields = extraction.fields if extraction else []
 
@@ -229,11 +269,11 @@ async def get_document_extraction(
 async def get_document_validation(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     validation = record.pipeline.validation
     results = validation.rule_results if validation else []
-
     failed = [r.rule_name for r in results if not r.passed]
     return {
         "document_id": document_id,
@@ -241,11 +281,7 @@ async def get_document_validation(
         "passed": len(failed) == 0,
         "failed_rules": failed,
         "rule_results": [
-            {
-                "rule_name": r.rule_name,
-                "passed": r.passed,
-                "detail": r.detail,
-            }
+            {"rule_name": r.rule_name, "passed": r.passed, "detail": r.detail}
             for r in results
         ],
     }
@@ -258,11 +294,11 @@ async def get_document_validation(
 async def get_document_tampering(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     tampering = record.pipeline.tampering
     checks = tampering.checks if tampering else []
-
     return {
         "document_id": document_id,
         "flagged": tampering.flagged if tampering else False,
@@ -270,9 +306,7 @@ async def get_document_tampering(
         "checks": [
             {
                 "check_type": (
-                    c.check_type.value
-                    if hasattr(c.check_type, "value")
-                    else str(c.check_type)
+                    c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)
                 ),
                 "score": c.score,
                 "flagged": c.flagged,
@@ -285,20 +319,6 @@ async def get_document_tampering(
     }
 
 
-from backend.orchestrator.core.blacklist import check_blacklist
-from backend.orchestrator.core.service_clients import (
-    call_audit_ledger,
-    call_face_service,
-    call_risk_engine,
-)
-from backend.risk_engine.schemas.risk import (
-    FaceSubScore,
-    RiskScoreRequest,
-    TamperingSubScore,
-    ValidationSubScore,
-)
-
-
 @router.get(
     "/documents/{document_id}/face-verification",
     summary="Retrieve biometric match score and deduplication clusters",
@@ -306,9 +326,22 @@ from backend.risk_engine.schemas.risk import (
 async def get_document_face(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     return _face_response(record)
+
+
+# ---------------------------------------------------------------------------
+# 3. Live face verification (DB-backed)
+# ---------------------------------------------------------------------------
+from backend.orchestrator.core.blacklist import check_blacklist
+from backend.risk_engine.schemas.risk import (
+    FaceSubScore,
+    RiskScoreRequest,
+    TamperingSubScore,
+    ValidationSubScore,
+)
 
 
 @router.post(
@@ -319,8 +352,9 @@ async def verify_live_face(
     document_id: str,
     file: UploadFile = File(..., description="Live camera snapshot (JPEG/PNG)"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     try:
         live_bytes = await file.read()
         if len(live_bytes) == 0:
@@ -331,27 +365,75 @@ async def verify_live_face(
             detail={"error": "invalid_live_image", "reason": str(exc)},
         ) from exc
 
-    # Retrieve document image bytes from stored data URL
-    doc_data_url = record.doc_image_data_url or ""
-    try:
-        if "," in doc_data_url:
-            doc_bytes = base64.b64decode(doc_data_url.split(",", 1)[1])
-        else:
-            doc_bytes = base64.b64decode(doc_data_url)
-    except Exception:
-        doc_bytes = b""
+    # Fetch document bytes from Supabase Storage if URL is available
+    doc_bytes = b""
+    doc_url = record.doc_image_data_url or ""
+    if doc_url.startswith("http"):
+        # Signed URL from Supabase Storage — fetch via httpx
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(doc_url)
+                if resp.status_code == 200:
+                    doc_bytes = resp.content
+        except Exception as exc:
+            logger.warning("Failed to fetch document image from Storage URL", error=str(exc))
+    elif "," in doc_url:
+        # Legacy base64 data URL fallback
+        try:
+            doc_bytes = base64.b64decode(doc_url.split(",", 1)[1])
+        except Exception:
+            doc_bytes = b""
 
-    # Execute Face Service (crops doc image, computes 1:1 match & 1:N deduplication)
     face_res = await call_face_service(
         doc_image_bytes=doc_bytes,
         live_image_bytes=live_bytes,
         current_doc_id=document_id,
     )
 
-    # Encode live photo to base64 Data URL
-    live_b64 = base64.b64encode(live_bytes).decode("utf-8")
-    record.live_image_data_url = f"data:image/jpeg;base64,{live_b64}"
+    # Upload live image to Supabase Storage
+    from backend.orchestrator.storage import supabase_storage
+    live_url = await supabase_storage.upload_live_capture_image(live_bytes, document_id)
+
+    # Update scan_events with live image URL and new face result in pipeline_snapshot
     record.pipeline.face = face_res
+    record.live_image_data_url = live_url
+
+    # Persist face verification result row
+    try:
+        scan_id = uuid.UUID(document_id)
+        one_to_one = face_res.one_to_one
+        dedup = face_res.dedup
+        liveness = face_res.liveness
+
+        # Upsert face_verification_results
+        from sqlalchemy import delete as sa_delete
+        await db.execute(
+            sa_delete(FaceVerificationResult).where(
+                FaceVerificationResult.scan_event_id == scan_id
+            )
+        )
+        fvr = FaceVerificationResult(
+            scan_event_id=scan_id,
+            one_to_one_matched=one_to_one.matched if one_to_one else None,
+            match_score=one_to_one.match_score if one_to_one else None,
+            cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
+            dedup_has_duplicates=dedup.has_duplicates if dedup else None,
+            dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
+            liveness_is_live=liveness.is_live if liveness else None,
+            liveness_score=liveness.liveness_score if liveness else None,
+            bypassed=face_res.bypassed,
+            bypassed_reason=face_res.bypassed_reason,
+        )
+        db.add(fvr)
+
+        # Update scan_events.live_image_url and pipeline_snapshot
+        event_row = await db.get(ScanEvent, scan_id)
+        if event_row:
+            event_row.live_image_url = live_url
+            event_row.pipeline_snapshot = record.pipeline.model_dump(mode="json")
+    except Exception as exc:
+        logger.warning("Failed to persist face verification result", error=str(exc))
 
     # Re-evaluate composite risk score
     ext = record.pipeline.extraction
@@ -366,14 +448,12 @@ async def verify_live_face(
         has_duplicates=dedup.has_duplicates if dedup else False,
         dedup_hit_count=len(dedup.hits) if dedup else 0,
     )
-
     val_sub = ValidationSubScore(
         total_rules=len(val.rule_results) if val else 0,
         failed_rules=len(val.failed_rules) if val else 0,
         failed_rule_names=val.failed_rules if val else [],
         rule_details={r.rule_name: r.detail for r in (val.rule_results if val else []) if not r.passed},
     )
-
     tamp_sub = TamperingSubScore(
         overall_score=tamp.tampering_score if tamp else 0.0,
         flagged=tamp.flagged if tamp else False,
@@ -386,36 +466,35 @@ async def verify_live_face(
             for c in (tamp.checks if tamp else []) if c.flagged
         },
     )
-
     fields = ext.fields if ext else []
-    bl_score = await check_blacklist(fields=fields)
-
+    bl_score = await check_blacklist(fields=fields, db=db)
     risk_req = RiskScoreRequest(
         document_id=document_id,
-        checkpoint_type=record.checkpoint_type,
+        checkpoint_type=getattr(record, "checkpoint_type", None),
         validation_sub=val_sub,
         tampering_sub=tamp_sub,
         face_sub=face_sub,
         blacklist_sub=bl_score,
         cross_checkpoint_sub=None,
     )
-
     updated_risk = await call_risk_engine(risk_req)
     record.pipeline.risk_score = updated_risk
 
-    # Append to immutable audit ledger
-    await call_audit_ledger(
+    # Append to audit ledger
+    await append_event(
         event_type="face_verification",
-        document_id=document_id,
-        officer_id=current_user.user_id,
         payload={
             "matched": one_to_one.matched if one_to_one else False,
             "match_score": one_to_one.match_score if one_to_one else 0.0,
-            "provider": one_to_one.provider if one_to_one else "local",
             "cluster_id": dedup.person_cluster_id if dedup else None,
             "checkpoint_id": current_user.checkpoint_id,
         },
+        document_id=document_id,
+        officer_id=current_user.user_id,
+        db=db,
     )
+
+    await db.commit()
 
     return {
         "document_id": document_id,
@@ -426,7 +505,7 @@ async def verify_live_face(
             "reasons": updated_risk.reasons,
             "sub_scores": updated_risk.sub_scores.model_dump() if updated_risk.sub_scores else None,
         },
-        "live_image_url": record.live_image_data_url,
+        "live_image_url": live_url,
         "doc_image_url": record.doc_face_crop_data_url or record.doc_image_data_url,
     }
 
@@ -438,15 +517,15 @@ async def verify_live_face(
 async def get_document_risk(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    record = _get_scan_or_404(document_id)
+    record = await _get_scan_or_404(db, document_id)
     risk = record.pipeline.risk_score
     if not risk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "risk_score_not_found", "document_id": document_id},
         )
-
     return {
         "document_id": document_id,
         "score": risk.score,
@@ -458,7 +537,7 @@ async def get_document_risk(
 
 
 # ---------------------------------------------------------------------------
-# 7. Officer Decision Recording
+# 7. Officer Decision Recording (DB-backed)
 # ---------------------------------------------------------------------------
 @router.post(
     "/documents/{document_id}/decision",
@@ -469,41 +548,75 @@ async def record_officer_decision(
     document_id: str,
     body: DecisionRequest,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ) -> DecisionResponse:
-    _get_scan_or_404(document_id)
+    await _get_scan_or_404(db, document_id)
 
+    acting_officer_id = body.officer_id or current_user.user_id
+
+    # Insert officer_decisions row
+    try:
+        scan_id = uuid.UUID(document_id)
+        officer_uuid = None
+        try:
+            officer_uuid = uuid.UUID(acting_officer_id) if acting_officer_id else None
+        except ValueError:
+            pass
+
+        decision_row = OfficerDecision(
+            scan_event_id=scan_id,
+            officer_id=officer_uuid,
+            decision=body.decision,
+            notes=body.notes,
+        )
+        db.add(decision_row)
+
+        # Also update inspection_status on scan_events for decision-driven status changes
+        decision_to_status = {
+            "approve": "approved",
+            "reject": "rejected",
+            "flag": "secondary_inspection",
+            "escalate": "secondary_inspection",
+        }
+        new_status = decision_to_status.get(body.decision.lower())
+        if new_status:
+            await scan_store.update_inspection_status(db, document_id, new_status)
+
+    except Exception as exc:
+        logger.warning("Failed to persist officer decision row", error=str(exc))
+
+    # Append to audit ledger
     ledger_payload = {
         "decision": body.decision,
         "notes": body.notes,
-        "officer_id": body.officer_id or current_user.user_id,
+        "officer_id": acting_officer_id,
     }
-    ledger_res = await call_audit_ledger(
+    ledger_entry = await append_event(
         event_type="officer_decision",
-        document_id=document_id,
         payload=ledger_payload,
-        officer_id=body.officer_id or current_user.user_id,
+        document_id=document_id,
+        officer_id=acting_officer_id,
+        db=db,
     )
-
-    seq_num = ledger_res.get("sequence_num") if ledger_res else None
 
     logger.info(
         "officer_decision_recorded",
         document_id=document_id,
-        officer_id=body.officer_id or current_user.user_id,
+        officer_id=acting_officer_id,
         decision=body.decision,
-        sequence_num=seq_num,
+        sequence_num=ledger_entry.sequence_num,
     )
 
     return DecisionResponse(
         document_id=document_id,
         decision=body.decision,
         recorded=True,
-        ledger_sequence=seq_num,
+        ledger_sequence=ledger_entry.sequence_num,
     )
 
 
 # ---------------------------------------------------------------------------
-# 8. Document Audit Ledger Trail
+# 8. Document Audit Ledger Trail (DB-backed)
 # ---------------------------------------------------------------------------
 @router.get(
     "/audit/{document_id}",
@@ -512,27 +625,36 @@ async def record_officer_decision(
 async def get_document_audit_trail(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(AUDIT_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    _get_scan_or_404(document_id)
+    # Verify document exists first (may raise 404)
+    await _get_scan_or_404(db, document_id)
 
-    entries = [
-        event
-        for event in _IN_MEMORY_CHAIN
-        if str(event.get("document_id")) == document_id
-    ]
+    from sqlalchemy import select
+    try:
+        scan_id = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid document_id format")
+
+    stmt = (
+        select(AuditLedgerEntry)
+        .where(AuditLedgerEntry.scan_event_id == scan_id)
+        .order_by(AuditLedgerEntry.sequence_num.asc())
+    )
+    entries = (await db.execute(stmt)).scalars().all()
 
     return {
         "document_id": document_id,
         "event_count": len(entries),
         "events": [
             {
-                "sequence_num": e.get("sequence_num"),
-                "event_type": e.get("event_type"),
-                "payload_hash": e.get("payload_hash"),
-                "prev_record_hash": e.get("prev_record_hash"),
-                "record_hash": e.get("record_hash"),
-                "officer_id": e.get("officer_id"),
-                "created_at": e.get("created_at"),
+                "sequence_num": e.sequence_num,
+                "event_type": e.event_type,
+                "payload_hash": e.payload_hash,
+                "prev_record_hash": e.prev_record_hash,
+                "record_hash": e.record_hash,
+                "officer_id": str(e.officer_id) if e.officer_id else None,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
             }
             for e in entries
         ],
@@ -540,7 +662,7 @@ async def get_document_audit_trail(
 
 
 # ---------------------------------------------------------------------------
-# 9. Cross-Checkpoint Cluster History
+# 9. Cross-Checkpoint Cluster History (DB-backed)
 # ---------------------------------------------------------------------------
 @router.get(
     "/clusters/{person_cluster_id}",
@@ -549,11 +671,12 @@ async def get_document_audit_trail(
 async def get_cluster_history_endpoint(
     person_cluster_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
     from backend.cross_checkpoint_service.core.face_graph import get_cluster_history
 
     try:
-        history = await get_cluster_history(person_cluster_id, db=None)
+        history = await get_cluster_history(person_cluster_id, db=db)
         return history
     except Exception as exc:
         logger.error(
@@ -568,7 +691,7 @@ async def get_cluster_history_endpoint(
 
 
 # ---------------------------------------------------------------------------
-# 10. Secondary Inspection Queue
+# 10. Secondary Inspection Queue (DB-backed)
 # ---------------------------------------------------------------------------
 @router.get(
     "/documents/secondary-queue",
@@ -576,11 +699,10 @@ async def get_cluster_history_endpoint(
 )
 async def get_secondary_inspection_queue(
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
+    db: AsyncSession = Depends(get_db),
 ):
-    from backend.orchestrator.core.scan_store import list_secondary_queue
-
     queue_items = []
-    for record in list_secondary_queue():
+    for record in await scan_store.list_secondary_queue(db):
         risk = record.pipeline.risk_score
         queue_items.append(
             {
@@ -593,5 +715,4 @@ async def get_secondary_inspection_queue(
                 "status": "secondary_inspection",
             }
         )
-
     return {"queue": queue_items, "count": len(queue_items)}

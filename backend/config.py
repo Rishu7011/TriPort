@@ -3,12 +3,16 @@ Shared settings loaded from .env (or environment variables).
 Every service imports from this module — single source of truth.
 """
 
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve backend/.env relative to this file so it works regardless of cwd
+_ENV_FILE = Path(__file__).parent / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -26,9 +30,26 @@ class Settings(BaseSettings):
     # Recommended for local dev without Docker Compose networking.
     use_in_process_services: bool = True
 
+    # ── Supabase (PostgreSQL + pgvector + Storage) ────────────
+    # DATABASE_URL: use the Supavisor transaction-mode pooler URL from
+    # Supabase > Project Settings > Database > Connection string.
+    # Port MUST be 6543 (pooler), NOT 5432 (direct) — the LangGraph parallel
+    # fan-out would exhaust the 10-connection direct limit on the free tier.
+    # Format: postgresql+asyncpg://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+    database_url: str = ""  # REQUIRED — set in .env
+
+    supabase_url: str = ""              # https://<ref>.supabase.co
+    supabase_anon_key: str = ""         # anon/public key from Supabase dashboard
+    supabase_service_role_key: str = "" # service-role key (bypasses RLS for Storage uploads)
+
+    # Storage bucket names (create these in Supabase Storage dashboard)
+    supabase_bucket_documents: str = "document-images"  # private
+    supabase_bucket_live: str = "live-captures"          # private
+
     # ── Face verification ─────────────────────────────────────
-    # "aws" = AWS Rekognition CompareFaces only (no local ArcFace/DeepFace/InsightFace)
-    # "local" = on-device embedding models (InsightFace / DeepFace fallback)
+    # "aws" = AWS Rekognition CompareFaces for 1:1 match; local ArcFace always
+    #         runs in parallel to produce embeddings for pgvector dedup/clustering.
+    # "local" = on-device embedding models for both 1:1 and clustering.
     face_verification_provider: str = "aws"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
