@@ -196,6 +196,49 @@ class TestLangGraphPipelineExecution:
         assert result.risk_score.score >= 0.0
         assert len(result.risk_score.reasons) > 0
 
+    @pytest.mark.asyncio
+    async def test_stage1_and_stage2_pipeline_execution(self):
+        """Execute Stage 1 and Stage 2 split pipelines independently."""
+        from backend.orchestrator.core.langgraph_pipeline import (
+            run_stage1_pipeline,
+            run_stage2_pipeline,
+        )
+        img_bytes = create_sample_passport_image_bytes()
+        live_bytes = create_sample_passport_image_bytes()
+
+        # ── Stage 1: Document Screening (OCR + Tampering + Rules)
+        stage1_res, meta1 = await run_stage1_pipeline(
+            image_bytes=img_bytes,
+            document_type=DocumentType.PASSPORT,
+            checkpoint_type=CheckpointType.AIRPORT,
+            provider="local",
+        )
+        assert stage1_res.document_id is not None
+        assert stage1_res.extraction is not None
+        assert stage1_res.tampering is not None
+        assert stage1_res.validation is not None
+        assert stage1_res.face is None
+        assert meta1["inspection_status"] == "pending_biometric"
+        assert meta1["duration_ms"] >= 0
+
+        # ── Stage 2: Biometric Verification & Risk Scoring
+        stage2_res, meta2 = await run_stage2_pipeline(
+            doc_image_bytes=img_bytes,
+            live_image_bytes=live_bytes,
+            document_id=stage1_res.document_id,
+            stage1_result=stage1_res,
+            document_type=DocumentType.PASSPORT,
+            checkpoint_type=CheckpointType.AIRPORT,
+            blacklist_sub=meta1["blacklist"],
+            provider="local",
+        )
+        assert stage2_res.document_id == stage1_res.document_id
+        assert stage2_res.face is not None
+        assert stage2_res.risk_score is not None
+        assert meta2["inspection_status"] in ["standard_clearance", "secondary_inspection"]
+        assert meta2["duration_ms"] >= 0
+
+
 
 # ===========================================================================
 # 2. Phase 7C: Audit Ledger Cryptographic Hash Chain & Tamper Catch

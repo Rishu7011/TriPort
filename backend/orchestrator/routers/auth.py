@@ -8,7 +8,7 @@ Endpoints:
 
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from backend.orchestrator.auth.security import (
     DEMO_USERS,

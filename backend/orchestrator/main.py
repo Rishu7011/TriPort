@@ -22,7 +22,33 @@ logger = get_logger("orchestrator")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("service_started", port=8007)
+    logger.info("server_startup_warming_models", port=8007)
+    
+    # 1. Warm-up Database Connection Pool
+    try:
+        from backend.orchestrator.db.session import init_engine_and_tables
+        await init_engine_and_tables()
+        logger.info("db_engine_warmed_up")
+    except Exception as e:
+        logger.warning("db_warmup_failed", error=str(e))
+
+    # 2. Warm-up EasyOCR Engine (load weights into memory once)
+    try:
+        import asyncio
+        from backend.ocr_service.core.field_extractor import get_ocr_reader
+        await asyncio.to_thread(get_ocr_reader)
+        logger.info("easyocr_engine_warmed_up")
+    except Exception as e:
+        logger.warning("ocr_warmup_failed", error=str(e))
+
+    # 3. Warm-up AWS Rekognition Client
+    try:
+        from backend.face_service.core.aws_rekognition import get_rekognition_client
+        get_rekognition_client()
+        logger.info("aws_rekognition_client_warmed_up")
+    except Exception as e:
+        logger.warning("rekognition_warmup_failed", error=str(e))
+
     yield
 
 

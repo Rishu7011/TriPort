@@ -26,7 +26,10 @@ from backend.ocr_service.schemas.extraction import (
     MRZResult,
     ExtractionMethod,
 )
-from backend.validation_service.schemas.validation import ValidationResponse
+from backend.validation_service.schemas.validation import (
+    ValidationResponse,
+    RuleResult,
+)
 from backend.tampering_service.schemas.tampering import TamperingResponse
 from backend.face_service.schemas.face import FullFaceVerificationResponse
 from backend.cross_checkpoint_service.schemas.cross_checkpoint import (
@@ -146,10 +149,12 @@ async def ocr_extraction_node(state: ScreeningState) -> dict:
             checkpoint_type=state["checkpoint_type"],
             provider=state["provider"],
         )
+        is_empty = not res.fields and not res.mrz.mrz_present
         return {
             "extraction": res,
             "ocr_available": True,
-            "ocr_error": None,
+            "ocr_error": "Zero fields extracted from document scan" if is_empty else None,
+            "degraded_modules": ["OCR_EXTRACTION_EMPTY"] if is_empty else [],
         }
     except Exception as exc:
         logger.error("OCR node execution failed", error=str(exc))
@@ -244,6 +249,32 @@ async def validation_rules_node(state: ScreeningState) -> dict:
     """Evaluate business rules against extracted fields."""
     ext = state.get("extraction")
     fields = ext.fields if ext else []
+
+    # If both OCR and LLM fallback failed to extract any fields, surface a clear extraction failure
+    if not fields and (not ext or not ext.mrz or not ext.mrz.mrz_present):
+        logger.warning(
+            "Validation skipped — zero fields extracted from document image",
+            document_type=state["document_type"].value,
+        )
+        empty_val = ValidationResponse(
+            document_type=state["document_type"],
+            passed=False,
+            failed_rules=["document_unreadable_no_fields_extracted"],
+            rule_results=[
+                RuleResult(
+                    rule_name="document_unreadable_no_fields_extracted",
+                    passed=False,
+                    detail="No text or MRZ fields could be extracted from the document image (OCR and LLM vision extraction both returned zero fields). The document may be blurry, unreadable, or missing credentials.",
+                )
+            ],
+        )
+        return {
+            "validation": empty_val,
+            "validation_available": True,
+            "validation_error": "No fields extracted for validation",
+            "degraded_modules": ["OCR_EXTRACTION_EMPTY"],
+        }
+
     try:
         res = await call_validation_service(
             document_type=state["document_type"],
@@ -613,11 +644,89 @@ def route_by_threat_level(state: ScreeningState) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. StateGraph Builder & Compilation
+# 4. StateGraph Builders & Compilation (Stage 1, Stage 2, and Unified)
 # ---------------------------------------------------------------------------
 
+def build_stage1_graph():
+    """
+    Stage 1 StateGraph: Document Forensics & Ingestion Pipeline.
+    Runs parallel OCR extraction (+ conditional LLM fallback), 5-layer forensic
+    tampering analysis, YAML validation rules, and Watchlist cross-checks.
+    Target execution time: ~5-8 seconds.
+    """
+    workflow = StateGraph(ScreeningState)
+
+    workflow.add_node("buffer_images", buffer_images_node)
+    workflow.add_node("ocr_extraction", ocr_extraction_node)
+    workflow.add_node("llm_vision_fallback", llm_vision_fallback_node)
+    workflow.add_node("tampering_detection", tampering_detection_node)
+    workflow.add_node("validation_rules", validation_rules_node)
+    workflow.add_node("blacklist_check", blacklist_check_node)
+
+    # Initial Fan-Out
+    workflow.add_edge(START, "buffer_images")
+    workflow.add_edge(START, "ocr_extraction")
+    workflow.add_edge(START, "tampering_detection")
+
+    # OCR Quality conditional routing
+    workflow.add_conditional_edges(
+        "ocr_extraction",
+        check_ocr_quality,
+        {
+            "fallback": "llm_vision_fallback",
+            "continue": "validation_rules",
+        },
+    )
+    workflow.add_edge("llm_vision_fallback", "validation_rules")
+    workflow.add_edge("ocr_extraction", "blacklist_check")
+
+    # Fan-in to END
+    workflow.add_edge("buffer_images", END)
+    workflow.add_edge("tampering_detection", END)
+    workflow.add_edge("validation_rules", END)
+    workflow.add_edge("blacklist_check", END)
+
+    return workflow.compile()
+
+
+def build_stage2_graph():
+    """
+    Stage 2 StateGraph: Biometric Verification & Risk Scoring Pipeline.
+    Orchestrates AWS Rekognition (CompareFaces) / local ArcFace, Cross-Checkpoint
+    identity clustering, weighted composite risk synthesis, threat routing,
+    and SHA-256 hash-chained audit logging.
+    """
+    workflow = StateGraph(ScreeningState)
+
+    workflow.add_node("face_verification", face_verification_node)
+    workflow.add_node("cross_checkpoint", cross_checkpoint_node)
+    workflow.add_node("risk_engine", risk_engine_node)
+    workflow.add_node("secondary_inspection", secondary_inspection_node)
+    workflow.add_node("standard_clearance", standard_clearance_node)
+    workflow.add_node("audit_ledger", audit_ledger_node)
+
+    workflow.add_edge(START, "face_verification")
+    workflow.add_edge("face_verification", "cross_checkpoint")
+    workflow.add_edge("cross_checkpoint", "risk_engine")
+
+    workflow.add_conditional_edges(
+        "risk_engine",
+        route_by_threat_level,
+        {
+            "secondary": "secondary_inspection",
+            "clearance": "standard_clearance",
+        },
+    )
+
+    workflow.add_edge("secondary_inspection", "audit_ledger")
+    workflow.add_edge("standard_clearance", "audit_ledger")
+    workflow.add_edge("audit_ledger", END)
+
+    return workflow.compile()
+
+
 def build_screening_graph():
-    """Construct and compile the full LangGraph screening state machine."""
+    """Construct and compile the full unified LangGraph screening state machine."""
     workflow = StateGraph(ScreeningState)
 
     # Register Nodes
@@ -695,12 +804,228 @@ def build_screening_graph():
     return workflow.compile()
 
 
+_COMPILED_STAGE1_GRAPH = build_stage1_graph()
+_COMPILED_STAGE2_GRAPH = build_stage2_graph()
 _COMPILED_SCREENING_GRAPH = build_screening_graph()
 
 
 # ---------------------------------------------------------------------------
-# 5. Public Execution API
+# 5. Public Execution APIs
 # ---------------------------------------------------------------------------
+
+async def run_stage1_pipeline(
+    image_bytes: bytes,
+    document_type: DocumentType = DocumentType.PASSPORT,
+    checkpoint_type: CheckpointType = CheckpointType.AIRPORT,
+    provider: str = "local",
+    document_id: str | None = None,
+    checkpoint_id: str | None = None,
+    db: AsyncSession | None = None,
+) -> tuple[PipelineResult, dict[str, Any]]:
+    """
+    Execute Stage 1: Document Forensics (OCR + Tampering + Rules + Watchlist).
+    Runs in parallel without waiting on biometrics or live camera capture.
+    Returns (PipelineResult, meta_dict).
+    """
+    doc_uuid = _safe_uuid(document_id) or uuid.uuid4()
+    doc_id_str = str(doc_uuid)
+    start_t = time.perf_counter()
+
+    logger.info(
+        "stage1_pipeline_started",
+        document_id=doc_id_str,
+        doc_type=document_type.value if hasattr(document_type, "value") else str(document_type),
+        checkpoint_type=checkpoint_type.value if hasattr(checkpoint_type, "value") else str(checkpoint_type),
+    )
+
+    initial_state: ScreeningState = {
+        "document_id": doc_id_str,
+        "image_bytes": image_bytes,
+        "live_image_bytes": None,
+        "document_type": document_type,
+        "checkpoint_type": checkpoint_type,
+        "border_checkpoint_id": checkpoint_id,
+        "provider": provider,
+        "image_object_key": None,
+        "db": db,
+        "extraction": None,
+        "validation": None,
+        "tampering": None,
+        "face": None,
+        "blacklist": None,
+        "cross_checkpoint": None,
+        "risk_score": None,
+        "ocr_available": True,
+        "tampering_available": True,
+        "face_available": True,
+        "validation_available": True,
+        "cross_checkpoint_available": True,
+        "risk_engine_available": True,
+        "inspection_status": "pending_biometric",
+        "inspection_reasons": [],
+        "degraded_modules": [],
+        "start_time": start_t,
+    }
+
+    final_state = await _COMPILED_STAGE1_GRAPH.ainvoke(initial_state)
+    duration_ms = int((time.perf_counter() - start_t) * 1000)
+
+    statuses = PipelineServiceStatuses(
+        ocr=ServiceStatus(
+            available=final_state.get("ocr_available", True),
+            error=final_state.get("ocr_error"),
+        ),
+        tampering=ServiceStatus(
+            available=final_state.get("tampering_available", True),
+            error=final_state.get("tampering_error"),
+        ),
+        face=ServiceStatus(available=True),
+        validation=ServiceStatus(
+            available=final_state.get("validation_available", True),
+            error=final_state.get("validation_error"),
+        ),
+        cross_checkpoint=ServiceStatus(available=True),
+        risk_engine=ServiceStatus(available=True),
+    )
+
+    result = PipelineResult(
+        document_id=doc_id_str,
+        degraded=len(final_state.get("degraded_modules", [])) > 0,
+        service_statuses=statuses,
+        extraction=final_state.get("extraction"),
+        validation=final_state.get("validation"),
+        tampering=final_state.get("tampering"),
+        face=None,
+        cross_checkpoint=None,
+        risk_score=None,
+    )
+
+    logger.info(
+        "stage1_pipeline_completed",
+        document_id=doc_id_str,
+        duration_ms=duration_ms,
+        degraded=result.degraded,
+        tampering_score=result.tampering.tampering_score if result.tampering else None,
+        validation_passed=result.validation.passed if result.validation else None,
+    )
+
+    meta = {
+        "duration_ms": duration_ms,
+        "blacklist": final_state.get("blacklist"),
+        "inspection_status": "pending_biometric",
+    }
+    return result, meta
+
+
+async def run_stage2_pipeline(
+    doc_image_bytes: bytes,
+    live_image_bytes: bytes,
+    document_id: str,
+    stage1_result: PipelineResult,
+    document_type: DocumentType = DocumentType.PASSPORT,
+    checkpoint_type: CheckpointType = CheckpointType.AIRPORT,
+    checkpoint_id: str | None = None,
+    blacklist_sub: BlacklistSubScore | None = None,
+    provider: str = "local",
+    db: AsyncSession | None = None,
+) -> tuple[PipelineResult, dict[str, Any]]:
+    """
+    Execute Stage 2: Biometric Verification, Cross-Checkpoint, and Risk Engine Synthesis.
+    Triggered when officer captures live photo.
+    Returns (PipelineResult, meta_dict).
+    """
+    doc_uuid = _safe_uuid(document_id) or uuid.uuid4()
+    doc_id_str = str(doc_uuid)
+    start_t = time.perf_counter()
+
+    logger.info(
+        "stage2_pipeline_started",
+        document_id=doc_id_str,
+        doc_type=document_type.value if hasattr(document_type, "value") else str(document_type),
+        checkpoint_id=checkpoint_id,
+    )
+
+    state: ScreeningState = {
+        "document_id": doc_id_str,
+        "image_bytes": doc_image_bytes,
+        "live_image_bytes": live_image_bytes,
+        "document_type": document_type,
+        "checkpoint_type": checkpoint_type,
+        "border_checkpoint_id": checkpoint_id,
+        "provider": provider,
+        "image_object_key": None,
+        "db": db,
+        "extraction": stage1_result.extraction,
+        "validation": stage1_result.validation,
+        "tampering": stage1_result.tampering,
+        "face": None,
+        "blacklist": blacklist_sub or BlacklistSubScore(),
+        "cross_checkpoint": None,
+        "risk_score": None,
+        "ocr_available": stage1_result.service_statuses.ocr.available,
+        "tampering_available": stage1_result.service_statuses.tampering.available,
+        "face_available": True,
+        "validation_available": stage1_result.service_statuses.validation.available,
+        "cross_checkpoint_available": True,
+        "risk_engine_available": True,
+        "inspection_status": "standard_clearance",
+        "inspection_reasons": [],
+        "degraded_modules": ["degraded"] if stage1_result.degraded else [],
+        "start_time": start_t,
+    }
+
+    final_state = await _COMPILED_STAGE2_GRAPH.ainvoke(state)
+    duration_ms = int((time.perf_counter() - start_t) * 1000)
+
+    risk = final_state.get("risk_score")
+    inspection_status = final_state.get("inspection_status", "standard_clearance")
+
+    statuses = PipelineServiceStatuses(
+        ocr=stage1_result.service_statuses.ocr,
+        tampering=stage1_result.service_statuses.tampering,
+        face=ServiceStatus(
+            available=final_state.get("face_available", True),
+            error=final_state.get("face_error"),
+        ),
+        validation=stage1_result.service_statuses.validation,
+        cross_checkpoint=ServiceStatus(
+            available=final_state.get("cross_checkpoint_available", True),
+            error=final_state.get("cross_checkpoint_error"),
+        ),
+        risk_engine=ServiceStatus(
+            available=final_state.get("risk_engine_available", True),
+            error=final_state.get("risk_engine_error"),
+        ),
+    )
+
+    result = PipelineResult(
+        document_id=doc_id_str,
+        degraded=len(final_state.get("degraded_modules", [])) > 0,
+        service_statuses=statuses,
+        extraction=stage1_result.extraction,
+        validation=stage1_result.validation,
+        tampering=stage1_result.tampering,
+        face=final_state.get("face"),
+        cross_checkpoint=final_state.get("cross_checkpoint"),
+        risk_score=final_state.get("risk_score"),
+    )
+
+    logger.info(
+        "stage2_pipeline_completed",
+        document_id=doc_id_str,
+        duration_ms=duration_ms,
+        score=risk.score if risk else None,
+        band=risk.band.value if risk else None,
+        inspection_status=inspection_status,
+    )
+
+    meta = {
+        "duration_ms": duration_ms,
+        "inspection_status": inspection_status,
+        "inspection_reasons": final_state.get("inspection_reasons", []),
+    }
+    return result, meta
+
 
 async def run_langgraph_pipeline(
     image_bytes: bytes,
@@ -714,6 +1039,7 @@ async def run_langgraph_pipeline(
 ) -> PipelineResult:
     """
     Execute the document screening pipeline using the LangGraph StateGraph engine.
+    For end-to-end / testing execution when live photo is available upfront or offline.
     """
     doc_uuid = _safe_uuid(document_id) or uuid.uuid4()
     doc_id_str = str(doc_uuid)

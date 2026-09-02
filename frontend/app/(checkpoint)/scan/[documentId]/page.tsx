@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { HeaderBar } from "../../../../components/HeaderBar";
 import { ExtractedFieldsTable } from "../../../../components/ExtractedFieldsTable";
 import { TamperingHeatmap } from "../../../../components/TamperingHeatmap";
@@ -29,34 +30,57 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-export default function ScanResultPage({
-  params,
-}: {
-  params: Promise<{ documentId: string }>;
-}) {
-  const resolvedParams = use(params);
-  const documentId = resolvedParams.documentId;
+export default function ScanResultPage() {
+  const params = useParams() as { documentId?: string };
+  const documentId = params?.documentId || "";
   const { user } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache lookup for instant 0ms render
+  const initialCache = React.useMemo(() => {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      try {
+        const item = sessionStorage.getItem(`triport_scan_${documentId}`);
+        return item ? JSON.parse(item) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [documentId]);
+
+  const [loading, setLoading] = useState<boolean>(() => !initialCache?.pipeline);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Core forensic result states
-  const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
-  const [validation, setValidation] = useState<ValidationResult | null>(null);
-  const [tampering, setTampering] = useState<TamperingResult | null>(null);
-  const [face, setFace] = useState<FaceVerificationResult | null>(null);
-  const [risk, setRisk] = useState<RiskScoreResponse | null>(null);
-  const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
+  const [extraction, setExtraction] = useState<ExtractionResult | null>(
+    () => initialCache?.pipeline?.extraction || null
+  );
+  const [validation, setValidation] = useState<ValidationResult | null>(
+    () => initialCache?.pipeline?.validation || null
+  );
+  const [tampering, setTampering] = useState<TamperingResult | null>(
+    () => initialCache?.pipeline?.tampering || null
+  );
+  const [face, setFace] = useState<FaceVerificationResult | null>(
+    () => initialCache?.pipeline?.face || null
+  );
+  const [risk, setRisk] = useState<RiskScoreResponse | null>(
+    () => initialCache?.pipeline?.risk_score || null
+  );
+  const [pipelineStatus, setPipelineStatus] = useState<string | null>(
+    () => initialCache?.status || null
+  );
   const [serviceIssues, setServiceIssues] = useState<string[]>([]);
 
   // Cached image URLs from upload session
-  const [docPhotoUrl, setDocPhotoUrl] = useState<string | undefined>(undefined);
+  const [docPhotoUrl, setDocPhotoUrl] = useState<string | undefined>(
+    () => initialCache?.doc_face_crop_url || initialCache?.doc_image_url || undefined
+  );
   const [rawDocPhotoUrl, setRawDocPhotoUrl] = useState<string | undefined>(
-    undefined
+    () => initialCache?.doc_image_url || undefined
   );
   const [livePhotoUrl, setLivePhotoUrl] = useState<string | undefined>(
-    undefined
+    () => initialCache?.live_image_url || undefined
   );
 
   // Decision Modal State
@@ -68,66 +92,65 @@ export default function ScanResultPage({
   useEffect(() => {
     let isMounted = true;
 
+    const applyPipelineData = (pipelineRes: {
+      status?: string;
+      pipeline?: any;
+      doc_image_url?: string;
+      doc_face_crop_url?: string;
+      live_image_url?: string;
+    }) => {
+      const pipeline = pipelineRes.pipeline || {};
+      setPipelineStatus(pipelineRes.status || "complete");
+      setExtraction(pipeline.extraction || null);
+      setValidation(pipeline.validation || null);
+      setTampering(pipeline.tampering || null);
+      setFace(pipeline.face || null);
+      setRisk(pipeline.risk_score || null);
+
+      const issues: string[] = [];
+      const statuses = pipeline.service_statuses || {};
+      for (const [serviceName, status] of Object.entries(statuses)) {
+        const svc = status as { available?: boolean; error?: string | null };
+        if (svc && svc.available === false) {
+          issues.push(
+            `${serviceName}: ${svc.error || "service unavailable"}`
+          );
+        }
+      }
+      if (pipeline.degraded) {
+        issues.unshift(
+          "One or more screening modules ran in degraded mode. Results below may be partial."
+        );
+      }
+      setServiceIssues(issues);
+
+      if (pipelineRes.doc_image_url) {
+        setRawDocPhotoUrl(pipelineRes.doc_image_url);
+      }
+      if (pipelineRes.doc_face_crop_url) {
+        setDocPhotoUrl(pipelineRes.doc_face_crop_url);
+      } else if (pipelineRes.doc_image_url) {
+        setDocPhotoUrl(pipelineRes.doc_image_url);
+      }
+      if (pipelineRes.live_image_url) {
+        setLivePhotoUrl(pipelineRes.live_image_url);
+      }
+    };
+
     const initializeData = async () => {
+      // If already initialized from cache, skip API fetch
+      if (initialCache?.pipeline) {
+        applyPipelineData(initialCache);
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      // Fetch single aggregated pipeline payload
       try {
         const pipelineRes = await api.getPipelineResult(documentId);
         if (!isMounted) return;
 
-        const pipeline = pipelineRes.pipeline;
-        setPipelineStatus(pipelineRes.status);
-        setExtraction(pipeline.extraction);
-        setValidation(pipeline.validation);
-        setTampering(pipeline.tampering);
-        setFace(pipeline.face);
-        setRisk(pipeline.risk_score);
-
-        const issues: string[] = [];
-        const statuses = pipeline.service_statuses || {};
-        for (const [serviceName, status] of Object.entries(statuses)) {
-          const svc = status as { available?: boolean; error?: string | null };
-          if (svc.available === false) {
-            issues.push(
-              `${serviceName}: ${svc.error || "service unavailable"}`
-            );
-          }
-        }
-        if (pipeline.degraded) {
-          issues.unshift(
-            "One or more screening modules ran in degraded mode. Results below may be partial."
-          );
-        }
-        setServiceIssues(issues);
-
-        const [extData, faceData] = await Promise.allSettled([
-          api.getExtraction(documentId),
-          api.getFaceVerification(documentId),
-        ]);
-
-        if (extData.status === "fulfilled" && extData.value.image_url) {
-          setRawDocPhotoUrl(extData.value.image_url);
-        }
-
-        if (faceData.status === "fulfilled") {
-          const facePayload = faceData.value as {
-            doc_image_url?: string;
-            raw_doc_image_url?: string;
-            live_image_url?: string;
-          };
-          if (facePayload.raw_doc_image_url) {
-            setRawDocPhotoUrl(facePayload.raw_doc_image_url);
-          }
-          if (facePayload.doc_image_url) {
-            setDocPhotoUrl(facePayload.doc_image_url);
-          } else if (extData.status === "fulfilled" && extData.value.image_url) {
-            setDocPhotoUrl(extData.value.image_url);
-          }
-          if (facePayload.live_image_url) {
-            setLivePhotoUrl(facePayload.live_image_url);
-          }
-        } else if (extData.status === "fulfilled" && extData.value.image_url) {
-          setDocPhotoUrl(extData.value.image_url);
-        }
-
+        applyPipelineData(pipelineRes);
       } catch (err) {
         if (isMounted) {
           setLoadError(
@@ -146,7 +169,7 @@ export default function ScanResultPage({
     return () => {
       isMounted = false;
     };
-  }, [documentId]);
+  }, [documentId, initialCache]);
 
   // Traveler info helpers
   const holderSurname =
@@ -352,6 +375,7 @@ export default function ScanResultPage({
           const isBiometricsBypassed = face?.bypassed || false;
           const hasLiveCapture = Boolean(livePhotoUrl);
           const isBiometricsMatched = face?.one_to_one?.matched ?? false;
+          const isPendingBiometrics = !isBiometricsBypassed && !hasLiveCapture && (!face || !face.one_to_one);
 
           return (
             <div className="bg-surface border border-border rounded-md p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 font-mono text-xs">
@@ -359,7 +383,7 @@ export default function ScanResultPage({
                 {/* Stage 1 Pill */}
                 <div className="flex items-center gap-2">
                   <span className="text-text-muted uppercase text-[10px] tracking-wider">
-                    Stage 1 (Document Forensics):
+                    Stage 1 (Document Screening):
                   </span>
                   {isDocFailed ? (
                     <span className="text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-2 py-0.5 rounded font-bold">
@@ -377,7 +401,7 @@ export default function ScanResultPage({
                 {/* Stage 2 Pill */}
                 <div className="flex items-center gap-2">
                   <span className="text-text-muted uppercase text-[10px] tracking-wider">
-                    Stage 2 (Biometrics):
+                    Stage 2 (Biometrics & Clearance):
                   </span>
                   {isBiometricsBypassed ? (
                     <span className="text-risk-high bg-risk-high/10 border border-risk-high/30 px-2 py-0.5 rounded font-bold">
@@ -385,11 +409,11 @@ export default function ScanResultPage({
                     </span>
                   ) : !hasLiveCapture ? (
                     <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold animate-pulse">
-                      AWAITING LIVE CAMERA PHOTO
+                      AWAITING LIVE PHOTO
                     </span>
                   ) : isBiometricsMatched ? (
                     <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
-                      1:1 MATCH CONFIRMED
+                      AWS REKOGNITION MATCHED
                     </span>
                   ) : (
                     <span className="text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-2 py-0.5 rounded font-bold">
@@ -407,11 +431,11 @@ export default function ScanResultPage({
                 {isDocFailed || isBiometricsBypassed || (hasLiveCapture && !isBiometricsMatched) ? (
                   <span className="text-risk-high bg-risk-high/10 border border-risk-high/30 px-2 py-0.5 rounded font-bold flex items-center gap-1">
                     <span>⚠️</span>
-                    <span>HUMAN OFFICER VERIFICATION</span>
+                    <span>HUMAN OFFICER REVIEW</span>
                   </span>
-                ) : !hasLiveCapture ? (
-                  <span className="text-text-muted bg-surface-raised border border-border px-2 py-0.5 rounded">
-                    PENDING LIVE CAPTURE
+                ) : isPendingBiometrics ? (
+                  <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
+                    PROCEED TO STAGE 2
                   </span>
                 ) : (
                   <span className="text-brand bg-brand/10 border border-brand/30 px-2 py-0.5 rounded font-bold">
@@ -470,6 +494,8 @@ export default function ScanResultPage({
                 onEscalate={handleEscalateClick}
                 onDetain={handleDetainClick}
                 isSubmitting={isSubmittingDecision}
+                disabled={!face?.bypassed && !livePhotoUrl && (!face || !face.one_to_one)}
+                disabledReason="Stage 2 Biometric verification required before recording final decision."
               />
             </div>
           </div>

@@ -7,9 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from backend.logging_config import get_logger
 from backend.cross_checkpoint_service.core.face_graph import (
     analyze_cluster,
-    clear_cluster_registry,
     get_cluster_history,
-    list_all_in_memory_clusters,
     register_cluster_document,
 )
 from backend.cross_checkpoint_service.schemas.cross_checkpoint import (
@@ -99,38 +97,3 @@ async def seed_cluster_document(request: ClusterSeedRequest) -> dict:
         "person_cluster_id": request.person_cluster_id,
         "document_id": request.document.document_id,
     }
-
-
-@router.get(
-    "",
-    summary="List all registered person clusters and document counts",
-)
-@router.get(
-    "/",
-    summary="List all registered person clusters and document counts",
-)
-async def list_clusters() -> dict:
-    """List summary of all active clusters in memory."""
-    all_clusters = list_all_in_memory_clusters()
-    summary = {
-        k: {
-            "document_count": len(v),
-            "document_ids": [d.document_id for d in v],
-            "names": list({d.name for d in v if d.name}),
-        }
-        for k, v in all_clusters.items()
-    }
-    return {
-        "total_clusters": len(all_clusters),
-        "clusters": summary,
-    }
-
-
-@router.post(
-    "/clear",
-    summary="Clear all in-memory cluster registries (test cleanup)",
-)
-async def clear_clusters() -> dict:
-    """Clear memory store."""
-    clear_cluster_registry()
-    return {"status": "cleared"}

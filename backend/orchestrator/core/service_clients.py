@@ -8,6 +8,7 @@ Features:
   tests without separate Uvicorn ports open, seamlessly invokes internal core logic.
 """
 
+import asyncio
 import httpx
 from typing import Any
 
@@ -91,7 +92,7 @@ async def call_ocr_service(
 
     raw_ocr_lines: list[tuple[str, float]] = []
     try:
-        raw_ocr_lines = extract_raw_ocr_lines(image_bytes)
+        raw_ocr_lines = await asyncio.to_thread(extract_raw_ocr_lines, image_bytes)
     except Exception as e:
         logger.warning("OCR engine internal call warning", error=str(e))
 
@@ -196,15 +197,29 @@ async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
                 logger.debug("Tampering HTTP call failed, retrying or falling back", attempt=attempt, error=str(exc))
 
     # In-process direct fallback
-    logger.info("Executing Tampering analysis via internal core forensics")
+    logger.info("Executing Tampering analysis via parallelized internal core forensics")
     from backend.tampering_service.core.ela import compute_ela, ela_to_base64
     from backend.tampering_service.core.metadata_forensics import analyze_metadata
     from backend.tampering_service.core.boundary_analysis import analyze_photo_boundaries
     from backend.tampering_service.core.stamp_matcher import verify_stamps
+    from backend.tampering_service.core.text_analysis import analyze_text_manipulation
+
+    # Parallelize all 5 forensic sub-engines in threadpool
+    ela_task = asyncio.to_thread(compute_ela, image_bytes)
+    meta_task = asyncio.to_thread(analyze_metadata, image_bytes)
+    bnd_task = asyncio.to_thread(analyze_photo_boundaries, image_bytes)
+    stamp_task = asyncio.to_thread(verify_stamps, image_bytes)
+    text_task = asyncio.to_thread(analyze_text_manipulation, image_bytes)
+
+    (
+        (ela_score, ela_flagged, heatmap_bytes, ela_detail),
+        (meta_score, meta_flagged, flags, raw_meta, meta_detail),
+        (bnd_score, bnd_flagged, bnd_detail, bnd_meta),
+        (stamp_score, stamp_flagged, _, _, stamp_detail, stamp_meta),
+        (text_score, text_flagged, text_anomalies, text_detail, text_meta),
+    ) = await asyncio.gather(ela_task, meta_task, bnd_task, stamp_task, text_task)
 
     checks: list[TamperingCheckResult] = []
-
-    ela_score, ela_flagged, heatmap_bytes, ela_detail = compute_ela(image_bytes)
     checks.append(
         TamperingCheckResult(
             check_type=TamperingCheckType.ELA,
@@ -216,7 +231,6 @@ async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
     )
     heatmap_b64 = ela_to_base64(heatmap_bytes) if heatmap_bytes else None
 
-    meta_score, meta_flagged, flags, raw_meta, meta_detail = analyze_metadata(image_bytes)
     checks.append(
         TamperingCheckResult(
             check_type=TamperingCheckType.METADATA,
@@ -227,7 +241,6 @@ async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
         )
     )
 
-    bnd_score, bnd_flagged, bnd_detail, bnd_meta = analyze_photo_boundaries(image_bytes)
     checks.append(
         TamperingCheckResult(
             check_type=TamperingCheckType.BOUNDARY,
@@ -238,7 +251,6 @@ async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
         )
     )
 
-    stamp_score, stamp_flagged, _, _, stamp_detail, stamp_meta = verify_stamps(image_bytes)
     checks.append(
         TamperingCheckResult(
             check_type=TamperingCheckType.STAMP_MATCH,
@@ -249,13 +261,24 @@ async def call_tampering_service(image_bytes: bytes) -> TamperingResponse:
         )
     )
 
+    checks.append(
+        TamperingCheckResult(
+            check_type=TamperingCheckType.TEXT_ANALYSIS,
+            score=round(text_score, 3),
+            flagged=text_flagged,
+            detail=text_detail,
+            metadata=text_meta,
+        )
+    )
+
     weighted_score = (
-        0.35 * ela_score
-        + 0.30 * meta_score
-        + 0.25 * bnd_score
+        0.30 * ela_score
+        + 0.25 * meta_score
+        + 0.20 * bnd_score
+        + 0.15 * text_score
         + 0.10 * stamp_score
     )
-    max_score = max(ela_score, meta_score, bnd_score, stamp_score)
+    max_score = max(ela_score, meta_score, bnd_score, text_score, stamp_score)
     overall_tampering_score = max(0.0, min(1.0, float(0.6 * max_score + 0.4 * weighted_score)))
     flagged = any(c.flagged for c in checks) or (overall_tampering_score >= 0.45)
 

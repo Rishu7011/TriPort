@@ -8,8 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
-from backend.orchestrator.core.langgraph_pipeline import run_langgraph_pipeline
+from backend.orchestrator.core.langgraph_pipeline import (
+    run_langgraph_pipeline,
+    run_stage1_pipeline,
+    run_stage2_pipeline,
+)
 from backend.orchestrator.schemas.pipeline import PipelineResult
+
+__all__ = [
+    "run_pipeline",
+    "run_stage1_pipeline",
+    "run_stage2_pipeline",
+    "run_langgraph_pipeline",
+]
 
 logger = get_logger("orchestrator.pipeline")
 
@@ -37,3 +48,4 @@ async def run_pipeline(
         checkpoint_id=checkpoint_id,
         db=db,
     )
+

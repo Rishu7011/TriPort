@@ -17,12 +17,12 @@ import type {
   RecentScan,
 } from "../../lib/api/types";
 import {
-  Play,
   History,
   ArrowRight,
   RefreshCw,
   AlertCircle,
   Clock,
+  Sparkles,
 } from "lucide-react";
 
 export default function OfficerScreeningPage() {
@@ -33,7 +33,6 @@ export default function OfficerScreeningPage() {
     useState<CheckpointType>("airport");
   const [documentType, setDocumentType] = useState<DocumentType>("passport");
   const [docFile, setDocFile] = useState<File | null>(null);
-  const [livePhoto, setLivePhoto] = useState<File | null>(null);
 
   const [isScreening, setIsScreening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,15 +121,20 @@ export default function OfficerScreeningPage() {
       formData.append("document_type", documentType);
       formData.append("checkpoint_type", checkpointType);
       formData.append("checkpoint_id", user?.checkpoint_id || "00000000-0000-0000-0000-000000000010");
-      if (livePhoto) {
-        formData.append("live_photo", livePhoto);
-      }
 
       const res = await api.uploadDocument(formData);
 
       if (res && res.document_id) {
-        setIsScreening(false);
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          try {
+            sessionStorage.setItem(`triport_scan_${res.document_id}`, JSON.stringify(res));
+          } catch {
+            // Ignore quota errors
+          }
+        }
         router.push(`/scan/${res.document_id}`);
+      } else {
+        setIsScreening(false);
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Screening failed. Verify image format and gateway connectivity.";
@@ -186,8 +190,6 @@ export default function OfficerScreeningPage() {
               <DocumentUploader
                 docFile={docFile}
                 onDocFileChange={setDocFile}
-                livePhoto={livePhoto}
-                onLivePhotoChange={setLivePhoto}
               />
 
               {/* Action Bar */}
@@ -202,8 +204,8 @@ export default function OfficerScreeningPage() {
                       : "bg-surface-raised border border-border text-text-muted/60 cursor-not-allowed opacity-60"
                   }`}
                 >
-                  <Play size={16} className={docFile ? "fill-bg" : ""} />
-                  <span>Execute Screening Pipeline</span>
+                  <Sparkles size={16} />
+                  <span>Run Stage 1 Screening (~5-8s)</span>
                 </button>
               </div>
             </div>

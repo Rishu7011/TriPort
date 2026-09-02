@@ -168,8 +168,12 @@ export interface PipelineResult {
 
 export interface UploadResponse {
   document_id: string;
-  status: "complete" | "degraded" | string;
+  status: "complete" | "degraded" | "pending_biometric" | string;
   pipeline: PipelineResult;
+  doc_image_url?: string;
+  doc_face_crop_url?: string;
+  live_image_url?: string;
+  inspection_status?: string;
 }
 
 /** Values accepted by POST /documents/{id}/decision. */

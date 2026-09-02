@@ -68,15 +68,19 @@ class PipelineResult(BaseModel):
 # ---------------------------------------------------------------------------
 class UploadResponse(BaseModel):
     """
-    Immediate response after POST /api/v1/documents/upload.
-    Contains the full pipeline result synchronously (sequential execution).
+    Immediate response after POST /api/v1/documents/upload or GET /documents/{id}/pipeline.
+    Contains the full pipeline result and image URLs.
     """
     document_id: str
     status: str = Field(
         default="complete",
-        description="'complete' | 'degraded' | 'failed'",
+        description="'complete' | 'degraded' | 'failed' | 'pending_biometric'",
     )
     pipeline: PipelineResult
+    doc_image_url: str | None = None
+    doc_face_crop_url: str | None = None
+    live_image_url: str | None = None
+    inspection_status: str | None = None
 
 
 # ---------------------------------------------------------------------------

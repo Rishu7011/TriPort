@@ -141,20 +141,9 @@ export function FaceMatchPanel({
     }
   };
 
-  if (!face) {
-    return (
-      <div className="bg-surface border border-border rounded p-6 text-center">
-        <UserCheck size={24} className="mx-auto text-text-muted mb-2" />
-        <p className="font-mono text-xs text-text-muted">
-          Biometric face verification data unavailable.
-        </p>
-      </div>
-    );
-  }
-
-  const isBypassed = face.bypassed || false;
-  const oneToOne = face.one_to_one;
-  const dedup = face.dedup;
+  const isBypassed = face?.bypassed || false;
+  const oneToOne = face?.one_to_one;
+  const dedup = face?.dedup;
   const hasLivePhoto = Boolean(livePhotoUrl);
   const isMatched = isBypassed ? false : (oneToOne?.matched ?? false);
   const matchPct = isBypassed
@@ -166,7 +155,7 @@ export function FaceMatchPanel({
     : 0;
 
   const clusterId =
-    face.person_cluster_id ||
+    face?.person_cluster_id ||
     dedup?.person_cluster_id ||
     (!isBypassed && hasLivePhoto ? "7b2e2d1a-4122-4809-94fc-32490ab81234" : null);
 
@@ -188,7 +177,7 @@ export function FaceMatchPanel({
       <div className="p-3 border-b border-border bg-surface-raised flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="font-mono text-[11px] uppercase tracking-wider text-text-muted font-semibold">
-            Biometric Facial Verification (1:1 ArcFace & AWS Rekognition)
+            Biometric Facial Verification (1:1 AWS Rekognition & ArcFace)
           </h3>
           {isBypassed ? (
             <span className="font-mono text-[10px] text-risk-high bg-risk-high/10 border border-risk-high/30 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold">
@@ -196,16 +185,16 @@ export function FaceMatchPanel({
               <span>PAUSED — DIRECTED TO HUMAN VERIFICATION</span>
             </span>
           ) : !hasLivePhoto ? (
-            <span className="font-mono text-[10px] text-brand bg-brand/10 border border-brand/30 px-1.5 py-0.5 rounded animate-pulse">
-              ● AWAITING LIVE CAMERA PHOTO
+            <span className="font-mono text-[10px] text-brand bg-brand/10 border border-brand/30 px-1.5 py-0.5 rounded animate-pulse font-bold">
+              ● STAGE 2: AWAITING BIOMETRIC VERIFICATION
             </span>
           ) : isMatched ? (
             <span className="font-mono text-[10px] text-brand bg-brand/10 border border-brand/30 px-1.5 py-0.5 rounded font-bold">
-              MATCH VERIFIED
+              MATCH VERIFIED (AWS REKOGNITION)
             </span>
           ) : (
             <span className="font-mono text-[10px] text-risk-critical bg-risk-critical/10 border border-risk-critical/30 px-1.5 py-0.5 rounded font-bold">
-              MISMATCH
+              BIOMETRIC MISMATCH DETECTED
             </span>
           )}
         </div>
@@ -228,7 +217,7 @@ export function FaceMatchPanel({
         <div className="px-4 py-2.5 bg-risk-high/10 border-b border-risk-high/20 text-risk-high font-mono text-[11px] flex items-center gap-2">
           <AlertTriangle size={15} className="shrink-0" />
           <span>
-            {face.bypassed_reason ||
+            {face?.bypassed_reason ||
               "Document integrity checks flagged anomalies (tampering/MRZ). Biometric comparison halted and escalated directly to Human Officer Review."}
           </span>
         </div>
@@ -287,14 +276,24 @@ export function FaceMatchPanel({
               </p>
             </div>
           ) : !hasLivePhoto ? (
-            <div className="space-y-2 my-1">
+            <div className="space-y-2.5 my-1">
               <div className="flex items-center justify-center gap-1.5 text-brand font-mono font-bold text-xs">
                 <Camera size={16} className="animate-bounce" />
-                <span>STEP 2: CAPTURE FACE</span>
+                <span>STAGE 2: BIOMETRICS</span>
               </div>
-              <p className="font-mono text-[10px] text-text-muted max-w-[210px] leading-tight">
-                Document integrity verified. Take live traveler photo to complete biometric match.
+              <p className="font-mono text-[10px] text-text-muted max-w-[220px] leading-tight">
+                Document screening passed. Click below to open the live traveler camera and run AWS Rekognition.
               </p>
+              {!isCameraOpen && (
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="px-3.5 py-1.5 bg-brand hover:bg-white text-bg font-display text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(166,255,77,0.3)] mx-auto cursor-pointer"
+                >
+                  <Camera size={13} />
+                  <span>Proceed to Biometric Verification</span>
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -314,7 +313,7 @@ export function FaceMatchPanel({
               </div>
 
               <div className="font-mono text-[10px] uppercase text-text-muted font-semibold">
-                Cosine Similarity Score
+                AWS Rekognition Match Score
               </div>
 
               {/* Hairline Progress Gauge */}
@@ -328,7 +327,7 @@ export function FaceMatchPanel({
               </div>
 
               <div className="font-mono text-[10px] text-text-muted">
-                Threshold: &gt;60.0% • 512-dim ArcFace
+                Decision Boundary: &gt;80.0% • CompareFaces
               </div>
             </>
           )}

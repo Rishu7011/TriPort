@@ -88,6 +88,7 @@ async def init_engine_and_tables() -> AsyncEngine:
             url,
             echo=False,
             poolclass=NullPool,   # Supavisor manages pooling
+            connect_args={"prepare_threshold": None},  # Disable prepared statements for Supavisor transaction pooler
         )
 
         # ── Startup health check ──────────────────────────────────────────
@@ -143,8 +144,25 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     FastAPI dependency — yields a DB session for the duration of a request.
     The session is automatically closed on exit (NullPool closes the connection).
     """
+    global _session_factory
     if _engine is None or _session_factory is None:
-        await init_engine_and_tables()
+        try:
+            await init_engine_and_tables()
+        except Exception as exc:
+            logger.error("get_db_initialization_failed", error=str(exc))
+            from fastapi import HTTPException, status
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database service initializing or temporarily unavailable. Please retry in a moment.",
+            ) from exc
 
-    async with _session_factory() as session:  # type: ignore[misc]
+    if _session_factory is None:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database session factory not initialized.",
+        )
+
+    async with _session_factory() as session:
         yield session
+

@@ -43,8 +43,8 @@ def extract_fields_with_llm(
     )
 
     api_key = settings.llm_api_key
-    if not api_key:
-        logger.debug("No Gemini API key configured; skipping vision LLM fallback")
+    if not api_key or len(api_key.strip()) < 10:
+        logger.debug("No valid Gemini API key configured; skipping vision LLM fallback")
         return (document_type or DocumentType.NATIONAL_ID, [])
 
     system_prompt = (
@@ -102,12 +102,10 @@ def extract_fields_with_llm(
     encoded_image = base64.b64encode(optimized_bytes).decode("utf-8")
 
     try:
-        configured_model = settings.llm_model or "gemini-1.5-flash"
-        # Auto-sanitize invalid / non-existent gemini model strings
-        if "3.5" in configured_model or "2.5" in configured_model or "lite" in configured_model:
-            candidate_models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro"]
-        else:
-            candidate_models = [configured_model, "gemini-1.5-flash", "gemini-2.0-flash-exp"]
+        configured_model = settings.llm_model or "gemini-3.5-flash"
+        candidate_models = [configured_model, "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
+        # Deduplicate while preserving order
+        candidate_models = list(dict.fromkeys(candidate_models))
 
         resp = None
         for model_name in candidate_models:

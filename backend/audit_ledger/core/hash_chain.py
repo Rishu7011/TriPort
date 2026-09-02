@@ -152,7 +152,6 @@ async def append_event(
     try:
         db.add(entry)
         await db.commit()
-        await db.refresh(entry)
         logger.info(
             "ledger_event_appended",
             sequence_num=sequence_num,

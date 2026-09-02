@@ -18,20 +18,19 @@ from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import CheckpointType, DocumentType
 from backend.orchestrator.auth.dependencies import require_roles
 from backend.orchestrator.auth.security import UserTokenData
-from backend.orchestrator.core.pipeline import run_pipeline
+from backend.orchestrator.core.pipeline import run_stage1_pipeline, run_stage2_pipeline
 from backend.orchestrator.core import scan_store
-from backend.orchestrator.core.service_clients import call_audit_ledger, call_face_service, call_risk_engine
 from backend.orchestrator.db.session import get_db
 from backend.orchestrator.db.models import (
     AuditLedgerEntry,
     FaceVerificationResult,
     OfficerDecision,
+    RiskResult,
     ScanEvent,
 )
 from backend.orchestrator.schemas.pipeline import (
     DecisionRequest,
     DecisionResponse,
-    PipelineResult,
     UploadResponse,
 )
 
@@ -92,21 +91,21 @@ def _face_response(record: scan_store.ScanRecord) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# 1. Document Upload & Screening Pipeline
+# 1. Document Upload & Stage 1 Screening Pipeline
 # ---------------------------------------------------------------------------
 @router.post(
     "/documents/upload",
     response_model=UploadResponse,
     status_code=status.HTTP_200_OK,
-    summary="Upload document and execute complete screening pipeline",
+    summary="Upload document and execute Stage 1 screening pipeline (OCR, Tampering, Validation)",
 )
 async def upload_and_screen_document(
     file: UploadFile = File(..., description="Document scan image (JPEG/PNG)"),
     document_type: DocumentType = Form(default=DocumentType.PASSPORT),
     checkpoint_type: CheckpointType = Form(default=CheckpointType.AIRPORT),
     provider: str = Form(default="local"),
-    live_photo: UploadFile | None = File(None, description="Optional live traveler face photo"),
-    live_image: UploadFile | None = File(None, description="Optional live traveler face photo (alias)"),
+    live_photo: UploadFile | None = File(None, description="Optional live traveler face photo (legacy parameter)"),
+    live_image: UploadFile | None = File(None, description="Optional live traveler face photo alias (legacy parameter)"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
     db: AsyncSession = Depends(get_db),
@@ -121,94 +120,63 @@ async def upload_and_screen_document(
             detail={"error": "invalid_image", "reason": str(exc)},
         ) from exc
 
-    effective_live_file = live_photo or live_image
-    live_bytes: bytes | None = None
-    if effective_live_file:
-        try:
-            live_bytes = await effective_live_file.read()
-            if len(live_bytes) == 0:
-                live_bytes = None
-        except Exception as exc:
-            logger.warning("live_photo_read_failed", error=str(exc))
-            live_bytes = None
-
-    # Resolve checkpoint: prefer form value, fall back to JWT claim
     effective_checkpoint_id = checkpoint_id or current_user.checkpoint_id
 
-    pipeline_result: PipelineResult = await run_pipeline(
+    # Extract face crop in parallel with Stage 1 execution (0 added latency)
+    import asyncio
+    from backend.face_service.core.embedding import extract_face_crop_bytes
+
+    crop_task = asyncio.to_thread(extract_face_crop_bytes, image_bytes)
+    stage1_task = run_stage1_pipeline(
         image_bytes=image_bytes,
         document_type=document_type,
         checkpoint_type=checkpoint_type,
         provider=provider,
-        live_image_bytes=live_bytes,
         checkpoint_id=effective_checkpoint_id,
         db=db,
     )
 
+    (crop_bytes, face_found), (pipeline_result, meta) = await asyncio.gather(crop_task, stage1_task)
+    doc_crop = crop_bytes if (face_found and crop_bytes) else None
 
-    # Persist to Supabase (images → Storage, results → scan_events + child tables)
-    await scan_store.save_scan(
+    # Persist Stage 1 result to Supabase with status "pending_biometric"
+    record = await scan_store.save_scan(
         db,
         pipeline_result,
         document_type=document_type.value if hasattr(document_type, "value") else str(document_type),
         checkpoint_id=effective_checkpoint_id,
         image_bytes=image_bytes,
-        live_image_bytes=live_bytes,
-        inspection_status="standard_clearance",
+        doc_face_crop_bytes=doc_crop,
+        live_image_bytes=None,
+        inspection_status="pending_biometric",
         officer_id=current_user.user_id,
     )
 
-    # Append to audit ledger
+    # Append Stage 1 audit ledger event
     await append_event(
-        event_type="scan",
-        payload={"document_type": str(document_type), "checkpoint_id": effective_checkpoint_id},
+        event_type="document_screened",
+        payload={
+            "document_type": str(document_type),
+            "checkpoint_id": effective_checkpoint_id,
+            "duration_ms": meta.get("duration_ms"),
+            "tampering_score": pipeline_result.tampering.tampering_score if pipeline_result.tampering else None,
+            "validation_passed": pipeline_result.validation.passed if pipeline_result.validation else None,
+        },
         document_id=pipeline_result.document_id,
         officer_id=current_user.user_id,
         db=db,
     )
 
-    status_str = "degraded" if pipeline_result.degraded else "complete"
+    status_str = "pending_biometric" if not pipeline_result.degraded else "degraded"
     return UploadResponse(
         document_id=pipeline_result.document_id,
         status=status_str,
         pipeline=pipeline_result,
+        doc_image_url=record.doc_image_data_url,
+        doc_face_crop_url=record.doc_face_crop_data_url,
+        live_image_url=record.live_image_data_url,
+        inspection_status=record.inspection_status,
     )
-
-
-# ---------------------------------------------------------------------------
-# 1b. Face Photo Crop (no DB needed — pure computation)
-# ---------------------------------------------------------------------------
-@router.post(
-    "/documents/face-crop",
-    summary="Extract and return the face photo from a passport image as base64",
-)
-async def extract_face_crop(
-    file: UploadFile = File(..., description="Passport or ID document image"),
-    current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-) -> JSONResponse:
-    try:
-        image_bytes = await file.read()
-        if len(image_bytes) == 0:
-            raise ValueError("Empty file")
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={"error": "invalid_image", "reason": str(exc)},
-        ) from exc
-
-    try:
-        from backend.face_service.core.embedding import extract_face_crop_bytes
-        crop_bytes, face_detected = extract_face_crop_bytes(image_bytes)
-    except Exception:
-        face_detected = False
-        crop_bytes = None
-
-    if not face_detected or not crop_bytes:
-        return JSONResponse({"face_detected": False, "face_crop_base64": None})
-
-    b64 = base64.b64encode(crop_bytes).decode("utf-8")
-    data_url = f"data:image/jpeg;base64,{b64}"
-    return JSONResponse({"face_detected": True, "face_crop_base64": data_url})
 
 
 # ---------------------------------------------------------------------------
@@ -227,8 +195,12 @@ async def get_document_pipeline(
     record = await _get_scan_or_404(db, document_id)
     return UploadResponse(
         document_id=record.document_id,
-        status="degraded" if record.pipeline.degraded else "complete",
+        status=record.inspection_status or ("degraded" if record.pipeline.degraded else "complete"),
         pipeline=record.pipeline,
+        doc_image_url=record.doc_image_data_url,
+        doc_face_crop_url=record.doc_face_crop_data_url,
+        live_image_url=record.live_image_data_url,
+        inspection_status=record.inspection_status,
     )
 
 
@@ -333,20 +305,11 @@ async def get_document_face(
 
 
 # ---------------------------------------------------------------------------
-# 3. Live face verification (DB-backed)
+# 3. Stage 2 Biometric Verification & Risk Scoring Pipeline (DB-backed)
 # ---------------------------------------------------------------------------
-from backend.orchestrator.core.blacklist import check_blacklist
-from backend.risk_engine.schemas.risk import (
-    FaceSubScore,
-    RiskScoreRequest,
-    TamperingSubScore,
-    ValidationSubScore,
-)
-
-
 @router.post(
     "/documents/{document_id}/verify-live-face",
-    summary="Submit live camera photo and run biometric face verification against document",
+    summary="Submit live camera photo and run Stage 2 biometric face verification + risk scoring against document",
 )
 async def verify_live_face(
     document_id: str,
@@ -365,128 +328,120 @@ async def verify_live_face(
             detail={"error": "invalid_live_image", "reason": str(exc)},
         ) from exc
 
-    # Fetch document bytes from Supabase Storage if URL is available
-    doc_bytes = b""
-    doc_url = record.doc_image_data_url or ""
-    if doc_url.startswith("http"):
-        # Signed URL from Supabase Storage — fetch via httpx
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(doc_url)
-                if resp.status_code == 200:
-                    doc_bytes = resp.content
-        except Exception as exc:
-            logger.warning("Failed to fetch document image from Storage URL", error=str(exc))
-    elif "," in doc_url:
-        # Legacy base64 data URL fallback
-        try:
-            doc_bytes = base64.b64decode(doc_url.split(",", 1)[1])
-        except Exception:
-            doc_bytes = b""
+    # Fetch document / face crop bytes from in-memory cache or Supabase Storage signed URL
+    doc_bytes = scan_store.get_cached_doc_crop(document_id) or b""
+    if not doc_bytes:
+        doc_url = record.doc_face_crop_data_url or record.doc_image_data_url or ""
+        if doc_url.startswith("http"):
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(doc_url)
+                    if resp.status_code == 200:
+                        doc_bytes = resp.content
+            except Exception as exc:
+                logger.warning("Failed to fetch document image from Storage URL", error=str(exc))
+        elif "," in doc_url:
+            try:
+                doc_bytes = base64.b64decode(doc_url.split(",", 1)[1])
+            except Exception:
+                doc_bytes = b""
 
-    face_res = await call_face_service(
+    # Execute Stage 2 LangGraph StateGraph pipeline
+    doc_type_enum = DocumentType.PASSPORT
+    try:
+        doc_type_enum = DocumentType(record.document_type)
+    except Exception:
+        pass
+
+    stage2_result, meta = await run_stage2_pipeline(
         doc_image_bytes=doc_bytes,
         live_image_bytes=live_bytes,
-        current_doc_id=document_id,
+        document_id=document_id,
+        stage1_result=record.pipeline,
+        document_type=doc_type_enum,
+        checkpoint_id=record.checkpoint_id or current_user.checkpoint_id,
+        db=db,
     )
 
     # Upload live image to Supabase Storage
     from backend.orchestrator.storage import supabase_storage
     live_url = await supabase_storage.upload_live_capture_image(live_bytes, document_id)
 
-    # Update scan_events with live image URL and new face result in pipeline_snapshot
-    record.pipeline.face = face_res
+    # Update record view model and status
+    record.pipeline = stage2_result
     record.live_image_data_url = live_url
+    record.inspection_status = meta.get("inspection_status", "standard_clearance")
 
-    # Persist face verification result row
+    # Persist Stage 2 child tables and scan_event update
     try:
         scan_id = uuid.UUID(document_id)
-        one_to_one = face_res.one_to_one
-        dedup = face_res.dedup
-        liveness = face_res.liveness
+        from sqlalchemy import delete as sa_delete
 
         # Upsert face_verification_results
-        from sqlalchemy import delete as sa_delete
-        await db.execute(
-            sa_delete(FaceVerificationResult).where(
-                FaceVerificationResult.scan_event_id == scan_id
+        face_res = stage2_result.face
+        if face_res:
+            await db.execute(
+                sa_delete(FaceVerificationResult).where(
+                    FaceVerificationResult.scan_event_id == scan_id
+                )
             )
-        )
-        fvr = FaceVerificationResult(
-            scan_event_id=scan_id,
-            one_to_one_matched=one_to_one.matched if one_to_one else None,
-            match_score=one_to_one.match_score if one_to_one else None,
-            cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
-            dedup_has_duplicates=dedup.has_duplicates if dedup else None,
-            dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
-            liveness_is_live=liveness.is_live if liveness else None,
-            liveness_score=liveness.liveness_score if liveness else None,
-            bypassed=face_res.bypassed,
-            bypassed_reason=face_res.bypassed_reason,
-        )
-        db.add(fvr)
+            one_to_one = face_res.one_to_one
+            dedup = face_res.dedup
+            liveness = face_res.liveness
+            db.add(FaceVerificationResult(
+                scan_event_id=scan_id,
+                one_to_one_matched=one_to_one.matched if one_to_one else None,
+                match_score=one_to_one.match_score if one_to_one else None,
+                cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
+                dedup_has_duplicates=dedup.has_duplicates if dedup else None,
+                dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
+                liveness_is_live=liveness.is_live if liveness else None,
+                liveness_score=liveness.liveness_score if liveness else None,
+                bypassed=face_res.bypassed,
+                bypassed_reason=face_res.bypassed_reason,
+            ))
 
-        # Update scan_events.live_image_url and pipeline_snapshot
+        # Upsert risk_results
+        risk_res = stage2_result.risk_score
+        if risk_res:
+            await db.execute(
+                sa_delete(RiskResult).where(RiskResult.scan_event_id == scan_id)
+            )
+            db.add(RiskResult(
+                scan_event_id=scan_id,
+                score=risk_res.score,
+                band=risk_res.band.value if hasattr(risk_res.band, "value") else str(risk_res.band),
+                reasons=risk_res.reasons,
+                sub_scores=risk_res.sub_scores.model_dump() if risk_res.sub_scores else None,
+            ))
+
+        # Update scan_events
         event_row = await db.get(ScanEvent, scan_id)
         if event_row:
             event_row.live_image_url = live_url
+            event_row.inspection_status = record.inspection_status
             event_row.pipeline_snapshot = record.pipeline.model_dump(mode="json")
+
+        await db.commit()
     except Exception as exc:
-        logger.warning("Failed to persist face verification result", error=str(exc))
+        logger.warning("Failed to persist Stage 2 DB updates", error=str(exc))
 
-    # Re-evaluate composite risk score
-    ext = record.pipeline.extraction
-    tamp = record.pipeline.tampering
-    val = record.pipeline.validation
-    one_to_one = face_res.one_to_one
-    dedup = face_res.dedup
+    # Append distinct Stage 2 event to audit ledger
+    one_to_one = stage2_result.face.one_to_one if stage2_result.face else None
+    dedup = stage2_result.face.dedup if stage2_result.face else None
+    risk = stage2_result.risk_score
 
-    face_sub = FaceSubScore(
-        cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
-        matched=one_to_one.matched if one_to_one else None,
-        has_duplicates=dedup.has_duplicates if dedup else False,
-        dedup_hit_count=len(dedup.hits) if dedup else 0,
-    )
-    val_sub = ValidationSubScore(
-        total_rules=len(val.rule_results) if val else 0,
-        failed_rules=len(val.failed_rules) if val else 0,
-        failed_rule_names=val.failed_rules if val else [],
-        rule_details={r.rule_name: r.detail for r in (val.rule_results if val else []) if not r.passed},
-    )
-    tamp_sub = TamperingSubScore(
-        overall_score=tamp.tampering_score if tamp else 0.0,
-        flagged=tamp.flagged if tamp else False,
-        flagged_checks=[
-            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type))
-            for c in (tamp.checks if tamp else []) if c.flagged
-        ],
-        check_details={
-            (c.check_type.value if hasattr(c.check_type, "value") else str(c.check_type)): c.detail
-            for c in (tamp.checks if tamp else []) if c.flagged
-        },
-    )
-    fields = ext.fields if ext else []
-    bl_score = await check_blacklist(fields=fields, db=db)
-    risk_req = RiskScoreRequest(
-        document_id=document_id,
-        checkpoint_type=getattr(record, "checkpoint_type", None),
-        validation_sub=val_sub,
-        tampering_sub=tamp_sub,
-        face_sub=face_sub,
-        blacklist_sub=bl_score,
-        cross_checkpoint_sub=None,
-    )
-    updated_risk = await call_risk_engine(risk_req)
-    record.pipeline.risk_score = updated_risk
-
-    # Append to audit ledger
     await append_event(
-        event_type="face_verification",
+        event_type="biometric_verified",
         payload={
             "matched": one_to_one.matched if one_to_one else False,
             "match_score": one_to_one.match_score if one_to_one else 0.0,
             "cluster_id": dedup.person_cluster_id if dedup else None,
+            "risk_score": risk.score if risk else None,
+            "risk_band": risk.band.value if risk else None,
+            "inspection_status": record.inspection_status,
+            "duration_ms": meta.get("duration_ms"),
             "checkpoint_id": current_user.checkpoint_id,
         },
         document_id=document_id,
@@ -494,17 +449,17 @@ async def verify_live_face(
         db=db,
     )
 
-    await db.commit()
-
     return {
         "document_id": document_id,
         "face": _face_response(record),
         "risk_score": {
-            "score": updated_risk.score,
-            "band": updated_risk.band.value,
-            "reasons": updated_risk.reasons,
-            "sub_scores": updated_risk.sub_scores.model_dump() if updated_risk.sub_scores else None,
+            "score": risk.score if risk else 0.0,
+            "band": risk.band.value if risk else "low",
+            "reasons": risk.reasons if risk else [],
+            "sub_scores": risk.sub_scores.model_dump() if (risk and risk.sub_scores) else None,
         },
+        "cross_checkpoint": stage2_result.cross_checkpoint.model_dump() if stage2_result.cross_checkpoint else None,
+        "inspection_status": record.inspection_status,
         "live_image_url": live_url,
         "doc_image_url": record.doc_face_crop_data_url or record.doc_image_data_url,
     }

@@ -1,5 +1,5 @@
 """
-Supabase Storage Client — replaces minio_client.py.
+Supabase Storage Client for TriPort.
 
 Handles uploading document scans and live-capture images to Supabase Storage
 and generating signed URLs for the frontend to fetch them.
@@ -23,8 +23,7 @@ The service-role key is used for uploads (bypasses RLS).
 The anon key is sufficient for generating signed URLs.
 
 Falls back gracefully: if SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY are not
-configured, all upload calls return None (same offline behaviour as the old
-MinIO stub) and the system continues with no image URLs stored.
+configured, all upload calls return None and the system continues with no image URLs stored.
 """
 
 from __future__ import annotations

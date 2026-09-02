@@ -8,6 +8,7 @@ Covers:
   - Classification, Single Extraction, and Batch Mode Schemas
 """
 
+from typing import Any
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -73,6 +74,20 @@ class ExtractedField(BaseModel):
         ExtractionMethod.OCR,
         description="Which method produced this field",
     )
+    source: str = Field(
+        default="ocr",
+        description="Extraction source ('ocr', 'mrz', 'llm_fallback', etc.)",
+    )
+
+    def model_post_init(self, __context: Any) -> None:
+        # Synchronize source with extraction_method if source is left at default "ocr"
+        if self.source == "ocr" and self.extraction_method != ExtractionMethod.OCR:
+            self.source = (
+                self.extraction_method.value
+                if hasattr(self.extraction_method, "value")
+                else str(self.extraction_method)
+            )
+
 
 
 # ---------------------------------------------------------------------------

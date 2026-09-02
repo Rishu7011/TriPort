@@ -13,6 +13,7 @@ Blacklist/watchlist functions redirect to watchlist_entries CRUD (see below).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -20,12 +21,10 @@ from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from backend.orchestrator.db.models import (
     ExtractedField,
     FaceVerificationResult,
-    OfficerDecision,
     RiskResult,
     ScanEvent,
     TamperingResult,
@@ -36,6 +35,35 @@ from backend.orchestrator.storage import supabase_storage
 from backend.logging_config import get_logger
 
 logger = get_logger("orchestrator.scan_store")
+
+# In-memory LRU cache for active document crops (avoids remote Storage re-downloads in Stage 2)
+_RECENT_DOC_CROPS: dict[str, bytes] = {}
+_RECENT_SCAN_RECORDS: dict[str, Any] = {}
+_MAX_CACHE_SIZE = 256
+
+
+def set_cached_doc_crop(document_id: str, crop_bytes: bytes | None) -> None:
+    if not crop_bytes:
+        return
+    if len(_RECENT_DOC_CROPS) >= _MAX_CACHE_SIZE:
+        oldest_key = next(iter(_RECENT_DOC_CROPS))
+        _RECENT_DOC_CROPS.pop(oldest_key, None)
+    _RECENT_DOC_CROPS[str(document_id)] = crop_bytes
+
+
+def get_cached_doc_crop(document_id: str) -> bytes | None:
+    return _RECENT_DOC_CROPS.get(str(document_id))
+
+
+def set_cached_scan(document_id: str, record: Any) -> None:
+    if len(_RECENT_SCAN_RECORDS) >= _MAX_CACHE_SIZE:
+        oldest_key = next(iter(_RECENT_SCAN_RECORDS))
+        _RECENT_SCAN_RECORDS.pop(oldest_key, None)
+    _RECENT_SCAN_RECORDS[str(document_id)] = record
+
+
+def get_cached_scan(document_id: str) -> Any | None:
+    return _RECENT_SCAN_RECORDS.get(str(document_id))
 
 
 def _utc_now_iso() -> str:
@@ -155,24 +183,41 @@ async def save_scan(
         except Exception:
             pass
 
-    # ── 2. Upload images to Supabase Storage (non-blocking errors) ───────────
-    doc_url, crop_url, live_url = None, None, None
-    try:
-        doc_url = await supabase_storage.upload_document_image(image_bytes, doc_id)
-    except Exception as exc:
-        logger.warning("storage_upload_doc_failed", doc_id=doc_id, error=str(exc))
+    set_cached_doc_crop(doc_id, doc_face_crop_bytes or image_bytes)
 
-    if doc_face_crop_bytes:
+    # ── 2. Upload images to Supabase Storage in parallel ─────────────────────
+    doc_url, crop_url, live_url = None, None, None
+
+    async def _safe_upload_doc():
         try:
-            crop_url = await supabase_storage.upload_face_crop_image(doc_face_crop_bytes, doc_id)
+            return await supabase_storage.upload_document_image(image_bytes, doc_id)
+        except Exception as exc:
+            logger.warning("storage_upload_doc_failed", doc_id=doc_id, error=str(exc))
+            return None
+
+    async def _safe_upload_crop():
+        if not doc_face_crop_bytes:
+            return None
+        try:
+            return await supabase_storage.upload_face_crop_image(doc_face_crop_bytes, doc_id)
         except Exception as exc:
             logger.warning("storage_upload_crop_failed", doc_id=doc_id, error=str(exc))
+            return None
 
-    if live_image_bytes:
+    async def _safe_upload_live():
+        if not live_image_bytes:
+            return None
         try:
-            live_url = await supabase_storage.upload_live_capture_image(live_image_bytes, doc_id)
+            return await supabase_storage.upload_live_capture_image(live_image_bytes, doc_id)
         except Exception as exc:
             logger.warning("storage_upload_live_failed", doc_id=doc_id, error=str(exc))
+            return None
+
+    doc_url, crop_url, live_url = await asyncio.gather(
+        _safe_upload_doc(),
+        _safe_upload_crop(),
+        _safe_upload_live(),
+    )
 
     # ── 3. Resolve UUID for scan_event_id and checkpoint_id ─────────────────
     try:
@@ -224,21 +269,38 @@ async def save_scan(
         if live_url:
             existing.live_image_url = live_url
 
-    await db.flush()
-
     # ── 5. Upsert extracted_fields EAV rows ─────────────────────────────────
-    extracted = getattr(pipeline, "extracted_fields", {}) or {}
-    if isinstance(extracted, dict):
-        # Delete stale EAV rows for this scan first (idempotent upsert)
-        from sqlalchemy import delete as sa_delete
+    from sqlalchemy import delete as sa_delete
+    if existing is not None:
         await db.execute(
             sa_delete(ExtractedField).where(ExtractedField.scan_event_id == scan_id)
         )
-        for field_name, field_data in extracted.items():
+
+    if pipeline.extraction and pipeline.extraction.fields:
+        for f in pipeline.extraction.fields:
+            src = "ocr"
+            f_source = getattr(f, "source", None)
+            f_method = getattr(f, "extraction_method", None)
+            if f_source is not None:
+                src = f_source.value if hasattr(f_source, "value") else str(f_source)
+            elif f_method is not None:
+                src = f_method.value if hasattr(f_method, "value") else str(f_method)
+
+            db.add(ExtractedField(
+                scan_event_id=scan_id,
+                field_name=f.field_name,
+                field_value=str(f.field_value) if f.field_value is not None else None,
+                confidence=float(f.confidence) if f.confidence is not None else None,
+                source=src,
+            ))
+    elif hasattr(pipeline, "extracted_fields") and isinstance(pipeline.extracted_fields, dict):
+        for field_name, field_data in pipeline.extracted_fields.items():
             if isinstance(field_data, dict):
                 value = field_data.get("value") or field_data.get("text")
                 confidence = field_data.get("confidence")
-                source = field_data.get("source", "ocr")
+                source = field_data.get("source") or field_data.get("extraction_method") or "ocr"
+                if hasattr(source, "value"):
+                    source = source.value
             else:
                 value = str(field_data) if field_data is not None else None
                 confidence = None
@@ -248,33 +310,56 @@ async def save_scan(
                 field_name=field_name,
                 field_value=str(value) if value is not None else None,
                 confidence=float(confidence) if confidence is not None else None,
-                source=source,
+                source=str(source),
             ))
 
     # ── 6. Upsert tampering_results ─────────────────────────────────────────
     tamper = getattr(pipeline, "tampering", None)
     if tamper is not None:
-        from sqlalchemy import delete as sa_delete
-        await db.execute(
-            sa_delete(TamperingResult).where(TamperingResult.scan_event_id == scan_id)
-        )
+        if existing is not None:
+            await db.execute(
+                sa_delete(TamperingResult).where(TamperingResult.scan_event_id == scan_id)
+            )
         tamper_dict = tamper.model_dump(mode="json") if hasattr(tamper, "model_dump") else dict(tamper)
         checks_raw = tamper_dict.get("checks") or tamper_dict.get("results") or []
         db.add(TamperingResult(
             scan_event_id=scan_id,
             flagged=tamper_dict.get("flagged", False),
-            composite_score=tamper_dict.get("composite_score") or tamper_dict.get("score"),
+            composite_score=tamper_dict.get("composite_score") or tamper_dict.get("score") or tamper_dict.get("tampering_score"),
             checks=checks_raw,
-            ela_heatmap_url=None,  # heatmap uploaded separately by tampering endpoint
+            ela_heatmap_url=None,
         ))
 
-    # ── 7. Upsert risk_results ───────────────────────────────────────────────
+    # ── 7. Upsert face_verification_results ──────────────────────────────────
+    face = getattr(pipeline, "face", None)
+    if face is not None and (face.one_to_one or face.dedup or face.bypassed):
+        if existing is not None:
+            await db.execute(
+                sa_delete(FaceVerificationResult).where(FaceVerificationResult.scan_event_id == scan_id)
+            )
+        one_to_one = face.one_to_one
+        dedup = face.dedup
+        liveness = face.liveness
+        db.add(FaceVerificationResult(
+            scan_event_id=scan_id,
+            one_to_one_matched=one_to_one.matched if one_to_one else None,
+            match_score=one_to_one.match_score if one_to_one else None,
+            cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
+            dedup_has_duplicates=dedup.has_duplicates if dedup else None,
+            dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
+            liveness_is_live=liveness.is_live if liveness else None,
+            liveness_score=liveness.liveness_score if liveness else None,
+            bypassed=face.bypassed,
+            bypassed_reason=face.bypassed_reason,
+        ))
+
+    # ── 8. Upsert risk_results ───────────────────────────────────────────────
     risk = getattr(pipeline, "risk_score", None)
     if risk is not None:
-        from sqlalchemy import delete as sa_delete
-        await db.execute(
-            sa_delete(RiskResult).where(RiskResult.scan_event_id == scan_id)
-        )
+        if existing is not None:
+            await db.execute(
+                sa_delete(RiskResult).where(RiskResult.scan_event_id == scan_id)
+            )
         risk_dict = risk.model_dump(mode="json") if hasattr(risk, "model_dump") else dict(risk)
         band_val = risk_dict.get("band")
         if hasattr(band_val, "value"):
@@ -289,7 +374,7 @@ async def save_scan(
 
     await db.commit()
 
-    return ScanRecord(
+    record = ScanRecord(
         document_id=str(scan_id),
         document_type=document_type,
         checkpoint_id=str(cp_uuid) if cp_uuid else None,
@@ -300,6 +385,8 @@ async def save_scan(
         live_image_data_url=live_url,
         inspection_status=inspection_status,
     )
+    set_cached_scan(str(scan_id), record)
+    return record
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +394,11 @@ async def save_scan(
 # ---------------------------------------------------------------------------
 
 async def get_scan(db: AsyncSession, document_id: str) -> ScanRecord | None:
-    """Fetch a scan by document_id. Returns None if not found."""
+    """Fetch a scan by document_id. Checks fast in-memory cache first."""
+    cached = get_cached_scan(document_id)
+    if cached is not None:
+        return cached
+
     try:
         scan_id = uuid.UUID(document_id)
     except ValueError:
@@ -316,7 +407,9 @@ async def get_scan(db: AsyncSession, document_id: str) -> ScanRecord | None:
     row = await db.get(ScanEvent, scan_id)
     if row is None:
         return None
-    return _scan_event_to_record(row)
+    rec = _scan_event_to_record(row)
+    set_cached_scan(document_id, rec)
+    return rec
 
 
 # ---------------------------------------------------------------------------
