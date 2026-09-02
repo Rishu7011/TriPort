@@ -84,7 +84,6 @@ async def call_ocr_service(
     from backend.ocr_service.core.classifier import classify_document
     from backend.ocr_service.core.field_extractor import extract_fields, extract_raw_ocr_lines
     from backend.ocr_service.core.mrz_parser import parse_mrz
-    from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
 
     extracted_dict: dict[str, ExtractedField] = {}
     warnings: list[str] = []
@@ -124,6 +123,7 @@ async def call_ocr_service(
         document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
         and len(extracted_dict) < 2
     ):
+        from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
         _, llm_fields = extract_fields_with_llm(image_bytes, document_type)
         if llm_fields:
             primary_method = ExtractionMethod.LLM

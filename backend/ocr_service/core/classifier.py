@@ -158,22 +158,6 @@ def classify_document(
     if len(image_bytes) == 0:
         return DocumentType.PASSPORT, 0.0, {"reason": "empty_image"}
 
-    # If provider is 'api' or if Gemini Vision API key is configured and ocr_lines is empty/low quality,
-    # attempt Cloud Vision API classification
-    if provider == "api" and settings.llm_api_key:
-        try:
-            from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
-            resolved_type, llm_fields = extract_fields_with_llm(image_bytes, document_type=None)
-            if resolved_type:
-                logger.info("Classified document via Cloud Vision API", predicted=resolved_type.value)
-                return resolved_type, 0.95, {
-                    "scores": {resolved_type.value: 1.0},
-                    "matched_features": ["cloud_vision_api_multimodal"],
-                    "provider": "api",
-                }
-        except Exception as e:
-            logger.warning("Cloud Vision API classification failed, falling back to local engine", error=str(e))
-
     scores: dict[DocumentType, float] = {dtype: 0.0 for dtype in DocumentType}
     matched_features: dict[str, list[str]] = {dtype.value: [] for dtype in DocumentType}
 
@@ -252,21 +236,6 @@ def classify_document(
     # 6. Normalize and Determine Winner
     best_type = max(scores, key=lambda k: scores[k])
     best_raw_score = scores[best_type]
-
-    # If local score is low / zero and Gemini Vision API key is available, use LLM classification
-    if best_raw_score <= 1.0 and settings.llm_api_key:
-        try:
-            from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
-            resolved_type, llm_fields = extract_fields_with_llm(image_bytes, document_type=None)
-            if resolved_type:
-                logger.info("Classified document via LLM fallback (low local score)", predicted=resolved_type.value)
-                return resolved_type, 0.90, {
-                    "scores": {resolved_type.value: 1.0},
-                    "matched_features": ["llm_vision_auto_classified"],
-                    "provider": provider,
-                }
-        except Exception as e:
-            logger.warning("LLM classification attempt failed", error=str(e))
 
     if best_raw_score <= 0.0:
         # Default fallback to National ID / Passport depending on pattern

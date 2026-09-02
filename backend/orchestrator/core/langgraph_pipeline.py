@@ -176,7 +176,7 @@ async def ocr_extraction_node(state: ScreeningState) -> dict:
 
 
 async def llm_vision_fallback_node(state: ScreeningState) -> dict:
-    """Invoked conditionally if OCR extracted fields have low confidence."""
+    """Invoked conditionally if OCR extracted fields have low confidence or are missing."""
     ext = state.get("extraction")
     if not ext:
         return {}
@@ -596,11 +596,6 @@ def check_ocr_quality(state: ScreeningState) -> str:
 
     # Check 2: Complex formats (Driving License, Permit) with < 2 fields
     if doc_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT] and len(fields) < 2:
-        return "fallback"
-
-    # Check 3: Low average confidence (< 0.60)
-    confidences = [f.confidence for f in fields if f.confidence is not None]
-    if confidences and (sum(confidences) / len(confidences)) < 0.60:
         return "fallback"
 
     return "continue"

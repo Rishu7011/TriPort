@@ -17,7 +17,6 @@ from backend.ocr_service.core.field_extractor import (
     extract_fields,
     extract_raw_ocr_lines,
 )
-from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
 from backend.ocr_service.core.mrz_parser import parse_mrz
 from backend.ocr_service.schemas.extraction import (
     BatchExtractionResponse,
@@ -111,20 +110,6 @@ async def process_single_item(
                 ]
                 and len(extracted_fields) < 3
             )
-            if (not extracted_fields and not mrz_res.mrz_present) or _sparse_non_mrz:
-                llm_type, llm_fields = extract_fields_with_llm(
-                    image_bytes=image_bytes,
-                    document_type=doc_type,
-                )
-                if llm_fields:
-                    if llm_type and not document_type_hint:
-                        doc_type = llm_type
-                    if not extracted_fields:
-                        primary_method = ExtractionMethod.LLM
-                    for f in llm_fields:
-                        if f.field_name not in extracted_fields:
-                            extracted_fields[f.field_name] = f
-
             if not extracted_fields and not mrz_res.mrz_present:
                 return BatchItemResult(
                     index=index,

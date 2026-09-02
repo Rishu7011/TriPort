@@ -11,6 +11,7 @@ import { PipelineStepper } from "../../components/PipelineStepper";
 import { RiskBadge } from "../../components/RiskBadge";
 import { api } from "../../lib/api/client";
 import { useAuth } from "../../lib/auth/AuthContext";
+import { setCachedScan } from "../../lib/scanCache";
 import type {
   CheckpointType,
   DocumentType,
@@ -125,13 +126,7 @@ export default function OfficerScreeningPage() {
       const res = await api.uploadDocument(formData);
 
       if (res && res.document_id) {
-        if (typeof window !== "undefined" && window.sessionStorage) {
-          try {
-            sessionStorage.setItem(`triport_scan_${res.document_id}`, JSON.stringify(res));
-          } catch {
-            // Ignore quota errors
-          }
-        }
+        setCachedScan(res.document_id, res);
         router.push(`/scan/${res.document_id}`);
       } else {
         setIsScreening(false);

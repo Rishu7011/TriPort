@@ -185,9 +185,35 @@ async def save_scan(
 
     set_cached_doc_crop(doc_id, doc_face_crop_bytes or image_bytes)
 
-    # ── 2. Upload images to Supabase Storage in parallel ─────────────────────
-    doc_url, crop_url, live_url = None, None, None
+    # ── 2. Immediate Data URLs for instant client display (0ms remote storage wait) ──
+    import base64
+    immediate_doc_url = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('ascii')}"
+    immediate_crop_url = (
+        f"data:image/jpeg;base64,{base64.b64encode(doc_face_crop_bytes).decode('ascii')}"
+        if doc_face_crop_bytes
+        else None
+    )
+    immediate_live_url = (
+        f"data:image/jpeg;base64,{base64.b64encode(live_image_bytes).decode('ascii')}"
+        if live_image_bytes
+        else None
+    )
 
+    # ── 3. Resolve UUID for scan_event_id and checkpoint_id ─────────────────
+    try:
+        scan_id = uuid.UUID(doc_id)
+    except ValueError:
+        scan_id = uuid.uuid4()
+        logger.warning("save_scan_invalid_uuid", original=doc_id, assigned=str(scan_id))
+
+    cp_uuid = None
+    if checkpoint_id:
+        try:
+            cp_uuid = uuid.UUID(checkpoint_id)
+        except ValueError:
+            pass  # checkpoint_id is "CP-DEL-T3" legacy string — ignore, FK will be NULL
+
+    # ── 4. Launch remote Supabase Storage upload asynchronously in background ─
     async def _safe_upload_doc():
         try:
             return await supabase_storage.upload_document_image(image_bytes, doc_id)
@@ -213,25 +239,39 @@ async def save_scan(
             logger.warning("storage_upload_live_failed", doc_id=doc_id, error=str(exc))
             return None
 
-    doc_url, crop_url, live_url = await asyncio.gather(
-        _safe_upload_doc(),
-        _safe_upload_crop(),
-        _safe_upload_live(),
-    )
-
-    # ── 3. Resolve UUID for scan_event_id and checkpoint_id ─────────────────
-    try:
-        scan_id = uuid.UUID(doc_id)
-    except ValueError:
-        scan_id = uuid.uuid4()
-        logger.warning("save_scan_invalid_uuid", original=doc_id, assigned=str(scan_id))
-
-    cp_uuid = None
-    if checkpoint_id:
+    async def _background_storage_upload(target_scan_id: uuid.UUID):
         try:
-            cp_uuid = uuid.UUID(checkpoint_id)
-        except ValueError:
-            pass  # checkpoint_id is "CP-DEL-T3" legacy string — ignore, FK will be NULL
+            d_url, c_url, l_url = await asyncio.gather(
+                _safe_upload_doc(),
+                _safe_upload_crop(),
+                _safe_upload_live(),
+            )
+            await asyncio.sleep(0.5)
+            from backend.orchestrator.db.session import get_session_factory
+            factory = await get_session_factory()
+            async with factory() as bg_db:
+                ev = await bg_db.get(ScanEvent, target_scan_id)
+                if ev:
+                    if d_url:
+                        ev.doc_image_url = d_url
+                    if c_url:
+                        ev.doc_face_crop_url = c_url
+                    if l_url:
+                        ev.live_image_url = l_url
+                    await bg_db.commit()
+            cached_rec = get_cached_scan(str(target_scan_id))
+            if cached_rec:
+                if d_url:
+                    cached_rec.doc_image_data_url = _normalize_storage_url(d_url)
+                if c_url:
+                    cached_rec.doc_face_crop_data_url = _normalize_storage_url(c_url)
+                if l_url:
+                    cached_rec.live_image_data_url = _normalize_storage_url(l_url)
+            logger.info("background_storage_upload_persisted", scan_id=str(target_scan_id))
+        except Exception as exc:
+            logger.warning("background_storage_upload_failed", scan_id=str(target_scan_id), error=str(exc))
+
+    asyncio.create_task(_background_storage_upload(scan_id))
 
     officer_uuid = None
     if officer_id:
@@ -251,9 +291,9 @@ async def save_scan(
             officer_id=officer_uuid,
             document_type=document_type,
             inspection_status=inspection_status,
-            doc_image_url=doc_url,
-            doc_face_crop_url=crop_url,
-            live_image_url=live_url,
+            doc_image_url=None,
+            doc_face_crop_url=None,
+            live_image_url=None,
             pipeline_snapshot=pipeline_dict,
             degraded=getattr(pipeline, "degraded", False),
         )
@@ -262,12 +302,6 @@ async def save_scan(
         existing.pipeline_snapshot = pipeline_dict
         existing.inspection_status = inspection_status
         existing.degraded = getattr(pipeline, "degraded", False)
-        if doc_url:
-            existing.doc_image_url = doc_url
-        if crop_url:
-            existing.doc_face_crop_url = crop_url
-        if live_url:
-            existing.live_image_url = live_url
 
     # ── 5. Upsert extracted_fields EAV rows ─────────────────────────────────
     from sqlalchemy import delete as sa_delete
@@ -380,9 +414,9 @@ async def save_scan(
         checkpoint_id=str(cp_uuid) if cp_uuid else None,
         uploaded_at=_utc_now_iso(),
         pipeline=pipeline,
-        doc_image_data_url=doc_url,
-        doc_face_crop_data_url=crop_url,
-        live_image_data_url=live_url,
+        doc_image_data_url=immediate_doc_url,
+        doc_face_crop_data_url=immediate_crop_url,
+        live_image_data_url=immediate_live_url,
         inspection_status=inspection_status,
     )
     set_cached_scan(str(scan_id), record)

@@ -133,12 +133,12 @@ def ensure_image_bytes(raw_bytes: bytes) -> bytes:
     return raw_bytes
 
 
-def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1600) -> np.ndarray:
+def _bytes_to_numpy_image(image_bytes: bytes, max_dim: int = 1200) -> np.ndarray:
     """Convert raw byte stream (or PDF) to RGB NumPy array with smart downscaling for fast inference."""
     valid_bytes = ensure_image_bytes(image_bytes)
     image = Image.open(io.BytesIO(valid_bytes)).convert("RGB")
     
-    # Scale down oversized phone camera images to 1600px max dimension for fast CRAFT inference
+    # Scale down oversized phone camera images to 1200px max dimension for fast CRAFT inference
     w, h = image.size
     if max(w, h) > max_dim:
         scale = max_dim / float(max(w, h))
@@ -158,7 +158,13 @@ def extract_raw_ocr_lines(image_bytes: bytes) -> list[tuple[str, float]]:
 
     import torch
     with torch.inference_mode():
-        raw_results = reader.readtext(img_array, batch_size=4, paragraph=False)
+        raw_results = reader.readtext(
+            img_array,
+            batch_size=4,
+            paragraph=False,
+            canvas_size=1200,
+            mag_ratio=1.0,
+        )
     for item in raw_results:
         if item and len(item) >= 3:
             text = str(item[1]).strip()

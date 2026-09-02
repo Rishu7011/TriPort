@@ -203,23 +203,6 @@ async def extract_document(
         ]
         and len(extracted_fields) < 3
     )
-    if (not extracted_fields and not mrz_res.mrz_present) or _sparse_non_mrz:
-        logger.info("Triggering LLM fallback", document_type=document_type.value if document_type else "auto")
-        llm_detected_type, llm_fields = extract_fields_with_llm(
-            image_bytes=image_bytes,
-            document_type=document_type if explicit_document_type else None,
-            mime_type=file.content_type or "image/jpeg",
-        )
-        if llm_fields:
-            if not explicit_document_type and llm_detected_type:
-                document_type = llm_detected_type
-            if not extracted_fields:
-                primary_method = ExtractionMethod.LLM
-            for f in llm_fields:
-                # Additive merge: LLM fills gaps; don't overwrite MRZ/OCR fields
-                if f.field_name not in extracted_fields:
-                    extracted_fields[f.field_name] = f
-
     if not extracted_fields and not mrz_res.mrz_present:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

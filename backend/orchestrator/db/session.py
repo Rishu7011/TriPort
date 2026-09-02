@@ -166,3 +166,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _session_factory() as session:
         yield session
 
+
+async def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the global async_sessionmaker, initializing if needed."""
+    global _session_factory
+    if _engine is None or _session_factory is None:
+        await init_engine_and_tables()
+    return _session_factory
+

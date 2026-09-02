@@ -47,7 +47,10 @@ EMBEDDING_DIM = 512
 
 # ── Lazy-loaded model singletons ─────────────────────────────────────────────
 _insightface_app = None       # InsightFace FaceAnalysis (RetinaFace + ArcFace)
+_insightface_attempted = False
 _deepface_models: dict = {}   # DeepFace model cache
+_mediapipe_available: bool | None = None
+_deepface_available: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -85,44 +88,40 @@ def _ensure_512d(vec: np.ndarray) -> np.ndarray:
 # STAGE 1: InsightFace (RetinaFace detector + ArcFace embedder)
 # ---------------------------------------------------------------------------
 def _get_insightface_app():
-    """Lazy-load InsightFace FaceAnalysis singleton (RetinaFace + ArcFace).
+    """Lazy-load InsightFace FaceAnalysis singleton (RetinaFace + ArcFace)."""
+    global _insightface_app, _insightface_attempted
+    if _insightface_attempted:
+        return _insightface_app
 
-    Explicitly triggers model download on first call so that 'buffalo_l' is
-    present in ~/.insightface/models/ before FaceAnalysis() tries to load it.
-    Without this, a missing model pack causes a silent exception and the whole
-    pipeline degrades to the DeepFace fallback without any clear log message.
-    """
-    global _insightface_app
-    if _insightface_app is None:
+    _insightface_attempted = True
+    try:
+        import insightface
+        from insightface.app import FaceAnalysis
+        from insightface.model_zoo import model_zoo
+
+        # Ensure buffalo_l model pack is present; download if not.
         try:
-            import insightface
-            from insightface.app import FaceAnalysis
-            from insightface.model_zoo import model_zoo
-
-            # Ensure buffalo_l model pack is present; download if not.
-            try:
-                model_zoo.get_model("buffalo_l")  # no-op if already downloaded
-            except Exception as dl_exc:
-                logger.info(
-                    "Downloading InsightFace buffalo_l model pack (first run only) …",
-                    error=str(dl_exc),
-                )
-
-            app = FaceAnalysis(
-                name="buffalo_l",          # buffalo_l bundles RetinaFace + ArcFace W600K R50
-                providers=["CPUExecutionProvider"],
-                allowed_modules=["detection", "recognition"],
+            model_zoo.get_model("buffalo_l")  # no-op if already downloaded
+        except Exception as dl_exc:
+            logger.info(
+                "Downloading InsightFace buffalo_l model pack (first run only) …",
+                error=str(dl_exc),
             )
-            app.prepare(ctx_id=0, det_size=(640, 640))
-            _insightface_app = app
-            logger.info("InsightFace FaceAnalysis (RetinaFace+ArcFace) initialized successfully")
-        except Exception as exc:
-            logger.warning(
-                "InsightFace unavailable — will use DeepFace fallback. "
-                "Run: pip install insightface onnxruntime to enable the primary model.",
-                error=str(exc),
-            )
-            _insightface_app = None
+
+        app = FaceAnalysis(
+            name="buffalo_l",          # buffalo_l bundles RetinaFace + ArcFace W600K R50
+            providers=["CPUExecutionProvider"],
+            allowed_modules=["detection", "recognition"],
+        )
+        app.prepare(ctx_id=0, det_size=(640, 640))
+        _insightface_app = app
+        logger.info("InsightFace FaceAnalysis (RetinaFace+ArcFace) initialized successfully")
+    except Exception as exc:
+        logger.warning(
+            "InsightFace unavailable — will use DeepFace/Haar cascade fallback.",
+            error=str(exc),
+        )
+        _insightface_app = None
     return _insightface_app
 
 
@@ -524,19 +523,6 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         pil_crop.save(buf, format="JPEG", quality=95)
         return buf.getvalue()
 
-    # ── Strategy 0: AWS Rekognition DetectFaces (Cloud-grade accuracy) ────────
-    try:
-        from backend.face_service.core.aws_rekognition import (
-            aws_detect_face_crop,
-            is_aws_rekognition_available,
-        )
-        if is_aws_rekognition_available():
-            aws_crop, aws_found = aws_detect_face_crop(image_bytes, pad_pct=0.20)
-            if aws_found and aws_crop:
-                return aws_crop, True
-    except Exception as exc:
-        logger.debug("AWS Rekognition DetectFaces crop attempt failed", error=str(exc))
-
     # ── Strategy 1: InsightFace RetinaFace bounding box ──────────────────────
     app = _get_insightface_app()
     if app is not None:
@@ -557,28 +543,33 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         except Exception as exc:
             logger.debug("InsightFace crop attempt failed", error=str(exc))
 
+    global _mediapipe_available, _deepface_available
+
     # ── Strategy 2: MediaPipe Face Detection ─────────────────────────────────
-    try:
-        import mediapipe as mp
-        mp_face_detection = mp.solutions.face_detection
-        with mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.45) as detector:
-            results = detector.process(img_rgb)
-            if results.detections:
-                best_det = max(
-                    results.detections,
-                    key=lambda d: d.location_data.relative_bounding_box.width * d.location_data.relative_bounding_box.height,
-                )
-                bb = best_det.location_data.relative_bounding_box
-                x1 = int(bb.xmin * w)
-                y1 = int(bb.ymin * h)
-                x2 = int((bb.xmin + bb.width) * w)
-                y2 = int((bb.ymin + bb.height) * h)
-                crop = _crop_and_encode(x1, y1, x2, y2, pad_pct=0.20)
-                if crop:
-                    logger.info("Face crop extracted via MediaPipe FaceDetection", bbox=[x1, y1, x2, y2])
-                    return crop, True
-    except Exception as exc:
-        logger.debug("MediaPipe FaceDetection crop attempt failed", error=str(exc))
+    if _mediapipe_available is not False:
+        try:
+            import mediapipe as mp
+            _mediapipe_available = True
+            mp_face_detection = mp.solutions.face_detection
+            with mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.45) as detector:
+                results = detector.process(img_rgb)
+                if results.detections:
+                    best_det = max(
+                        results.detections,
+                        key=lambda d: d.location_data.relative_bounding_box.width * d.location_data.relative_bounding_box.height,
+                    )
+                    bb = best_det.location_data.relative_bounding_box
+                    x1 = int(bb.xmin * w)
+                    y1 = int(bb.ymin * h)
+                    x2 = int((bb.xmin + bb.width) * w)
+                    y2 = int((bb.ymin + bb.height) * h)
+                    crop = _crop_and_encode(x1, y1, x2, y2, pad_pct=0.20)
+                    if crop:
+                        logger.info("Face crop extracted via MediaPipe FaceDetection", bbox=[x1, y1, x2, y2])
+                        return crop, True
+        except Exception as exc:
+            _mediapipe_available = False
+            logger.debug("MediaPipe FaceDetection unavailable", error=str(exc))
 
     # ── Strategy 3: OpenCV Haar Cascades ──────────────────────────────────────
     try:
@@ -592,18 +583,32 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
             gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
             gray_eq = cv2.equalizeHist(gray)
 
+            # Downscale large images for 10x faster Haar cascade detection
+            scale = 1.0
+            if max(w, h) > 1000:
+                scale = 1000.0 / float(max(w, h))
+                dw, dh = int(w * scale), int(h * scale)
+                d_gray = cv2.resize(gray, (dw, dh), interpolation=cv2.INTER_LINEAR)
+                d_gray_eq = cv2.resize(gray_eq, (dw, dh), interpolation=cv2.INTER_LINEAR)
+            else:
+                d_gray, d_gray_eq = gray, gray_eq
+
             for c_name in cascade_names:
                 cascade_path = cv2.data.haarcascades + c_name
                 face_cascade = cv2.CascadeClassifier(cascade_path)
                 if face_cascade.empty():
                     continue
 
-                for g_img in (gray, gray_eq):
+                for g_img in (d_gray, d_gray_eq):
                     faces_haar = face_cascade.detectMultiScale(
-                        g_img, scaleFactor=1.05, minNeighbors=3, minSize=(35, 35)
+                        g_img, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30)
                     )
                     if len(faces_haar) > 0:
-                        x, y, fw, fh = max(faces_haar, key=lambda r: r[2] * r[3])
+                        sx, sy, sfw, sfh = max(faces_haar, key=lambda r: r[2] * r[3])
+                        x = int(sx / scale)
+                        y = int(sy / scale)
+                        fw = int(sfw / scale)
+                        fh = int(sfh / scale)
                         crop = _crop_and_encode(x, y, x + fw, y + fh, pad_pct=0.22)
                         if crop:
                             logger.info(
@@ -616,31 +621,34 @@ def extract_face_crop_bytes(image_bytes: bytes) -> tuple[bytes | None, bool]:
         logger.debug("OpenCV Haar crop attempt failed", error=str(exc))
 
     # ── Strategy 4: DeepFace extract_faces fallback ──────────────────────────
-    try:
-        from deepface import DeepFace
-        for backend in ["opencv", "ssd", "retinaface"]:
-            try:
-                extracted = DeepFace.extract_faces(
-                    img_path=img_rgb,
-                    detector_backend=backend,
-                    enforce_detection=False,
-                    align=True,
-                )
-                if extracted and len(extracted) > 0:
-                    fa = extracted[0].get("facial_area", {})
-                    x = fa.get("x", 0)
-                    y = fa.get("y", 0)
-                    fw = fa.get("w", 0)
-                    fh = fa.get("h", 0)
-                    if fw > 20 and fh > 20:
-                        crop = _crop_and_encode(x, y, x + fw, y + fh, pad_pct=0.18)
-                        if crop:
-                            logger.info("Face crop extracted via DeepFace", backend=backend, bbox=[x, y, x + fw, y + fh])
-                            return crop, True
-            except Exception:
-                continue
-    except Exception as exc:
-        logger.debug("DeepFace crop attempt failed", error=str(exc))
+    if _deepface_available is not False:
+        try:
+            from deepface import DeepFace
+            _deepface_available = True
+            for backend in ["opencv", "ssd", "retinaface"]:
+                try:
+                    extracted = DeepFace.extract_faces(
+                        img_path=img_rgb,
+                        detector_backend=backend,
+                        enforce_detection=False,
+                        align=True,
+                    )
+                    if extracted and len(extracted) > 0:
+                        fa = extracted[0].get("facial_area", {})
+                        x = fa.get("x", 0)
+                        y = fa.get("y", 0)
+                        fw = fa.get("w", 0)
+                        fh = fa.get("h", 0)
+                        if fw > 20 and fh > 20:
+                            crop = _crop_and_encode(x, y, x + fw, y + fh, pad_pct=0.18)
+                            if crop:
+                                logger.info("Face crop extracted via DeepFace", backend=backend, bbox=[x, y, x + fw, y + fh])
+                                return crop, True
+                except Exception:
+                    continue
+        except Exception as exc:
+            _deepface_available = False
+            logger.debug("DeepFace unavailable", error=str(exc))
 
     # ── Strategy 5: ICAO 9303 Passport Photo Window Heuristic ─────────────────
     # If the document is a standard landscape ID-3 passport (w > h), standard

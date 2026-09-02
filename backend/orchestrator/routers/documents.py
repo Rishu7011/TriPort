@@ -5,6 +5,7 @@ All endpoints now read from and write to Supabase via the async SQLAlchemy sessi
 In-memory scan store references replaced with DB-backed scan_store functions.
 """
 
+import asyncio
 import base64
 import uuid
 from typing import Any
@@ -40,6 +41,28 @@ router = APIRouter(prefix="/api/v1", tags=["Documents & Screening"])
 
 STANDARD_ROLES = ["officer", "supervisor", "admin"]
 AUDIT_ROLES = ["supervisor", "auditor", "admin"]
+
+
+async def _bg_append_event(
+    event_type: str,
+    payload: dict,
+    document_id: str | None,
+    officer_id: str | None,
+) -> None:
+    """Commit audit ledger entry asynchronously in background so HTTP response returns instantly."""
+    try:
+        from backend.orchestrator.db.session import get_session_factory
+        factory = await get_session_factory()
+        async with factory() as session:
+            await append_event(
+                event_type=event_type,
+                payload=payload,
+                document_id=document_id,
+                officer_id=officer_id,
+                db=session,
+            )
+    except Exception as exc:
+        logger.warning("background_append_event_failed", event_type=event_type, error=str(exc))
 
 
 def _normalize_tampering_detail(raw: Any) -> Any:
@@ -152,19 +175,20 @@ async def upload_and_screen_document(
         officer_id=current_user.user_id,
     )
 
-    # Append Stage 1 audit ledger event
-    await append_event(
-        event_type="document_screened",
-        payload={
-            "document_type": str(document_type),
-            "checkpoint_id": effective_checkpoint_id,
-            "duration_ms": meta.get("duration_ms"),
-            "tampering_score": pipeline_result.tampering.tampering_score if pipeline_result.tampering else None,
-            "validation_passed": pipeline_result.validation.passed if pipeline_result.validation else None,
-        },
-        document_id=pipeline_result.document_id,
-        officer_id=current_user.user_id,
-        db=db,
+    # Append Stage 1 audit ledger event in background
+    asyncio.create_task(
+        _bg_append_event(
+            event_type="document_screened",
+            payload={
+                "document_type": str(document_type),
+                "checkpoint_id": effective_checkpoint_id,
+                "duration_ms": meta.get("duration_ms"),
+                "tampering_score": pipeline_result.tampering.tampering_score if pipeline_result.tampering else None,
+                "validation_passed": pipeline_result.validation.passed if pipeline_result.validation else None,
+            },
+            document_id=pipeline_result.document_id,
+            officer_id=current_user.user_id,
+        )
     )
 
     status_str = "pending_biometric" if not pipeline_result.degraded else "degraded"
@@ -432,21 +456,23 @@ async def verify_live_face(
     dedup = stage2_result.face.dedup if stage2_result.face else None
     risk = stage2_result.risk_score
 
-    await append_event(
-        event_type="biometric_verified",
-        payload={
-            "matched": one_to_one.matched if one_to_one else False,
-            "match_score": one_to_one.match_score if one_to_one else 0.0,
-            "cluster_id": dedup.person_cluster_id if dedup else None,
-            "risk_score": risk.score if risk else None,
-            "risk_band": risk.band.value if risk else None,
-            "inspection_status": record.inspection_status,
-            "duration_ms": meta.get("duration_ms"),
-            "checkpoint_id": current_user.checkpoint_id,
-        },
-        document_id=document_id,
-        officer_id=current_user.user_id,
-        db=db,
+    # Append distinct Stage 2 event to audit ledger in background
+    asyncio.create_task(
+        _bg_append_event(
+            event_type="biometric_verified",
+            payload={
+                "matched": one_to_one.matched if one_to_one else False,
+                "match_score": one_to_one.match_score if one_to_one else 0.0,
+                "cluster_id": dedup.person_cluster_id if dedup else None,
+                "risk_score": risk.score if risk else None,
+                "risk_band": risk.band.value if risk else None,
+                "inspection_status": record.inspection_status,
+                "duration_ms": meta.get("duration_ms"),
+                "checkpoint_id": current_user.checkpoint_id,
+            },
+            document_id=document_id,
+            officer_id=current_user.user_id,
+        )
     )
 
     return {

@@ -14,6 +14,7 @@ import { RiskBadge } from "../../../../components/RiskBadge";
 import { PipelineStepper } from "../../../../components/PipelineStepper";
 import { api } from "../../../../lib/api/client";
 import { useAuth } from "../../../../lib/auth/AuthContext";
+import { getCachedScan } from "../../../../lib/scanCache";
 import type {
   DecisionVerdict,
   ExtractionResult,
@@ -37,15 +38,7 @@ export default function ScanResultPage() {
 
   // Synchronous cache lookup for instant 0ms render
   const initialCache = React.useMemo(() => {
-    if (typeof window !== "undefined" && window.sessionStorage) {
-      try {
-        const item = sessionStorage.getItem(`triport_scan_${documentId}`);
-        return item ? JSON.parse(item) : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    return getCachedScan(documentId);
   }, [documentId]);
 
   const [loading, setLoading] = useState<boolean>(() => !initialCache?.pipeline);
