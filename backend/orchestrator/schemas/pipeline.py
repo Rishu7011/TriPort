@@ -94,7 +94,10 @@ class DecisionChoice(str):
 
 class DecisionRequest(BaseModel):
     """Body for POST /api/v1/documents/{id}/decision."""
-    officer_id: str = Field(..., description="UUID of the officer making the decision")
+    officer_id: str | None = Field(
+        default=None,
+        description="UUID of the officer making the decision (defaults to authenticated user)",
+    )
     decision: str = Field(
         ...,
         pattern="^(approve|flag|reject)$",

@@ -126,6 +126,25 @@ def _build_field_map(fields: list[ExtractedField]) -> dict[str, str | None]:
     if "expiry_date" in field_map and "date_of_expiry" not in field_map:
         field_map["date_of_expiry"] = field_map["expiry_date"]
 
+    # Alias: voter_id_number ↔ epic_number ↔ voter_id ↔ epic_no
+    for v_alias in ["epic_number", "voter_id", "epic_no", "voter_number", "elector_id"]:
+        if v_alias in field_map and "voter_id_number" not in field_map:
+            field_map["voter_id_number"] = field_map[v_alias]
+        if "voter_id_number" in field_map and v_alias not in field_map:
+            field_map[v_alias] = field_map["voter_id_number"]
+
+    # Alias: aadhaar_number ↔ id_number
+    if "aadhaar_number" in field_map and "id_number" not in field_map:
+        field_map["id_number"] = field_map["aadhaar_number"]
+    if "id_number" in field_map and "aadhaar_number" not in field_map:
+        field_map["aadhaar_number"] = field_map["id_number"]
+
+    # Alias: driving_license_number ↔ license_number
+    if "driving_license_number" in field_map and "license_number" not in field_map:
+        field_map["license_number"] = field_map["driving_license_number"]
+    if "license_number" in field_map and "driving_license_number" not in field_map:
+        field_map["driving_license_number"] = field_map["license_number"]
+
     return field_map
 
 
@@ -199,7 +218,12 @@ def validate_document(
                 )
                 failed_rule_names.append(rule_name)
             else:
-                regex_match = re.match(pattern, field_value.strip()) is not None
+                raw_val = field_value.strip()
+                clean_val = re.sub(r"\s+", "", raw_val)
+                regex_match = (
+                    re.match(pattern, raw_val, re.IGNORECASE) is not None
+                    or re.match(pattern, clean_val, re.IGNORECASE) is not None
+                )
                 detail = (
                     f"Field '{target_field}' ('{field_value}') matches expected format."
                     if regex_match

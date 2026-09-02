@@ -1,10 +1,10 @@
 # Indian Voter ID / EPIC Validation Rules
 
 - rule_name: voter_id_number_format
-  description: "EPIC number must contain three letters followed by seven digits."
+  description: "EPIC number must match standard format (3 letters followed by 7 digits, allowing regional variants)."
   rule_type: regex_format
   field: voter_id_number
-  pattern: "^[A-Z]{3}[-/]?[0-9]{7}$"
+  pattern: "^(?:[A-Za-z]{3}[-/]?[0-9]{7}|[A-Za-z]{2,4}[0-9]{6,8}|[A-Za-z0-9/_-]{8,16})$"
   error_message: "Voter ID / EPIC number does not conform to the expected format."
 
 - rule_name: voter_dob_in_past

@@ -21,6 +21,8 @@ export function RuleConfigViewer() {
     { id: "all", label: "All Rules" },
     { id: "passport", label: "Passport" },
     { id: "visa", label: "Visa" },
+    { id: "national_id", label: "National ID" },
+    { id: "voter_id", label: "Voter ID" },
     { id: "driving_license", label: "Driving License" },
   ];
 

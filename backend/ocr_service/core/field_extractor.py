@@ -405,7 +405,7 @@ def extract_fields(
                 if m_vid:
                     extracted["voter_id_number"] = ExtractedField(
                         field_name="voter_id_number",
-                        field_value=m_vid.group(0),
+                        field_value=m_vid.group(0).upper(),
                         confidence=conf,
                         extraction_method=ExtractionMethod.OCR,
                     )
@@ -551,13 +551,32 @@ def extract_fields(
                 if next_t and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
                     given_val = next_t
 
-        is_relational_name = any(r in text_upper for r in ["FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN", "W/O", "D/O", "S/O", "C/O"])
-        if any(k in text_upper for k in ["PASSENGER NAME", "HOLDER NAME", "NAME:"]) and not is_relational_name:
-            clean_name = re.sub(r"(PASSENGER NAME|HOLDER NAME|NAME:|\bNAME\b|:)", "", text, flags=re.IGNORECASE).strip()
+        is_relational_name = any(r in text_upper for r in ["FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN", "W/O", "D/O", "S/O", "C/O", "पिता", "पति"])
+        if any(k in text_upper for k in ["ELECTOR'S NAME", "ELECTORS NAME", "ELECTOR NAME", "मतदाता का नाम", "PASSENGER NAME", "HOLDER NAME", "NAME:"]) and not is_relational_name:
+            clean_name = re.sub(r"(ELECTOR'S NAME|ELECTORS NAME|ELECTOR NAME|मतदाता का नाम|PASSENGER NAME|HOLDER NAME|NAME:|\bNAME\b|:)", "", text, flags=re.IGNORECASE).strip()
             if clean_name and len(clean_name) > 2:
                 given_val = clean_name
             elif i + 1 < len(raw_lines):
                 given_val = raw_lines[i + 1][0].strip()
+
+        if is_relational_name and "father_name" not in extracted:
+            clean_rel = re.sub(r"(FATHER'S NAME|FATHERS NAME|FATHER NAME|HUSBAND'S NAME|HUSBANDS NAME|SPOUSE NAME|पिता का नाम|पति का नाम|W/O|D/O|S/O|C/O|:)", "", text, flags=re.IGNORECASE).strip()
+            if clean_rel and len(clean_rel) > 2:
+                extracted["father_name"] = ExtractedField(
+                    field_name="father_name",
+                    field_value=clean_rel,
+                    confidence=0.88,
+                    extraction_method=ExtractionMethod.OCR,
+                )
+            elif i + 1 < len(raw_lines):
+                next_rel = raw_lines[i + 1][0].strip()
+                if next_rel and not any(k in next_rel.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "EPIC"]):
+                    extracted["father_name"] = ExtractedField(
+                        field_name="father_name",
+                        field_value=next_rel,
+                        confidence=0.85,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
 
     if surname_val or given_val:
         full = f"{given_val} {surname_val}".strip() or surname_val or given_val
