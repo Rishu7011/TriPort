@@ -35,35 +35,36 @@ Border checkpoints process thousands of documents daily across **Airports, Land 
 * 📶 **Low-Connectivity Outposts**: Remote land borders lack reliable cloud access and require edge offline inference with sync.
 * ⚖️ **Legal & Evidentiary Gaps**: Inability to mathematically prove tampering or audit officer clearance records in court.
 
-**TriPort** solves this with a **LangGraph-orchestrated microservices architecture** that screens travelers in **< 800ms**, detects multi-identity anomalies across checkpoints, and immutably records all events into a **SHA-256 cryptographic hash-chained audit ledger**.
+**TriPort** solves this with a **LangGraph-orchestrated microservices architecture** that screens travelers in **~2 to 3 seconds** (and **< 800ms** for cached/edge checkpoints), detects multi-identity anomalies across checkpoints, and immutably records all events into a **SHA-256 cryptographic hash-chained audit ledger**.
 
 
 ---
 
 ## ✨ Key Highlights
 
-- ⚡ **Sub-Second Parallel DAG**: Initial ML workloads (**OCR + 5-Layer Tampering + Biometrics**) execute concurrently in parallel fan-out, cutting screening latency by **>60%**.
+- ⚡ **Sub-3-Second Parallel DAG**: Initial ML workloads (**EasyOCR / Gemini Vision + 5-Layer Tampering + Biometrics**) execute concurrently in parallel fan-out, meeting strict border clearance SLAs.
 - 🔍 **5-Layer Forensic Tampering Engine**:
-  - **Error Level Analysis (ELA)** recompression delta heatmaps uploaded to Supabase Storage.
+  - **Error Level Analysis (ELA)** difference heatmaps optimized to 800px JPEG (~60 KB) stored in Supabase Storage.
   - **EXIF Metadata & Software Signature Analysis**.
   - **Photo Boundary Discontinuity & Noise Variance (Sobel)**.
   - **Entry/Exit Stamp Perceptual Hash (dHash) Matching**.
   - **Typography & Stroke-Width Consistency Analysis**.
 - 👤 **State-of-the-Art Biometrics**:
-  - **AWS Rekognition CompareFaces & DetectFaces** cloud biometric comparison.
+  - **AWS Rekognition CompareFaces & DetectFaces** cloud biometric comparison ($90\%$ threshold).
   - **ArcFace 512-dimensional facial embeddings** (Cosine distance < 0.40) and DeepFace fallback.
-  - **ICAO 9303 layout heuristics** ensuring reliable portrait cropping across diverse document formats.
-  - **1:N PostgreSQL `pgvector` biometric deduplication & cluster tracking**.
+  - **OpenCV Haar cascade + ICAO 9303 layout heuristics** ensuring ultra-fast (~88ms) portrait cropping.
+  - **1:N PostgreSQL `pgvector` biometric deduplication & cluster tracking** in Mumbai (`ap-south-1`).
 - 🌐 **Cross-Checkpoint Face Graph Engine**:
   - Detects conflicting names and swapped document numbers across crossings.
   - **Impossible Travel Velocity Detection**: Flags sightings across different checkpoints within < 2 hours.
   - **Repeat Offender Auto-Escalation**: Automatically escalates risk tiers by +1 band if prior critical incidents exist.
 - 🔀 **Conditional Routing & Secondary Inspection**:
-  - **Conditional Node 1 (OCR Quality)**: Low-confidence scans dynamically route to **Google Gemini Vision Multimodal Fallback**.
+  - **Conditional Node 1 (OCR Quality)**: Low-confidence scans dynamically route to **Google Gemini Flash Multimodal Vision Fallback**.
   - **Conditional Node 2 (Threat Level)**: Scans with Risk >= 61, blacklist hits, or repeat offender alerts are automatically routed to the **Secondary Inspection Queue**.
 - 🔒 **Cryptographic SHA-256 Audit Ledger**:
   - Tamper-evident sequential hash chaining (`Block[N] = SHA256(Payload[N] || PrevHash || Timestamp)`).
-  - Mathematical proof of zero retroactive mutations via `verify_chain()`.
+  - Asynchronous background commits ensuring zero officer wait times during database hashing.
+  - Mathematical proof of zero retroactive mutations via `verify_chain()` (100% verified across all blocks).
   - Signed Supabase Storage URLs for evidentiary scans and live traveler photos.
 - 📡 **Edge Inference & Offline Sync**:
   - Standalone **ONNX Runtime** edge model runner for resource-constrained posts.
@@ -348,7 +349,8 @@ Separate environment files are configured for backend and frontend:
 **Backend (`backend/.env`):**
 ```bash
 cp backend/.env.example backend/.env
-# Configure DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# Configure DATABASE_URL (Supavisor port 6543, transaction mode),
+# SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY (for Flash LLM fallback),
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION=ap-south-1, FACE_VERIFICATION_PROVIDER=aws
 ```
 

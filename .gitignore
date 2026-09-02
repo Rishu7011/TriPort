@@ -189,6 +189,7 @@ $RECYCLE.BIN/
 *.temp
 *.ses
 scratch/
-plan.md
 phase.md
+plan.md
+PROJECT_STATUS_ANALYSIS.md
 graphify-out/
