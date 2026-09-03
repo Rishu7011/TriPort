@@ -108,7 +108,7 @@ PATTERNS = {
     "gender": re.compile(r"\b(SEX|GENDER)?\s*([MFX])\b", re.IGNORECASE),
     "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY)?\s*([A-Z]{3})\b", re.IGNORECASE),
     "aadhaar": re.compile(r"\b\d{4}\s+\d{4}\s+\d{4}\b"),
-    "dl_num": re.compile(r"\b(DL[- /]?[0-9A-Z/-]{8,18}|[A-Z]{2}[0-9]{2}[ -/:]?[0-9]{4,11}(?:[ -/:][0-9]{4,7})?)\b", re.IGNORECASE),
+    "dl_num": re.compile(r"\b([A-Z]{2}[- /]?[0-9]{1,2}[ -/:]?[0-9]{4,11}(?:[ -/:][0-9]{4,7})?|[A-Z]{2}[0-9A-Z/-]{10,20})\b", re.IGNORECASE),
     "permit_num": re.compile(r"\b(?:PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b|\b(?:IN|NP|BT|BD)[-/][0-9A-Z/-]{4,16}\b", re.IGNORECASE),
     "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
     "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.IGNORECASE),
