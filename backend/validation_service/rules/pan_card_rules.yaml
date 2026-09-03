@@ -1,4 +1,5 @@
 # Indian PAN Card Validation Rules
+# Severities supported: critical, high, medium
 
 - rule_name: pan_number_format
   description: "PAN must contain five letters, four digits, and one final letter."
@@ -6,6 +7,7 @@
   field: pan_number
   pattern: "^[A-Z]{5}[0-9]{4}[A-Z]$"
   error_message: "PAN number does not conform to the expected format (e.g. ABCDE1234F)."
+  severity: critical
 
 - rule_name: pan_dob_in_past
   description: "Card holder date of birth must be in the past."
@@ -13,3 +15,4 @@
   field: date_of_birth
   condition: "< today"
   error_message: "PAN card date of birth cannot be in the future."
+  severity: high

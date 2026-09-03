@@ -183,3 +183,33 @@ async def regional_validate(request: RegionalValidationRequest) -> ValidationRes
 async def list_regional_countries() -> list[str]:
     """Return all country codes that have a regional YAML rule file configured."""
     return get_supported_regional_countries()
+
+
+@router.get(
+    "/rules/{document_type}",
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve live YAML rule file contents for a document type",
+)
+async def get_doctype_rules(document_type: str) -> dict:
+    """Read the active YAML rules file from disk and return its content."""
+    from pathlib import Path
+    rules_dir = Path(__file__).resolve().parent.parent / "rules"
+    target_file = rules_dir / f"{document_type}_rules.yaml"
+    if not target_file.exists():
+        target_file = rules_dir / f"{document_type}.yaml"
+    if not target_file.exists():
+        target_file = rules_dir / "regional" / f"{document_type.upper()}.yaml"
+    if not target_file.exists():
+        target_file = rules_dir / "regional" / f"{document_type}.yaml"
+    if target_file.exists():
+        with open(target_file, "r", encoding="utf-8") as f:
+            return {
+                "document_type": document_type,
+                "file_name": target_file.name,
+                "yaml_content": f.read(),
+            }
+    return {
+        "document_type": document_type,
+        "file_name": None,
+        "yaml_content": "# No custom rules configured for this type",
+    }

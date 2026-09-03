@@ -10,26 +10,28 @@ generic passport/visa rules engine cannot handle.
 This module:
   1. Maps ISO-3166-1 alpha-2 (and alpha-3) nationality codes to their
      country-specific YAML rule file in validation_service/rules/regional/.
-  2. Reuses the *exact same* generic YAML rule interpreter from rules_engine.py
-     — no duplication of dispatch logic.
-  3. Applies regional rules *in addition to* (not instead of) the base
-     document-type rules. The caller composes results.
+  2. Reuses the generic YAML rule interpreter pattern from rules_engine.py.
+  3. Applies regional rules per document type in addition to the base
+     document-type rules.
   4. Gracefully returns an empty-pass result for countries without a
      dedicated regional rule file (rules are additive, not mandatory).
 
-Supported countries (Phase 3):
-  NP  — Nepal     (citizenship certificate + MRP passport)
-  BT  — Bhutan    (CID + passport)
-  BD  — Bangladesh (NID 10/13/17-digit + MRP passport)
-  MM  — Myanmar   (NRC + passport)
+Supported countries:
+  NP   — Nepal       (citizenship certificate + MRP passport)
+  BT   — Bhutan      (CID + passport)
+  BD   — Bangladesh  (NID 10/13/17-digit + MRP passport)
+  MM   — Myanmar     (NRC + passport)
+  IND  — India       (Passport + Voter ID/EPIC + PAN Card + Aadhaar)
 """
 
 from pathlib import Path
+import re
 from typing import Any
 import yaml
 
 from backend.logging_config import get_logger
 from backend.ocr_service.schemas.extraction import DocumentType, ExtractedField
+from backend.validation_service.core.date_logic import evaluate_date_condition
 from backend.validation_service.schemas.validation import (
     RuleResult,
     ValidationResponse,
@@ -43,42 +45,54 @@ REGIONAL_RULES_DIR = Path(__file__).resolve().parent.parent / "rules" / "regiona
 # Nationality normalization — accept both alpha-2 and alpha-3 codes
 # ---------------------------------------------------------------------------
 
-# Map of alpha-3 → alpha-2 for the ICAO nationality codes used in MRZ output
+# Map of alpha-3 → alpha-2 / standard regional file stems
 _ALPHA3_TO_ALPHA2: dict[str, str] = {
-    "NPL": "NP",  # Nepal
-    "BTN": "BT",  # Bhutan
-    "BGD": "BD",  # Bangladesh
-    "MMR": "MM",  # Myanmar
-    # Add more as regional coverage expands
+    "NPL": "NP",   # Nepal
+    "BTN": "BT",   # Bhutan
+    "BGD": "BD",   # Bangladesh
+    "MMR": "MM",   # Myanmar
+    "IND": "IND",  # India (maps to IND.yaml)
 }
 
 
 def _normalise_nationality(nationality: str) -> str:
     """
-    Normalise any nationality code to 2-letter ISO-3166-1 alpha-2.
+    Normalise any nationality code to standard country code.
 
     Accepts:
-      - 2-letter alpha-2 codes ('NP', 'BD', ...)
-      - 3-letter alpha-3 ICAO codes ('NPL', 'BGD', ...)
+      - 2-letter alpha-2 codes ('NP', 'BD', 'IN', ...)
+      - 3-letter alpha-3 ICAO codes ('NPL', 'BGD', 'IND', ...)
     """
     code = nationality.upper().strip()
+    if code in ("IN", "IND"):
+        return "IND"
     if len(code) == 3 and code in _ALPHA3_TO_ALPHA2:
         return _ALPHA3_TO_ALPHA2[code]
-    return code[:2]   # Truncate alpha-3 to alpha-2 as last resort
+    return code[:2]   # Truncate alpha-3 to alpha-2 as fallback
 
 
 # ---------------------------------------------------------------------------
 # YAML loading
 # ---------------------------------------------------------------------------
 
-def _load_regional_rules(country_code: str) -> list[dict[str, Any]]:
+def _load_regional_rules(
+    country_code: str,
+    document_type: DocumentType | str | None = None,
+) -> list[dict[str, Any]]:
     """
     Load country-specific YAML rules from rules/regional/<COUNTRY_CODE>.yaml.
+    Generically filters by document_type when provided.
 
     Hot-reload: re-read on every call (same guarantee as rules_engine.py).
     Returns empty list (not an error) if no regional file exists for the country.
     """
-    file_path = REGIONAL_RULES_DIR / f"{country_code.upper()}.yaml"
+    norm_code = _normalise_nationality(country_code)
+    file_path = REGIONAL_RULES_DIR / f"{norm_code.upper()}.yaml"
+
+    if not file_path.exists() and norm_code.upper() == "IND":
+        file_path = REGIONAL_RULES_DIR / "IN.yaml"
+    elif not file_path.exists() and norm_code.upper() == "IN":
+        file_path = REGIONAL_RULES_DIR / "IND.yaml"
 
     if not file_path.exists():
         logger.info(
@@ -89,13 +103,43 @@ def _load_regional_rules(country_code: str) -> list[dict[str, Any]]:
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            rules: list[dict[str, Any]] = yaml.safe_load(f) or []
+            raw_rules: Any = yaml.safe_load(f) or []
+
+        doc_type_str: str | None = None
+        if document_type:
+            doc_type_str = (
+                document_type.value
+                if hasattr(document_type, "value")
+                else str(document_type).lower()
+            )
+
+        selected_rules: list[dict[str, Any]] = []
+
+        if isinstance(raw_rules, dict):
+            # Dict-based grouping: {"passport": [...], "voter_id": [...]}
+            if doc_type_str and doc_type_str in raw_rules:
+                selected_rules.extend(raw_rules[doc_type_str])
+            selected_rules.extend(raw_rules.get("common", []))
+            selected_rules.extend(raw_rules.get("all", []))
+        elif isinstance(raw_rules, list):
+            # List-based rules: filter by document_type if present
+            for rule in raw_rules:
+                rule_doc_type = rule.get("document_type")
+                if rule_doc_type:
+                    if doc_type_str and rule_doc_type.lower() == doc_type_str:
+                        selected_rules.append(rule)
+                else:
+                    # General country rule (e.g. dob_in_past) without specific doctype
+                    selected_rules.append(rule)
+
         logger.info(
             "Loaded regional rules",
             country_code=country_code,
-            count=len(rules),
+            document_type=doc_type_str,
+            count=len(selected_rules),
         )
-        return rules
+        return selected_rules
+
     except Exception as e:
         logger.error(
             "Failed to parse regional YAML rule file",
@@ -115,15 +159,11 @@ def apply_regional_rules(
     fields: list[ExtractedField],
 ) -> ValidationResponse:
     """
-    Apply country-specific format rules for a given nationality.
-
-    This function reuses the *same* dispatch logic as validate_document()
-    in rules_engine.py rather than duplicating it — it imports and delegates
-    directly to the generic dispatcher with the regional rule set injected.
+    Apply country-specific format rules for a given nationality and document type.
 
     Args:
         nationality:    ISO alpha-2 or alpha-3 nationality code from the document.
-        document_type:  Classified document type (for context logging).
+        document_type:  Classified document type.
         fields:         Extracted document fields.
 
     Returns:
@@ -141,7 +181,7 @@ def apply_regional_rules(
         field_count=len(fields),
     )
 
-    regional_rules = _load_regional_rules(country_code)
+    regional_rules = _load_regional_rules(country_code, document_type)
 
     if not regional_rules:
         # No country-specific rules — return a pass with informational detail
@@ -157,18 +197,13 @@ def apply_regional_rules(
                         f"Regional format rules are not configured for nationality code "
                         f"'{country_code}'. Standard document-type rules apply."
                     ),
+                    severity="low",
                 )
             ],
         )
 
-    # Delegate to the generic YAML rule dispatcher
-    # We import here (not at module top) to avoid circular imports since
-    # rules_engine also imports from this package indirectly.
-    from backend.validation_service.core.rules_engine import (
-        _build_field_map,
-    )
-    import re
-    from backend.validation_service.core.date_logic import evaluate_date_condition
+    # Delegate to the generic YAML rule interpreter pattern
+    from backend.validation_service.core.rules_engine import _build_field_map
 
     field_map = _build_field_map(fields)
     results: list[RuleResult] = []
@@ -179,14 +214,35 @@ def apply_regional_rules(
         rule_type: str | None = rule.get("rule_type")
         target_field: str = rule.get("field", "").lower()
         error_msg: str = rule.get("error_message", "Regional validation rule failed.")
+        severity: str = rule.get("severity", "medium")
         field_value = field_map.get(target_field)
 
         if rule_type == "date_check":
+            # If target field is missing from document, check if optional/general
+            if not field_value:
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=False,
+                        detail=f"Missing field '{target_field}' for date check.",
+                        severity=severity,
+                    )
+                )
+                failed_rule_names.append(rule_name)
+                continue
+
             condition: str = rule.get("condition", "> today")
             passed, detail = evaluate_date_condition(field_value, condition)
             if not passed and error_msg:
                 detail = f"{error_msg} ({detail})"
-            results.append(RuleResult(rule_name=rule_name, passed=passed, detail=detail))
+            results.append(
+                RuleResult(
+                    rule_name=rule_name,
+                    passed=passed,
+                    detail=detail,
+                    severity=severity,
+                )
+            )
             if not passed:
                 failed_rule_names.append(rule_name)
 
@@ -198,6 +254,7 @@ def apply_regional_rules(
                         rule_name=rule_name,
                         passed=False,
                         detail=f"Missing field '{target_field}' for regional format check.",
+                        severity=severity,
                     )
                 )
                 failed_rule_names.append(rule_name)
@@ -209,7 +266,14 @@ def apply_regional_rules(
                     if regex_match
                     else f"{error_msg} (Value: '{field_value}', pattern: '{pattern}')"
                 )
-                results.append(RuleResult(rule_name=rule_name, passed=regex_match, detail=detail))
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=regex_match,
+                        detail=detail,
+                        severity=severity,
+                    )
+                )
                 if not regex_match:
                     failed_rule_names.append(rule_name)
 

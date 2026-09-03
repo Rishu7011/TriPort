@@ -17,6 +17,7 @@ const DOCUMENT_TYPES: { id: DocumentType; label: string; icon: string }[] = [
   { id: "passport", label: "PASSPORT", icon: "badge" },
   { id: "visa", label: "VISA", icon: "assignment" },
   { id: "national_id", label: "NATIONAL ID", icon: "credit_card" },
+  { id: "pan_card", label: "PAN CARD", icon: "contact_page" },
   { id: "voter_id", label: "VOTER ID", icon: "how_to_vote" },
   { id: "driving_license", label: "DRIVING LICENSE", icon: "drive_eta" },
   { id: "permit", label: "PERMIT", icon: "description" },
@@ -156,7 +157,7 @@ export function DocumentUploadScreen({
                 ICAO 9303 / NATIONAL STD
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
               {DOCUMENT_TYPES.map((dt) => {
                 const active = selectedDocType === dt.id;
                 return (

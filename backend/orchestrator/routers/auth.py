@@ -60,7 +60,14 @@ async def login(req: LoginRequest):
     """
     Authenticate officer or administrative user with email & password.
     """
-    user_record = DEMO_USERS.get(req.email.lower().strip())
+    email_or_badge = req.email.strip()
+    user_record = DEMO_USERS.get(email_or_badge.lower())
+    if not user_record:
+        for u in DEMO_USERS.values():
+            if u.get("badge_number", "").upper() == email_or_badge.upper():
+                user_record = u
+                break
+
     if not user_record or not verify_password(req.password, user_record["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

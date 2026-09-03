@@ -1,4 +1,5 @@
 # Visa Validation Rules
+# Severities supported: critical, high, medium
 
 - rule_name: visa_expiry_not_passed
   description: "Visa validity must not be expired."
@@ -6,6 +7,7 @@
   field: entry_validity
   condition: "> today"
   error_message: "Visa validity period has lapsed."
+  severity: critical
 
 - rule_name: visa_number_format
   description: "Visa number format check."
@@ -13,6 +15,7 @@
   field: visa_number
   pattern: "^[A-Z0-9]{8,12}$"
   error_message: "Visa identifier format invalid."
+  severity: critical
 
 - rule_name: visa_stay_duration_valid
   description: "Stay duration must be a positive integer days/months."
@@ -20,3 +23,4 @@
   field: stay_duration
   pattern: "^[0-9]{1,3}(\\s*(days|months|d|m))?$"
   error_message: "Invalid stay duration format."
+  severity: medium

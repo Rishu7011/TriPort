@@ -12,13 +12,16 @@
 #     Pattern: DD-DD-DD-DDDDD (with possible variations in digits)
 
 - rule_name: np_passport_number_format
+  document_type: passport
   description: "Nepali passport number must follow format NA followed by 7 digits."
   rule_type: regex_format
   field: passport_number
   pattern: "^NA\\d{7}$|^[0-9]{8}$"
   error_message: "Nepali passport number does not match expected format (NA1234567 or 8-digit)."
+  severity: critical
 
 - rule_name: np_citizenship_id_format
+  document_type: national_id
   description: >
     Nepali citizenship certificate number follows the format
     DD-DD-DD-DDDDD (district-zone-year-serial, hyphen-separated).
@@ -26,6 +29,7 @@
   field: id_number
   pattern: "^\\d{2}-\\d{2}-\\d{2,4}-\\d{4,6}$"
   error_message: "Nepali citizenship certificate number format is invalid (expected DD-DD-YY-NNNNN)."
+  severity: critical
 
 - rule_name: np_dob_in_past
   description: "Date of birth must be in the past."
@@ -33,10 +37,13 @@
   field: date_of_birth
   condition: "< today"
   error_message: "Date of birth is invalid or in the future."
+  severity: high
 
 - rule_name: np_doc_expiry_valid
+  document_type: passport
   description: "Document expiry date (if present) must be in the future."
   rule_type: date_check
   field: date_of_expiry
   condition: "> today"
   error_message: "Nepali travel document has expired."
+  severity: critical

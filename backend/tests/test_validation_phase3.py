@@ -972,3 +972,73 @@ class TestEndToEndChain:
         assert non_expiry_failures == [], (
             f"Extra unexpected failures beyond expiry: {non_expiry_failures}"
         )
+
+
+class TestUniversalAndRegionalCoexistence:
+    """Tests verifying that universal and regional rules execute together with severities."""
+
+    def test_indian_passport_coexistence(self):
+        fields = [
+            ExtractedField(field_name="passport_number", field_value="Z1234567"),
+            ExtractedField(field_name="date_of_expiry", field_value=future_date(400)),
+            ExtractedField(field_name="date_of_birth", field_value=years_ago(30)),
+            ExtractedField(field_name="nationality", field_value="IND"),
+        ]
+        response = validate_document(DocumentType.PASSPORT, fields)
+        assert response.passed is True
+        rule_names = {r.rule_name for r in response.rule_results}
+        # Universal rules present
+        assert "passport_number_format" in rule_names
+        assert "passport_validity_window_sufficient" in rule_names
+        assert "expiry_not_passed" in rule_names
+        # Regional IND rules present
+        assert "ind_passport_number_format" in rule_names
+        assert "ind_passport_expiry_valid" in rule_names
+        # Severities populated
+        for r in response.rule_results:
+            assert r.severity in ("critical", "high", "medium", "low")
+
+    def test_indian_voter_id_coexistence(self):
+        fields = [
+            ExtractedField(field_name="voter_id_number", field_value="ABC1234567"),
+            ExtractedField(field_name="date_of_birth", field_value=years_ago(28)),
+        ]
+        response = validate_document(DocumentType.VOTER_ID, fields)
+        assert response.passed is True
+        rule_names = {r.rule_name for r in response.rule_results}
+        assert "voter_id_number_format" in rule_names
+        assert "voter_dob_in_past" in rule_names
+        for r in response.rule_results:
+            assert r.severity in ("critical", "high", "medium")
+
+    def test_nepali_national_id_coexistence(self):
+        fields = [
+            ExtractedField(field_name="id_number", field_value="05-02-80-12345"),
+            ExtractedField(field_name="date_of_birth", field_value=years_ago(32)),
+            ExtractedField(field_name="nationality", field_value="NPL"),
+        ]
+        response = validate_document(DocumentType.NATIONAL_ID, fields)
+        assert response.passed is True
+        rule_names = {r.rule_name for r in response.rule_results}
+        # Universal
+        assert "id_number_format" in rule_names
+        assert "id_dob_in_past" in rule_names
+        # Regional NP
+        assert "np_citizenship_id_format" in rule_names
+        assert "np_dob_in_past" in rule_names
+        for r in response.rule_results:
+            assert r.severity in ("critical", "high", "medium")
+
+    def test_indian_pan_card_coexistence(self):
+        fields = [
+            ExtractedField(field_name="pan_number", field_value="ABCDE1234F"),
+            ExtractedField(field_name="date_of_birth", field_value=years_ago(35)),
+        ]
+        response = validate_document(DocumentType.PAN_CARD, fields)
+        assert response.passed is True
+        rule_names = {r.rule_name for r in response.rule_results}
+        assert "pan_number_format" in rule_names
+        assert "pan_dob_in_past" in rule_names
+        for r in response.rule_results:
+            assert r.severity in ("critical", "high", "medium")
+

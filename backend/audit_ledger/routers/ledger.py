@@ -41,6 +41,34 @@ async def create_event(
         )
 
 
+@router.get("/", response_model=list[LedgerEventResponse])
+async def list_recent_events(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(AuditLedgerEntry)
+        .order_by(AuditLedgerEntry.sequence_num.desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    rows = list(res.scalars().all())
+    return [
+        LedgerEventResponse(
+            id=str(row.id),
+            sequence_num=row.sequence_num,
+            event_type=row.event_type,
+            document_id=str(row.scan_event_id) if row.scan_event_id else None,
+            officer_id=str(row.officer_id) if row.officer_id else None,
+            payload_hash=row.payload_hash,
+            prev_record_hash=row.prev_record_hash,
+            record_hash=row.record_hash,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
 @router.get("/verify", response_model=ChainVerificationResponse)
 async def verify_ledger(db: AsyncSession = Depends(get_db)):
     return await verify_chain(db=db)

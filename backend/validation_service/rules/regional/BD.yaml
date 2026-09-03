@@ -14,13 +14,16 @@
 #     All three must be accepted.
 
 - rule_name: bd_passport_number_format
+  document_type: passport
   description: "Bangladeshi MRP passport number must be 2 uppercase letters followed by 7 digits."
   rule_type: regex_format
   field: passport_number
   pattern: "^[A-Z]{2}\\d{7}$"
   error_message: "Bangladeshi passport number does not match expected format (AB1234567)."
+  severity: critical
 
 - rule_name: bd_nid_format
+  document_type: national_id
   description: >
     Bangladesh NID may be 10, 13, or 17 digits.
     Old NID: 10 digits. Intermediate: 13 digits. Smart NID: 17 digits.
@@ -28,6 +31,7 @@
   field: id_number
   pattern: "^(\\d{10}|\\d{13}|\\d{17})$"
   error_message: "Bangladesh NID must be 10, 13, or 17 digits (all formats accepted)."
+  severity: critical
 
 - rule_name: bd_dob_in_past
   description: "Date of birth must be in the past."
@@ -35,17 +39,22 @@
   field: date_of_birth
   condition: "< today"
   error_message: "Date of birth is invalid or in the future."
+  severity: high
 
 - rule_name: bd_doc_expiry_valid
+  document_type: passport
   description: "Bangladeshi document expiry date must be in the future."
   rule_type: date_check
   field: date_of_expiry
   condition: "> today"
   error_message: "Bangladeshi travel document has expired."
+  severity: critical
 
 - rule_name: bd_passport_validity_sufficient
+  document_type: passport
   description: "Bangladeshi passport must have at least 6 months of remaining validity."
   rule_type: date_check
   field: date_of_expiry
   condition: "> today + 180d"
   error_message: "Bangladeshi passport has less than 6 months validity remaining."
+  severity: high

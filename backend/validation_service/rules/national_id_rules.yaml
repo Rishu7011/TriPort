@@ -1,4 +1,5 @@
 # National ID Validation Rules
+# Severities supported: critical, high, medium
 
 - rule_name: id_number_format
   description: "National ID must be alphanumeric, or a 12-digit Aadhaar number grouped 4-4-4."
@@ -6,6 +7,7 @@
   field: id_number
   pattern: "^(?:[A-Z0-9-]{6,18}|[0-9]{4}\\s[0-9]{4}\\s[0-9]{4})$"
   error_message: "National ID format is invalid."
+  severity: critical
 
 - rule_name: id_dob_in_past
   description: "Date of birth must be in the past."
@@ -13,3 +15,4 @@
   field: date_of_birth
   condition: "< today"
   error_message: "ID Date of Birth cannot be in the future."
+  severity: high

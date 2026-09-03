@@ -1,0 +1,92 @@
+# India — Country-Specific Document Format Rules
+#
+# Context: India is the primary jurisdiction for TriPort domestic checkpoints,
+# transit hubs, and border crossings. Covers Indian Passport, Voter ID (EPIC),
+# PAN Card, and National ID (Aadhaar).
+#
+# Sources:
+#   - Indian Passport: 1 letter followed by 7 digits (e.g. "A1234567", "Z7654321")
+#   - Indian Voter ID (EPIC): 3 letters followed by 7 digits or regional variant
+#   - Indian PAN Card: 5 letters, 4 digits, 1 letter (e.g. "ABCDE1234F")
+#   - Indian Aadhaar (National ID): 12 digits, often formatted as 4-4-4 with spaces
+
+- rule_name: ind_passport_number_format
+  document_type: passport
+  description: "Indian passport number must be 1 uppercase letter followed by 7 digits."
+  rule_type: regex_format
+  field: passport_number
+  pattern: "^[A-Z][0-9]{7}$"
+  error_message: "Indian passport number does not match expected format (1 letter + 7 digits, e.g. Z1234567)."
+  severity: critical
+
+- rule_name: ind_passport_expiry_valid
+  document_type: passport
+  description: "Indian passport expiry date must be in the future."
+  rule_type: date_check
+  field: date_of_expiry
+  condition: "> today"
+  error_message: "Indian passport has expired."
+  severity: critical
+
+- rule_name: ind_passport_validity_sufficient
+  document_type: passport
+  description: "Indian passport must have at least 6 months remaining validity."
+  rule_type: date_check
+  field: date_of_expiry
+  condition: "> today + 180d"
+  error_message: "Indian passport has less than 6 months validity remaining."
+  severity: high
+
+- rule_name: voter_id_number_format
+  document_type: voter_id
+  description: "Indian Voter ID / EPIC number must match standard format (3 letters followed by 7 digits)."
+  rule_type: regex_format
+  field: voter_id_number
+  pattern: "^(?:[A-Za-z]{3}[-/]?[0-9]{7}|[A-Za-z]{2,4}[0-9]{6,8}|[A-Za-z0-9/_-]{8,16})$"
+  error_message: "Indian Voter ID / EPIC number does not conform to the expected format."
+  severity: critical
+
+- rule_name: voter_dob_in_past
+  document_type: voter_id
+  description: "Elector date of birth must be in the past."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "Voter ID date of birth cannot be in the future."
+  severity: high
+
+- rule_name: pan_number_format
+  document_type: pan_card
+  description: "Indian PAN must contain five letters, four digits, and one final letter."
+  rule_type: regex_format
+  field: pan_number
+  pattern: "^[A-Z]{5}[0-9]{4}[A-Z]$"
+  error_message: "Indian PAN number does not conform to the expected format (e.g. ABCDE1234F)."
+  severity: critical
+
+- rule_name: pan_dob_in_past
+  document_type: pan_card
+  description: "Card holder date of birth must be in the past."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "PAN card date of birth cannot be in the future."
+  severity: high
+
+- rule_name: ind_aadhaar_format
+  document_type: national_id
+  description: "Indian Aadhaar number must be 12 digits (optionally 4-4-4 space grouped)."
+  rule_type: regex_format
+  field: id_number
+  pattern: "^(?:[0-9]{4}\\s[0-9]{4}\\s[0-9]{4}|[0-9]{12})$"
+  error_message: "Indian Aadhaar format is invalid (expected 12 digits)."
+  severity: critical
+
+- rule_name: ind_id_dob_in_past
+  document_type: national_id
+  description: "Date of birth must be in the past."
+  rule_type: date_check
+  field: date_of_birth
+  condition: "< today"
+  error_message: "ID Date of Birth cannot be in the future."
+  severity: high

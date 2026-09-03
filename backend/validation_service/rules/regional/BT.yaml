@@ -11,13 +11,16 @@
 #     Format: YYYYDDDDDD (year + unique serial — 11 digits total).
 
 - rule_name: bt_passport_number_format
+  document_type: passport
   description: "Bhutanese passport number must follow BH or BT prefix + 6-7 digits."
   rule_type: regex_format
   field: passport_number
   pattern: "^(BH|BT)\\d{6,7}$"
   error_message: "Bhutanese passport number does not match expected format (BH1234567 or BT1234567)."
+  severity: critical
 
 - rule_name: bt_citizenship_id_format
+  document_type: national_id
   description: >
     Bhutan Citizenship Identity Card (CID) number must be exactly 11 digits
     (Civil Registration and Census Department format).
@@ -25,6 +28,7 @@
   field: id_number
   pattern: "^\\d{11}$"
   error_message: "Bhutan CID number must be exactly 11 numeric digits."
+  severity: critical
 
 - rule_name: bt_dob_in_past
   description: "Date of birth must be in the past."
@@ -32,10 +36,13 @@
   field: date_of_birth
   condition: "< today"
   error_message: "Date of birth is invalid or in the future."
+  severity: high
 
 - rule_name: bt_doc_expiry_valid
+  document_type: passport
   description: "Document expiry date must be in the future."
   rule_type: date_check
   field: date_of_expiry
   condition: "> today"
   error_message: "Bhutanese travel document has expired."
+  severity: critical

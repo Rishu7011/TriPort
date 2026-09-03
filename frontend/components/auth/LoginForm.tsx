@@ -3,208 +3,285 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/auth/AuthContext";
-import { Shield, Lock, Mail, ArrowRight, AlertCircle, KeyRound } from "lucide-react";
+import {
+  Shield,
+  Lock,
+  BadgeAlert,
+  ArrowRight,
+  AlertTriangle,
+  KeyRound,
+  CheckCircle2,
+  Cpu,
+  UserCheck,
+} from "lucide-react";
+
+const PRECONFIGURED_ACCOUNTS = [
+  {
+    role: "OFFICER",
+    badge: "TP-7492",
+    email: "officer@triport.gov",
+    pass: "officer123",
+    color: "border-[#c0f500] text-[#c0f500]",
+    desc: "Primary Screening & Bio Match",
+  },
+  {
+    role: "SUPERVISOR",
+    badge: "TP-SUP-014",
+    email: "supervisor@triport.gov",
+    pass: "supervisor123",
+    color: "border-[#feb700] text-[#feb700]",
+    desc: "Manual Override & Hold Bays",
+  },
+  {
+    role: "AUDITOR",
+    badge: "TP-AUD-990",
+    email: "auditor@triport.gov",
+    pass: "auditor123",
+    color: "border-[#38bdf8] text-[#38bdf8]",
+    desc: "Cryptographic Ledger Access",
+  },
+  {
+    role: "ADMINISTRATOR",
+    badge: "TP-ADM-001",
+    email: "admin@triport.gov",
+    pass: "admin123",
+    color: "border-[#ff3b30] text-[#ffdad6]",
+    desc: "Rule & Threshold Policies",
+  },
+];
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [badgeOrEmail, setBadgeOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hardwareKeyActive, setHardwareKeyActive] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setError("Please enter both email and password.");
+  const handleLogin = async (e?: React.FormEvent, overrideEmail?: string, overridePass?: string) => {
+    if (e) e.preventDefault();
+    const idToUse = overrideEmail || badgeOrEmail;
+    const passToUse = overridePass || password;
+
+    if (!idToUse || !passToUse) {
+      setError("ENTER BOTH OFFICER BADGE ID / EMAIL AND SECURITY PASSCODE.");
       return;
     }
     setError(null);
     setLoading(true);
     try {
-      const user = await login(email, password);
-      // Route based on role
+      const user = await login(idToUse.trim(), passToUse.trim());
       if (user.role === "auditor") {
         router.push("/audit");
+      } else if (user.role === "admin") {
+        router.push("/command/admin");
       } else {
         router.push("/");
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Authentication failed. Please verify credentials or security badge.";
-      setError(errMsg);
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : "Authentication failed. Verify credentials or physical security token.";
+      setError(errMsg.toUpperCase());
     } finally {
       setLoading(false);
     }
   };
 
-  const quickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
+  const handleSelectPreconfigured = (email: string, pass: string) => {
+    setBadgeOrEmail(email);
+    setPassword(pass);
     setError(null);
+    handleLogin(undefined, email, pass);
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      {/* Terminal Card */}
-      <div className="bg-surface border border-border rounded-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        {/* Subtle top brand hairline */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-brand to-transparent" />
+    <div className="relative z-10 w-full max-w-[520px] bg-[#141517] border border-[#2D3135] p-6 shadow-2xl flex flex-col gap-4">
+      {/* Top Accent Bar: High Contrast Hard Visual Boundary */}
+      <div className="h-1 -mt-6 -mx-6 bg-[#c0f500] shadow-[0_0_12px_#c0f500]"></div>
 
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded bg-surface-raised border border-border text-brand mb-3">
-            <Shield size={26} strokeWidth={1.5} />
+      {/* Module Header: Insignia + Gateway Pill */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#1B1C1E] border border-[#2D3135] flex items-center justify-center text-[#c0f500]">
+            <Shield size={18} />
           </div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text uppercase">
-            TriPort Access Control
-          </h1>
-          <p className="font-mono text-xs text-text-muted mt-1 uppercase tracking-wider">
-            Restricted National Security Interface
-          </p>
-        </div>
-
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-5 p-3 rounded bg-risk-critical/10 border border-risk-critical/30 flex items-start gap-2.5 text-risk-critical text-xs">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <span className="font-body">{error}</span>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label
-              htmlFor="email"
-              className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1.5"
-            >
-              Officer Identity / Email
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                <Mail size={16} strokeWidth={1.5} />
-              </span>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="officer@triport.gov"
-                className="w-full h-11 pl-10 pr-3 bg-bg border border-border rounded text-text font-mono text-xs placeholder:text-text-muted/60 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-colors"
-              />
+            <div className="font-mono text-xs text-[#c0f500] tracking-widest leading-none font-bold uppercase">
+              TRIPORT GATEWAY
+            </div>
+            <div className="font-mono text-[10px] text-[#8e9479] tracking-wider leading-none mt-1">
+              ENCLAVE SEC-ZONE // 01
             </div>
           </div>
+        </div>
+        <div className="bg-[#1B1C1E] border border-[#2D3135] px-2 py-1 flex items-center gap-1.5">
+          <span className="w-2 h-2 bg-[#c0f500]"></span>
+          <span className="font-mono text-[10px] text-white uppercase tracking-wider">
+            STATION-04 ONLINE
+          </span>
+        </div>
+      </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1.5"
-            >
-              Security Passcode
+      {/* Title & Classification Badge */}
+      <div className="mt-2 flex flex-col gap-1">
+        <h1 className="font-mono text-sm uppercase text-white tracking-tight font-bold">
+          OFFICER AUTHENTICATION // RESTRICTED ACCESS
+        </h1>
+        <div className="bg-[#0D0E10] border border-[#2D3135] px-2.5 py-1.5 flex items-center justify-between">
+          <span className="font-mono text-[10px] text-[#8e9479] uppercase">CLASSIFICATION</span>
+          <span className="font-mono text-[10px] text-[#c0f500] font-bold tracking-widest uppercase">
+            LEVEL 3: TACTICAL ENCLAVE
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-[#93000a] border-l-4 border-[#ff3b30] text-[#ffdad6] font-mono text-xs flex items-center gap-2">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Form Inputs */}
+      <form onSubmit={(e) => handleLogin(e)} className="flex flex-col gap-4 mt-1">
+        {/* Badge ID Field */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <label className="font-mono text-[10px] uppercase text-[#8e9479] font-bold">
+              01. OFFICER BADGE ID OR EMAIL
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                <Lock size={16} strokeWidth={1.5} />
-              </span>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full h-11 pl-10 pr-3 bg-bg border border-border rounded text-text font-mono text-xs placeholder:text-text-muted/60 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-colors"
-              />
-            </div>
+            <span className="font-mono text-[9px] text-[#c0f500] uppercase tracking-wider flex items-center gap-1">
+              <CheckCircle2 size={12} />
+              CHIP VERIFIED
+            </span>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-11 mt-2 bg-brand hover:bg-white text-bg font-display text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_12px_rgba(166,255,77,0.25)]"
-          >
-            {loading ? (
-              <span className="font-mono text-xs">Authenticating...</span>
-            ) : (
-              <>
-                <span>Access Terminal</span>
-                <ArrowRight size={16} strokeWidth={2} />
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Demo Fast Fill Credentials */}
-        <div className="mt-6 pt-5 border-t border-border">
-          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase text-text-muted mb-2.5">
-            <KeyRound size={12} />
-            <span>Pre-Configured Evaluation Profiles:</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => quickFill("officer@triport.gov", "officer123")}
-              className="p-2 bg-surface-raised hover:bg-border border border-border rounded text-left transition-colors cursor-pointer group"
-            >
-              <div className="font-mono text-[11px] text-brand font-semibold group-hover:text-white">
-                Officer
-              </div>
-              <div className="font-mono text-[10px] text-text-muted truncate">
-                officer@triport.gov
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                quickFill("supervisor@triport.gov", "supervisor123")
-              }
-              className="p-2 bg-surface-raised hover:bg-border border border-border rounded text-left transition-colors cursor-pointer group"
-            >
-              <div className="font-mono text-[11px] text-risk-medium font-semibold group-hover:text-white">
-                Supervisor
-              </div>
-              <div className="font-mono text-[10px] text-text-muted truncate">
-                supervisor@triport.gov
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => quickFill("auditor@triport.gov", "auditor123")}
-              className="p-2 bg-surface-raised hover:bg-border border border-border rounded text-left transition-colors cursor-pointer group"
-            >
-              <div className="font-mono text-[11px] text-risk-high font-semibold group-hover:text-white">
-                Auditor
-              </div>
-              <div className="font-mono text-[10px] text-text-muted truncate">
-                auditor@triport.gov
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => quickFill("admin@triport.gov", "admin123")}
-              className="p-2 bg-surface-raised hover:bg-border border border-border rounded text-left transition-colors cursor-pointer group"
-            >
-              <div className="font-mono text-[11px] text-risk-critical font-semibold group-hover:text-white">
-                Admin
-              </div>
-              <div className="font-mono text-[10px] text-text-muted truncate">
-                admin@triport.gov
-              </div>
-            </button>
+          <div className="relative bg-[#0D0E10] border border-[#2D3135] focus-within:border-[#c0f500] flex items-center px-3 py-2.5 transition-colors">
+            <BadgeAlert size={16} className="text-[#8e9479] mr-2 shrink-0" />
+            <input
+              type="text"
+              autoComplete="username"
+              required
+              value={badgeOrEmail}
+              onChange={(e) => setBadgeOrEmail(e.target.value)}
+              placeholder="e.g. officer@triport.gov OR TP-7492..."
+              className="w-full bg-transparent font-mono text-xs text-white focus:outline-none uppercase tracking-wider placeholder:text-[#8e9479]/40"
+            />
+            <span className="font-mono text-[10px] text-[#8e9479] bg-[#1B1C1E] px-1.5 py-0.5 ml-2 border border-[#2D3135]">
+              UID
+            </span>
           </div>
         </div>
 
-        {/* Footer Security Notice */}
-        <div className="mt-5 text-center">
-          <p className="font-mono text-[10px] text-text-muted/70">
-            SHA-256 Audit Chained • ISO 27001 Compliant Terminal
-          </p>
+        {/* Security Passcode Field */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <label className="font-mono text-[10px] uppercase text-[#8e9479] font-bold">
+              02. SECURITY PASSCODE
+            </label>
+            <span className="font-mono text-[9px] text-[#8e9479] uppercase tracking-wider">
+              HSM ENCLAVE PIN
+            </span>
+          </div>
+          <div className="relative bg-[#0D0E10] border border-[#2D3135] focus-within:border-[#c0f500] flex items-center px-3 py-2.5 transition-colors">
+            <Lock size={16} className="text-[#8e9479] mr-2 shrink-0" />
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              className="w-full bg-transparent font-mono text-xs text-white focus:outline-none tracking-widest placeholder:text-[#8e9479]/40"
+            />
+            <span className="font-mono text-[10px] text-[#8e9479] bg-[#1B1C1E] px-1.5 py-0.5 ml-2 border border-[#2D3135]">
+              PIN
+            </span>
+          </div>
         </div>
+
+        {/* Hardware Smart Card Auth Option */}
+        <div
+          onClick={() => setHardwareKeyActive(!hardwareKeyActive)}
+          className={`p-2.5 border flex items-center justify-between cursor-pointer transition-colors ${
+            hardwareKeyActive
+              ? "bg-[#161f00] border-[#c0f500] text-[#c0f500]"
+              : "bg-[#0D0E10] border-[#2D3135] text-[#8e9479] hover:bg-[#1B1C1E]"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Cpu size={15} />
+            <span className="font-mono text-[10px] uppercase font-bold">
+              FIPS 140-3 HARDWARE TOKEN ENCLAVE
+            </span>
+          </div>
+          <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-[#141517] border border-[#2D3135]">
+            {hardwareKeyActive ? "INSERTED" : "OPTIONAL"}
+          </span>
+        </div>
+
+        {/* Submit Action */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3 bg-[#c0f500] hover:bg-white text-[#121315] font-mono text-xs font-bold tracking-widest uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md disabled:opacity-50 mt-1"
+        >
+          {loading ? (
+            <span>VERIFYING CRYPTOGRAPHIC BADGE...</span>
+          ) : (
+            <>
+              <span>ESTABLISH SECURE TERMINAL SESSION</span>
+              <ArrowRight size={15} />
+            </>
+          )}
+        </button>
+      </form>
+
+      {/* 1-CLICK QUICK LOGIN WITH ANY OF THE 4 OPERATIONAL ACCOUNTS */}
+      <div className="mt-2 pt-3 border-t border-[#2D3135] flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase text-[#8e9479] font-bold tracking-wider flex items-center gap-1.5">
+            <KeyRound size={12} className="text-[#c0f500]" />
+            ONE-CLICK ACCOUNT ACCESS (CLICK TO LOGIN)
+          </span>
+          <span className="font-mono text-[9px] text-[#8e9479]">4 ACTIVE ROLES</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {PRECONFIGURED_ACCOUNTS.map((acc) => (
+            <button
+              key={acc.role}
+              type="button"
+              onClick={() => handleSelectPreconfigured(acc.email, acc.pass)}
+              className="p-2.5 bg-[#0D0E10] hover:bg-[#1B1C1E] border border-[#2D3135] hover:border-[#c0f500] text-left transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className={`font-mono text-[11px] font-bold uppercase tracking-wider ${acc.color}`}>
+                  {acc.role}
+                </span>
+                <span className="font-mono text-[9px] text-[#8e9479] bg-[#141517] px-1 py-0.5 border border-[#2D3135]">
+                  {acc.badge}
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-[#c4caac] truncate">
+                {acc.email}
+              </div>
+              <div className="font-mono text-[9px] text-[#8e9479] flex items-center justify-between mt-1 pt-1 border-t border-[#1B1C1E]">
+                <span>PASS: {acc.pass}</span>
+                <ArrowRight size={10} className="text-[#8e9479] group-hover:text-[#c0f500] transition-colors" />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom Footer Notice */}
+      <div className="pt-2 border-t border-[#2D3135] text-center font-mono text-[10px] text-[#8e9479] leading-relaxed">
+        AUTHORIZED IMMIGRATION & BORDER GUARD PERSONNEL ONLY.
+        <br />
+        UNAUTHORIZED ACCESS ATTEMPTS ARE LOGGED TO THE IMMUTABLE AUDIT LEDGER.
       </div>
     </div>
   );

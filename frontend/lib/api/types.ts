@@ -77,6 +77,7 @@ export interface RuleResultItem {
   rule_name: string;
   passed: boolean;
   detail: string;
+  severity?: "critical" | "high" | "medium" | "low" | string;
 }
 
 export interface ValidationResult {

@@ -20,6 +20,10 @@ class RuleResult(BaseModel):
     rule_name: str = Field(..., description="Unique rule identifier")
     passed: bool = Field(..., description="True if rule passed, False if violated")
     detail: str = Field(..., description="Human-readable explanation of the result")
+    severity: Optional[str] = Field(
+        default=None,
+        description="Rule severity level: critical, high, medium",
+    )
 
 
 class ValidationRequest(BaseModel):

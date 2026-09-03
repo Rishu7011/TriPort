@@ -195,6 +195,7 @@ def validate_document(
         rule_type: str | None = rule.get("rule_type")
         target_field: str = rule.get("field", "").lower()
         error_msg: str = rule.get("error_message", "Validation rule check failed.")
+        severity: str = rule.get("severity", "medium")
 
         field_value = field_map.get(target_field)
 
@@ -204,7 +205,14 @@ def validate_document(
             passed, detail = evaluate_date_condition(field_value, condition)
             if not passed and error_msg:
                 detail = f"{error_msg} ({detail})"
-            results.append(RuleResult(rule_name=rule_name, passed=passed, detail=detail))
+            results.append(
+                RuleResult(
+                    rule_name=rule_name,
+                    passed=passed,
+                    detail=detail,
+                    severity=severity,
+                )
+            )
             if not passed:
                 failed_rule_names.append(rule_name)
 
@@ -217,6 +225,7 @@ def validate_document(
                         rule_name=rule_name,
                         passed=False,
                         detail=f"Missing required field '{target_field}' for format check.",
+                        severity=severity,
                     )
                 )
                 failed_rule_names.append(rule_name)
@@ -232,7 +241,14 @@ def validate_document(
                     if regex_match
                     else f"{error_msg} (Value: '{field_value}', pattern: '{pattern}')"
                 )
-                results.append(RuleResult(rule_name=rule_name, passed=regex_match, detail=detail))
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=regex_match,
+                        detail=detail,
+                        severity=severity,
+                    )
+                )
                 if not regex_match:
                     failed_rule_names.append(rule_name)
 
@@ -251,6 +267,7 @@ def validate_document(
                             f"Cross-field check requires both '{target_field}' and "
                             f"'{ref_field}' to be present."
                         ),
+                        severity=severity,
                     )
                 )
                 failed_rule_names.append(rule_name)
@@ -259,7 +276,14 @@ def validate_document(
                 passed, detail = evaluate_cross_document_dates(field_value, ref_value)
                 if not passed and error_msg:
                     detail = f"{error_msg} ({detail})"
-                results.append(RuleResult(rule_name=rule_name, passed=passed, detail=detail))
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=passed,
+                        detail=detail,
+                        severity=severity,
+                    )
+                )
                 if not passed:
                     failed_rule_names.append(rule_name)
             else:
@@ -275,11 +299,19 @@ def validate_document(
                 f.field_name.lower(): f.field_value
                 for f in (related_document_fields or [])
             }
-            if target_field == "entry_validity" and "expiry_date" in related_map:
+            related_exp = related_map.get("date_of_expiry") or related_map.get("expiry_date")
+            if target_field in ("entry_validity", "valid_until") and related_exp:
                 passed, detail = evaluate_cross_document_dates(
-                    field_value, related_map.get("expiry_date")
+                    field_value, related_exp
                 )
-                results.append(RuleResult(rule_name=rule_name, passed=passed, detail=detail))
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=passed,
+                        detail=detail,
+                        severity=severity,
+                    )
+                )
                 if not passed:
                     failed_rule_names.append(rule_name)
 
@@ -294,6 +326,7 @@ def validate_document(
                         rule_name=rule_name,
                         passed=True,
                         detail="MRZ checksum check not applicable (no MRZ data provided).",
+                        severity="low",
                     )
                 )
             else:
@@ -309,7 +342,14 @@ def validate_document(
                 )
                 if not passed and error_msg:
                     detail = f"{error_msg} — {detail}"
-                results.append(RuleResult(rule_name=rule_name, passed=passed, detail=detail))
+                results.append(
+                    RuleResult(
+                        rule_name=rule_name,
+                        passed=passed,
+                        detail=detail,
+                        severity=severity,
+                    )
+                )
                 if not passed:
                     failed_rule_names.append(rule_name)
 
@@ -318,6 +358,94 @@ def validate_document(
                 "Encountered unknown rule type in YAML",
                 rule_type=rule_type,
                 rule_name=rule_name,
+            )
+
+    # ── 6. Regional Rules Integration ─────────────────────────────────────
+    # Determine nationality from document or infer India for domestic document types
+    nationality = (
+        field_map.get("nationality")
+        or field_map.get("country")
+        or field_map.get("issuing_country")
+    )
+    if not nationality and document_type in (DocumentType.VOTER_ID, DocumentType.PAN_CARD):
+        nationality = "IND"
+
+    if nationality:
+        try:
+            from backend.validation_service.core.regional_rules import _load_regional_rules
+            regional_rules = _load_regional_rules(nationality, document_type)
+            executed_rule_names = set(r.rule_name for r in results)
+
+            for rule in regional_rules:
+                rule_name: str = rule.get("rule_name", "unnamed_regional_rule")
+                # Deduplicate: if universal rule of the same name already executed, skip
+                if rule_name in executed_rule_names:
+                    continue
+
+                rule_type: str | None = rule.get("rule_type")
+                target_field: str = rule.get("field", "").lower()
+                error_msg: str = rule.get("error_message", "Regional validation rule failed.")
+                severity: str = rule.get("severity", "medium")
+                field_value = field_map.get(target_field)
+
+                if rule_type == "date_check":
+                    if not field_value:
+                        continue  # Optional regional date checks skipped if field omitted
+                    condition: str = rule.get("condition", "> today")
+                    passed, detail = evaluate_date_condition(field_value, condition)
+                    if not passed and error_msg:
+                        detail = f"{error_msg} ({detail})"
+                    results.append(
+                        RuleResult(
+                            rule_name=rule_name,
+                            passed=passed,
+                            detail=detail,
+                            severity=severity,
+                        )
+                    )
+                    if not passed:
+                        failed_rule_names.append(rule_name)
+
+                elif rule_type == "regex_format":
+                    pattern: str = rule.get("pattern", "")
+                    if not field_value:
+                        results.append(
+                            RuleResult(
+                                rule_name=rule_name,
+                                passed=False,
+                                detail=f"Missing field '{target_field}' for regional format check.",
+                                severity=severity,
+                            )
+                        )
+                        failed_rule_names.append(rule_name)
+                    else:
+                        raw_val = field_value.strip()
+                        clean_val = re.sub(r"\s+", "", raw_val)
+                        regex_match = (
+                            re.match(pattern, raw_val, re.IGNORECASE) is not None
+                            or re.match(pattern, clean_val, re.IGNORECASE) is not None
+                        )
+                        detail = (
+                            f"Field '{target_field}' ('{field_value}') matches regional format."
+                            if regex_match
+                            else f"{error_msg} (Value: '{field_value}', pattern: '{pattern}')"
+                        )
+                        results.append(
+                            RuleResult(
+                                rule_name=rule_name,
+                                passed=regex_match,
+                                detail=detail,
+                                severity=severity,
+                            )
+                        )
+                        if not regex_match:
+                            failed_rule_names.append(rule_name)
+
+        except Exception as reg_exc:
+            logger.warning(
+                "Could not apply regional rules during validation",
+                nationality=nationality,
+                error=str(reg_exc),
             )
 
     overall_passed = len(failed_rule_names) == 0

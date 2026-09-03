@@ -1,4 +1,5 @@
 # Indian Voter ID / EPIC Validation Rules
+# Severities supported: critical, high, medium
 
 - rule_name: voter_id_number_format
   description: "EPIC number must match standard format (3 letters followed by 7 digits, allowing regional variants)."
@@ -6,6 +7,7 @@
   field: voter_id_number
   pattern: "^(?:[A-Za-z]{3}[-/]?[0-9]{7}|[A-Za-z]{2,4}[0-9]{6,8}|[A-Za-z0-9/_-]{8,16})$"
   error_message: "Voter ID / EPIC number does not conform to the expected format."
+  severity: critical
 
 - rule_name: voter_dob_in_past
   description: "Elector date of birth must be in the past."
@@ -13,3 +15,4 @@
   field: date_of_birth
   condition: "< today"
   error_message: "Voter ID date of birth cannot be in the future."
+  severity: high

@@ -15,6 +15,8 @@ from backend.logging_config import configure_logging, get_logger
 from backend.orchestrator.routers import documents, auth
 from backend.orchestrator.routers import analytics
 from backend.audit_ledger.routers import ledger
+from backend.cross_checkpoint_service.routers import clusters
+from backend.validation_service.routers import validation
 
 configure_logging()
 logger = get_logger("orchestrator")
@@ -71,6 +73,8 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(documents.router)
 app.include_router(ledger.router, prefix="/api/v1/audit")
 app.include_router(analytics.router)
+app.include_router(clusters.router)
+app.include_router(validation.router)
 
 
 @app.exception_handler(Exception)
