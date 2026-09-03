@@ -297,9 +297,24 @@ def extract_fields(
                     break
 
     elif document_type == DocumentType.DRIVING_LICENSE:
-        for text, conf in raw_lines:
+        # 1. License Number
+        for i, (text, conf) in enumerate(raw_lines):
             if "license_number" not in extracted:
-                m_dl = PATTERNS["dl_num"].search(text)
+                text_clean = text.strip()
+                # Multi-line match: Box 1 is state/RTO code (e.g. DL9, DL09, MH02), Box 2 is year+serial (e.g. 20220000839)
+                if re.fullmatch(r"[A-Z]{2}[0-9]{1,2}", text_clean, re.IGNORECASE):
+                    if i + 1 < len(raw_lines):
+                        next_t = raw_lines[i + 1][0].strip()
+                        if re.fullmatch(r"[0-9]{10,15}", next_t):
+                            extracted["license_number"] = ExtractedField(
+                                field_name="license_number",
+                                field_value=f"{text_clean.upper()}-{next_t}",
+                                confidence=conf,
+                                extraction_method=ExtractionMethod.OCR,
+                            )
+                            break
+                # Single-line regex match
+                m_dl = PATTERNS["dl_num"].search(text_clean.replace(" ", ""))
                 if m_dl:
                     extracted["license_number"] = ExtractedField(
                         field_name="license_number",
@@ -307,12 +322,14 @@ def extract_fields(
                         confidence=conf,
                         extraction_method=ExtractionMethod.OCR,
                     )
-        # Vehicle class
+                    break
+
+        # 2. Vehicle Class
         for text, conf in raw_lines:
             text_u = text.upper()
             if "vehicle_class" not in extracted:
-                for vclass in ["LMV", "MCWG", "HMV", "TRANS", "NON-TRANS", "3W-NT"]:
-                    if vclass in text_u:
+                for vclass in ["LMV", "MCWG", "HMV", "3W-NT", "NON-TRANS", "TRANS", "NT", "TR"]:
+                    if re.search(rf"\b{re.escape(vclass)}\b", text_u):
                         extracted["vehicle_class"] = ExtractedField(
                             field_name="vehicle_class",
                             field_value=vclass,
@@ -320,6 +337,19 @@ def extract_fields(
                             extraction_method=ExtractionMethod.OCR,
                         )
                         break
+
+        # 3. Issuing Authority
+        for text, conf in raw_lines:
+            if "issuing_authority" not in extracted:
+                if any(k in text.upper() for k in ["TRANSPORT DEPARTMENT", "ISSUED BY", "LICENSING AUTHORITY", "RTO"]):
+                    clean_auth = re.sub(r"(?:Issued\s*by\s*:?|Licensing\s*Authority\s*:?)", "", text, flags=re.IGNORECASE).strip()
+                    extracted["issuing_authority"] = ExtractedField(
+                        field_name="issuing_authority",
+                        field_value=clean_auth or text.strip(),
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
+                    break
 
     elif document_type == DocumentType.PERMIT:
         for text, conf in raw_lines:
@@ -599,8 +629,8 @@ def extract_fields(
                     given_val = next_t
 
         is_relational_name = any(r in text_upper for r in ["FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN", "W/O", "D/O", "S/O", "C/O", "पिता", "पति"])
-        if any(k in text_upper for k in ["ELECTOR'S NAME", "ELECTORS NAME", "ELECTOR NAME", "मतदाता का नाम", "PASSENGER NAME", "HOLDER NAME", "NAME:"]) and not is_relational_name:
-            clean_name = re.sub(r"(ELECTOR'S NAME|ELECTORS NAME|ELECTOR NAME|मतदाता का नाम|PASSENGER NAME|HOLDER NAME|NAME:|\bNAME\b|:)", "", text, flags=re.IGNORECASE).strip()
+        if any(k in text_upper for k in ["ELECTOR'S NAME", "ELECTORS NAME", "ELECTOR NAME", "मतदाता का नाम", "PASSENGER NAME", "HOLDER NAME", "NAME:", "NAME;", "NAME "]) and not is_relational_name:
+            clean_name = re.sub(r"(ELECTOR'S NAME|ELECTORS NAME|ELECTOR NAME|मतदाता का नाम|PASSENGER NAME|HOLDER NAME|NAME[:;\s]+|\bNAME\b)", "", text, flags=re.IGNORECASE).strip()
             if clean_name and len(clean_name) > 2:
                 given_val = clean_name
             elif i + 1 < len(raw_lines):
