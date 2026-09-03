@@ -359,38 +359,30 @@ async def call_face_service(
                 pass
 
     if dedup_res is None:
-        if settings.face_verification_provider.strip().lower() == "aws":
+        from backend.face_service.core.embedding import extract_face_embedding
+        from backend.face_service.core.dedup_search import search_duplicates
+
+        ok, emb, _, msg = extract_face_embedding(effective_doc_bytes)
+        if ok and emb:
+            has_dups, hits, cluster_id, detail = await search_duplicates(
+                embedding=emb,
+                current_doc_id=current_doc_id,
+            )
+            dedup_res = DedupSearchResponse(
+                has_duplicates=has_dups,
+                hits=hits,
+                person_cluster_id=cluster_id,
+                detail=detail,
+            )
+        else:
             import uuid
 
             dedup_res = DedupSearchResponse(
                 has_duplicates=False,
                 hits=[],
                 person_cluster_id=str(uuid.uuid4()),
-                detail="1:N dedup skipped — AWS-only face mode (no local embeddings).",
+                detail=f"1:N dedup skipped or no face detected: {msg}",
             )
-        else:
-            from backend.face_service.core.embedding import extract_face_embedding
-            from backend.face_service.core.dedup_search import search_duplicates
-
-            ok, emb, _, msg = extract_face_embedding(effective_doc_bytes)
-            if ok and emb:
-                has_dups, hits, cluster_id, detail = await search_duplicates(
-                    embedding=emb,
-                    current_doc_id=current_doc_id,
-                )
-                dedup_res = DedupSearchResponse(
-                    has_duplicates=has_dups,
-                    hits=hits,
-                    person_cluster_id=cluster_id,
-                    detail=detail,
-                )
-            else:
-                dedup_res = DedupSearchResponse(
-                    has_duplicates=False,
-                    hits=[],
-                    person_cluster_id="",
-                    detail=f"Face embedding extraction skipped: {msg}",
-                )
 
     return FullFaceVerificationResponse(
         document_id=current_doc_id,

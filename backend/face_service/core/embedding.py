@@ -192,12 +192,20 @@ def _extract_arcface_embedding(img_rgb: np.ndarray) -> tuple[list[float], str] |
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         faces = app.get(img_bgr)
 
-        # ── Tight-crop retry: add padding and re-detect ──────────────────────
-        if not faces and _is_tight_crop(img_rgb):
-            logger.debug("InsightFace: no face on first pass — retrying with padded image")
-            padded_rgb = _pad_for_detection(img_rgb, pad_fraction=0.30)
+        # ── Retry if no face found on first pass ────────────────────────────
+        if not faces:
+            # 1. Retry with white/neutral padding (helps tight crops & boundary faces)
+            padded_rgb = _pad_for_detection(img_rgb, pad_fraction=0.25)
             padded_bgr = cv2.cvtColor(padded_rgb, cv2.COLOR_RGB2BGR)
             faces = app.get(padded_bgr)
+
+        if not faces:
+            # 2. Retry with normalized 640px dimension if image was unusually small or large
+            h_orig, w_orig = img_rgb.shape[:2]
+            if max(h_orig, w_orig) != 640 and min(h_orig, w_orig) > 50:
+                scale = 640.0 / float(max(h_orig, w_orig))
+                resized_bgr = cv2.resize(img_bgr, (int(w_orig * scale), int(h_orig * scale)))
+                faces = app.get(resized_bgr)
 
         if not faces:
             logger.debug("InsightFace: no face detected in image")

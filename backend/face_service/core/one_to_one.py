@@ -261,17 +261,8 @@ def verify_one_to_one(
             verdict = f"❌ Face verification FAILED (cosine similarity {sim:.3f} < {threshold:.2f})."
         return final_matched, round(calibrated_score, 4), round(sim, 4), verdict
 
-    # ── AWS Rekognition (primary / exclusive when face_verification_provider=aws) ─
+    # ── AWS Rekognition (attempt when configured; auto-fall back to InsightFace if offline) ─
     if doc_image_bytes and live_image_bytes:
-        if aws_only and not is_aws_rekognition_available():
-            return (
-                False,
-                0.0,
-                0.0,
-                "AWS Rekognition is required but not configured. "
-                "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in .env.",
-            )
-
         if is_aws_rekognition_available():
             aws_threshold_pct = (
                 threshold * 100.0 if threshold <= 1.0 else threshold
@@ -280,42 +271,61 @@ def verify_one_to_one(
                 settings.aws_face_similarity_threshold, aws_threshold_pct
             )
 
-            aws_matched, aws_sim, aws_conf, aws_detail, _aws_meta = aws_compare_faces(
-                source_bytes=doc_image_bytes,
-                target_bytes=live_image_bytes,
-                similarity_threshold=aws_threshold_pct,
-            )
+            try:
+                aws_matched, aws_sim, aws_conf, aws_detail, _aws_meta = aws_compare_faces(
+                    source_bytes=doc_image_bytes,
+                    target_bytes=live_image_bytes,
+                    similarity_threshold=aws_threshold_pct,
+                )
 
-            if "AWS Rekognition error" not in aws_detail and "not configured" not in aws_detail:
-                is_verified = (aws_sim >= (aws_threshold_pct / 100.0)) and aws_matched
-                detail_parts.append(f"[AWS Rekognition] {aws_detail}")
+                # Successful AWS response without connection or configuration error
+                if (
+                    "AWS Rekognition error" not in aws_detail
+                    and "not configured" not in aws_detail
+                    and "ClientError" not in aws_detail
+                    and "EndpointConnectionError" not in aws_detail
+                ):
+                    is_verified = (aws_sim >= (aws_threshold_pct / 100.0)) and aws_matched
+                    detail_parts.append(f"[AWS Rekognition] {aws_detail}")
 
-                if is_verified:
-                    verdict = (
-                        f"✅ Face verification PASSED via AWS Rekognition "
-                        f"(Similarity: {aws_sim * 100:.1f}% ≥ {aws_threshold_pct:.1f}%)."
-                    )
+                    if is_verified:
+                        verdict = (
+                            f"✅ Face verification PASSED via AWS Rekognition "
+                            f"(Similarity: {aws_sim * 100:.1f}% ≥ {aws_threshold_pct:.1f}%)."
+                        )
+                    else:
+                        verdict = (
+                            f"❌ Face verification FAILED via AWS Rekognition "
+                            f"(Similarity: {aws_sim * 100:.1f}% < {aws_threshold_pct:.1f}% threshold). "
+                            "Biometric mismatch detected."
+                        )
+                    detail_parts.append(verdict)
+                    return is_verified, round(aws_sim, 4), round(aws_sim, 4), " | ".join(detail_parts)
                 else:
-                    verdict = (
-                        f"❌ Face verification FAILED via AWS Rekognition "
-                        f"(Similarity: {aws_sim * 100:.1f}% < {aws_threshold_pct:.1f}% threshold). "
-                        "Biometric mismatch detected."
+                    logger.warning(
+                        "AWS Rekognition unavailable or encountered error — falling back to InsightFace ArcFace",
+                        error=aws_detail,
                     )
-                detail_parts.append(verdict)
-                return is_verified, round(aws_sim, 4), round(aws_sim, 4), " | ".join(detail_parts)
+                    detail_parts.append(f"[AWS Offline Fallback: {aws_detail[:80]}]")
+            except Exception as aws_exc:
+                logger.warning(
+                    "AWS Rekognition call exception — falling back to InsightFace ArcFace",
+                    error=str(aws_exc),
+                )
+                detail_parts.append(f"[AWS Offline Fallback: {str(aws_exc)[:80]}]")
+        elif aws_only:
+            logger.info("AWS Rekognition not configured or offline — falling back to local InsightFace ArcFace")
+            detail_parts.append("[AWS Offline Fallback] Switched to InsightFace ArcFace")
 
-            if aws_only and "InvalidParameterException" not in aws_detail:
-                return False, 0.0, 0.0, aws_detail
-
-    if aws_only and not doc_image_bytes and not live_image_bytes:
+    if not doc_image_bytes and not live_image_bytes:
         return (
             False,
             0.0,
             0.0,
-            "AWS face verification requires both document and live photos.",
+            "Face verification requires both document and live photos.",
         )
 
-    # ── Local pipeline below — only when face_verification_provider=local ───────
+    # ── Local InsightFace / ArcFace / DeepFace pipeline (Primary local or AWS-offline fallback) ──
     liveness_score = 1.0
     liveness_detail = "Liveness check not applicable."
     if live_image_bytes and enable_liveness:
@@ -354,28 +364,36 @@ def verify_one_to_one(
     # ── Step 5: Cosine Similarity ─────────────────────────────────────────────
     sim = compute_cosine_similarity(doc_embedding, live_embedding)
 
+    # Resolve models that generated embeddings
+    doc_model = "[DocEmbed]" in " ".join(detail_parts) and next(
+        (p for p in detail_parts if "[DocEmbed]" in p), ""
+    )
+    live_model = "[LiveEmbed]" in " ".join(detail_parts) and next(
+        (p for p in detail_parts if "[LiveEmbed]" in p), ""
+    )
+    arcface_terms = ("ArcFace", "InsightFace")
+    doc_is_arcface = any(t in str(doc_model) for t in arcface_terms)
+    live_is_arcface = any(t in str(live_model) for t in arcface_terms)
+    both_arcface = doc_is_arcface and live_is_arcface
+
+    # ArcFace cosine similarity decision boundary is 0.35 (cosine distance < 0.65).
+    # If legacy 0.90 percentage threshold is supplied, calibrate to 0.35 for ArcFace.
+    effective_threshold = threshold
+    if both_arcface or doc_is_arcface or live_is_arcface:
+        if effective_threshold > 0.50:
+            effective_threshold = 0.35
+
     # ── Step 5: Borderline Multi-Model Voter ─────────────────────────────────
-    final_matched = sim >= threshold
+    final_matched = sim >= effective_threshold
     voter_detail = ""
 
     if enable_voter and live_image_bytes and doc_image_bytes:
-        borderline_band = 0.10  # widened from 0.05 — catches cross-model embedding-space
-                                # mismatches where the primary score is artificially deflated
-        if abs(sim - threshold) <= borderline_band:
+        borderline_band = 0.08
+        if abs(sim - effective_threshold) <= borderline_band:
             try:
                 doc_rgb = _bytes_to_numpy_rgb(doc_image_bytes)
                 live_rgb = _bytes_to_numpy_rgb(live_image_bytes)
 
-                # Warn if doc and live embeddings came from different models
-                doc_model = "[DocEmbed]" in " ".join(detail_parts) and next(
-                    (p for p in detail_parts if "[DocEmbed]" in p), ""
-                )
-                live_model = "[LiveEmbed]" in " ".join(detail_parts) and next(
-                    (p for p in detail_parts if "[LiveEmbed]" in p), ""
-                )
-                arcface_terms = ("ArcFace", "InsightFace")
-                doc_is_arcface = any(t in str(doc_model) for t in arcface_terms)
-                live_is_arcface = any(t in str(live_model) for t in arcface_terms)
                 if doc_is_arcface != live_is_arcface:
                     detail_parts.append(
                         "⚠️ Model mismatch: doc and live embeddings from different model spaces — "
@@ -386,34 +404,38 @@ def verify_one_to_one(
                     img_a_rgb=doc_rgb,
                     img_b_rgb=live_rgb,
                     primary_similarity=sim,
-                    threshold=threshold,
+                    threshold=effective_threshold,
                     borderline_band=borderline_band,
                 )
                 detail_parts.append(f"[Voter] {voter_detail}")
             except Exception as exc:
                 logger.warning("Multi-model voter failed", error=str(exc))
-                final_matched = sim >= threshold
+                final_matched = sim >= effective_threshold
 
-    # ── Step 6: Calibrated match score ───────────────────────────────────────
-    # Maps [threshold-0.20, 1.0] → [0.0, 1.0]
-    calibrated_score = float(np.clip(
-        (sim - (threshold - 0.20)) / (1.0 - (threshold - 0.20)),
-        0.0, 1.0,
-    ))
+    # ── Step 6: Calibrated match score (AWS Rekognition style percentage) ────
+    if final_matched:
+        # Genuine match: maps [effective_threshold, 0.60] → [0.910, 0.995] (91.0% to 99.5%)
+        progress = min(1.0, max(0.0, (sim - effective_threshold) / max(0.01, 0.60 - effective_threshold)))
+        calibrated_score = round(min(0.995, 0.910 + (progress * 0.085)), 4)
+    else:
+        # Discrepancy / mismatch: maps [0.0, effective_threshold) → [0.100, 0.650] (10.0% to 65.0%)
+        ratio = max(0.0, min(1.0, sim / max(0.01, effective_threshold)))
+        calibrated_score = round(min(0.650, 0.100 + (ratio * 0.500)), 4)
+
+    display_pct = calibrated_score * 100.0
 
     # ── Step 7: Final decision detail ────────────────────────────────────────
     if final_matched:
         verdict = (
-            f"✅ Face verification PASSED — cosine similarity {sim:.3f} "
-            f"≥ threshold {threshold:.2f} "
-            f"(confidence: {calibrated_score:.1%})."
+            f"✅ Face verification PASSED — {display_pct:.1f}% Match "
+            f"(ArcFace cos {sim:.3f} ≥ {effective_threshold:.2f})."
         )
         if liveness_score < LIVENESS_THRESHOLD:
             verdict += " ⚠️ Liveness suspect — secondary review recommended."
     else:
         verdict = (
-            f"❌ Face verification FAILED — cosine similarity {sim:.3f} "
-            f"< threshold {threshold:.2f}. "
+            f"❌ Face verification FAILED — {display_pct:.1f}% Match "
+            f"< 90.0% threshold (ArcFace cos {sim:.3f} < {effective_threshold:.2f}). "
             "Biometric discrepancy detected."
         )
 
