@@ -90,6 +90,20 @@ def analyze_photo_boundaries(image_bytes: bytes) -> tuple[float, bool, str, dict
         except Exception as e:
             logger.debug("Face cascade detection error", error=str(e))
 
+    if len(faces) == 0:
+        try:
+            from backend.face_service.core.embedding import _get_insightface_app
+            app = _get_insightface_app()
+            if app is not None:
+                img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+                app_faces = app.get(img_bgr)
+                if app_faces:
+                    top_face = max(app_faces, key=lambda f: f.det_score)
+                    fx1, fy1, fx2, fy2 = top_face.bbox.astype(int)
+                    faces = [[fx1, fy1, fx2 - fx1, fy2 - fy1]]
+        except Exception as e:
+            logger.debug("InsightFace detection fallback in boundary analysis error", error=str(e))
+
     # If face detected, expand bounding box to cover the full passport portrait box
     photo_box = None
     if len(faces) > 0:

@@ -109,7 +109,7 @@ PATTERNS = {
     "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY)?\s*([A-Z]{3})\b", re.IGNORECASE),
     "aadhaar": re.compile(r"\b\d{4}\s+\d{4}\s+\d{4}\b"),
     "dl_num": re.compile(r"\b(DL[- /]?[0-9A-Z/-]{8,18}|[A-Z]{2}[0-9]{2}[ -/:]?[0-9]{4,11}(?:[ -/:][0-9]{4,7})?)\b", re.IGNORECASE),
-    "permit_num": re.compile(r"\b(PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
+    "permit_num": re.compile(r"\b(?:PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b|\b(?:IN|NP|BT|BD)[-/][0-9A-Z/-]{4,16}\b", re.IGNORECASE),
     "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
     "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.IGNORECASE),
     "voter_id_num": re.compile(r"\b[A-Z]{3}[-/]?[0-9]{7}\b", re.IGNORECASE),
@@ -323,28 +323,75 @@ def extract_fields(
 
     elif document_type == DocumentType.PERMIT:
         for text, conf in raw_lines:
+            text_u = text.upper().strip()
+
+            # 1. Permit Number
             if "permit_number" not in extracted:
-                m_per = PATTERNS["permit_num"].search(text)
-                if m_per:
+                m_label = re.search(r"(?:PERMIT\s*(?:NO|NUMBER|#)?[:.\s]+)([A-Z0-9/\-]{5,25})", text_u)
+                if m_label:
                     extracted["permit_number"] = ExtractedField(
                         field_name="permit_number",
-                        field_value=m_per.group(0),
+                        field_value=m_label.group(1).strip(),
                         confidence=conf,
                         extraction_method=ExtractionMethod.OCR,
                     )
-        # Permit Type
-        for text, conf in raw_lines:
-            text_u = text.upper()
-            if "permit_type" not in extracted:
-                for ptype in ["BORDER PASS", "ENTRY PERMIT", "RESTRICTED AREA PERMIT", "LAND TRANSIT PASS"]:
-                    if ptype in text_u:
-                        extracted["permit_type"] = ExtractedField(
-                            field_name="permit_type",
-                            field_value=ptype,
-                            confidence=0.90,
+                else:
+                    m_per = PATTERNS["permit_num"].search(text)
+                    if m_per:
+                        extracted["permit_number"] = ExtractedField(
+                            field_name="permit_number",
+                            field_value=m_per.group(0),
+                            confidence=conf,
                             extraction_method=ExtractionMethod.OCR,
                         )
-                        break
+
+            # 2. Permit Type
+            if "permit_type" not in extracted:
+                m_ptype = re.search(r"(?:PERMIT\s*TYPE[:.\s]+)(.+)", text, re.IGNORECASE)
+                if m_ptype:
+                    val = m_ptype.group(1).strip()
+                    if len(val) >= 2:
+                        extracted["permit_type"] = ExtractedField(
+                            field_name="permit_type",
+                            field_value=val,
+                            confidence=conf,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+                else:
+                    for ptype in ["BORDER PASS", "ENTRY PERMIT", "RESTRICTED AREA PERMIT", "LAND TRANSIT PASS", "CROSS-BORDER TRANSIT", "TRANSIT PERMIT"]:
+                        if ptype in text_u:
+                            extracted["permit_type"] = ExtractedField(
+                                field_name="permit_type",
+                                field_value=ptype.title(),
+                                confidence=0.90,
+                                extraction_method=ExtractionMethod.OCR,
+                            )
+                            break
+
+            # 3. Issuing Authority
+            if "issuing_authority" not in extracted:
+                m_auth = re.search(r"(?:ISSUING\s*AUTHORITY[:.\s]+)(.+)", text, re.IGNORECASE)
+                if m_auth:
+                    val = m_auth.group(1).strip()
+                    if len(val) >= 2:
+                        extracted["issuing_authority"] = ExtractedField(
+                            field_name="issuing_authority",
+                            field_value=val,
+                            confidence=conf,
+                            extraction_method=ExtractionMethod.OCR,
+                        )
+
+            # 4. Valid Until
+            if "valid_until" not in extracted:
+                m_val = re.search(r"(?:VALID\s*(?:UNTIL|TO|THRU)[:.\s]+)([0-9A-Za-z\-/ ]+)", text, re.IGNORECASE)
+                if m_val:
+                    val = m_val.group(1).strip()
+                    extracted["valid_until"] = ExtractedField(
+                        field_name="valid_until",
+                        field_value=val,
+                        confidence=conf,
+                        extraction_method=ExtractionMethod.OCR,
+                    )
 
     elif document_type == DocumentType.FERRY_TICKET:
         for text, conf in raw_lines:

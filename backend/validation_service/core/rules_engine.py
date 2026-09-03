@@ -120,11 +120,14 @@ def _build_field_map(fields: list[ExtractedField]) -> dict[str, str | None]:
     if "passport_number" in field_map and "doc_number" not in field_map:
         field_map["doc_number"] = field_map["passport_number"]
 
-    # Alias: date_of_expiry ↔ expiry_date
-    if "date_of_expiry" in field_map and "expiry_date" not in field_map:
-        field_map["expiry_date"] = field_map["date_of_expiry"]
-    if "expiry_date" in field_map and "date_of_expiry" not in field_map:
-        field_map["date_of_expiry"] = field_map["expiry_date"]
+    # Alias: date_of_expiry ↔ expiry_date ↔ valid_until
+    for exp_key in ["date_of_expiry", "expiry_date", "valid_until"]:
+        if exp_key in field_map and field_map[exp_key]:
+            val = field_map[exp_key]
+            field_map.setdefault("date_of_expiry", val)
+            field_map.setdefault("expiry_date", val)
+            field_map.setdefault("valid_until", val)
+            break
 
     # Alias: voter_id_number ↔ epic_number ↔ voter_id ↔ epic_no
     for v_alias in ["epic_number", "voter_id", "epic_no", "voter_number", "elector_id"]:
