@@ -150,7 +150,7 @@ def _scan_event_to_record(row: ScanEvent) -> ScanRecord:
 # ---------------------------------------------------------------------------
 
 async def save_scan(
-    db: AsyncSession,
+    db: AsyncSession | None,
     pipeline: PipelineResult,
     *,
     document_type: str,
@@ -163,6 +163,9 @@ async def save_scan(
 ) -> ScanRecord:
     """
     Persist a completed screening run to Supabase.
+    If db is None (offline mode) or Supabase is unreachable, falls back to
+    the local SQLite offline queue (orchestrator_offline.db) and returns a
+    ScanRecord built from in-memory data so the API response still succeeds.
 
     Steps:
     1. Extract face crop if not provided.
@@ -297,8 +300,77 @@ async def save_scan(
     if "tampering" in pipeline_dict and isinstance(pipeline_dict["tampering"], dict):
         pipeline_dict["tampering"].pop("ela_heatmap_base64", None)
 
+    # ── OFFLINE FALLBACK — queue to SQLite if db session is unavailable ──────
+    if db is None:
+        from backend.orchestrator.core.offline_sync import get_offline_store
+        offline_payload = {
+            **pipeline_dict,
+            "document_type": document_type,
+            "inspection_status": inspection_status,
+            "checkpoint_id": checkpoint_id,
+            "offline_queued_at": _utc_now_iso(),
+            # Store image data URLs in payload so Stage 2 can reconstruct record from SQLite
+            "doc_image_data_url": immediate_doc_url,
+            "doc_face_crop_data_url": immediate_crop_url,
+            "live_image_data_url": immediate_live_url,
+        }
+        get_offline_store().record_offline_screening(
+            document_id=str(scan_id),
+            checkpoint_type=checkpoint_id or "unknown",
+            result_payload=offline_payload,
+        )
+        record = ScanRecord(
+            document_id=str(scan_id),
+            document_type=document_type,
+            checkpoint_id=checkpoint_id,
+            uploaded_at=_utc_now_iso(),
+            pipeline=pipeline,
+            doc_image_data_url=immediate_doc_url,
+            doc_face_crop_data_url=immediate_crop_url,
+            live_image_data_url=immediate_live_url,
+            inspection_status=inspection_status,
+        )
+        set_cached_scan(str(scan_id), record)
+        logger.info(
+            "save_scan_offline_fallback_used",
+            document_id=str(scan_id),
+            inspection_status=inspection_status,
+        )
+        return record
+
     # ── 4. Upsert scan_events ────────────────────────────────────────────────
-    existing = await db.get(ScanEvent, scan_id)
+    try:
+        existing = await db.get(ScanEvent, scan_id)
+    except Exception as exc:
+        # Mid-request connectivity loss — fall back to offline queue
+        from backend.orchestrator.core.offline_sync import get_offline_store
+        logger.warning("save_scan_db_error_mid_request_offline_fallback", error=str(exc)[:200])
+        offline_payload = {
+            **pipeline_dict,
+            "document_type": document_type,
+            "inspection_status": inspection_status,
+            "checkpoint_id": checkpoint_id,
+            "offline_queued_at": _utc_now_iso(),
+        }
+        get_offline_store().record_offline_screening(
+            document_id=str(scan_id),
+            checkpoint_type=checkpoint_id or "unknown",
+            result_payload=offline_payload,
+        )
+        record = ScanRecord(
+            document_id=str(scan_id),
+            document_type=document_type,
+            checkpoint_id=checkpoint_id,
+            uploaded_at=_utc_now_iso(),
+            pipeline=pipeline,
+            doc_image_data_url=immediate_doc_url,
+            doc_face_crop_data_url=immediate_crop_url,
+            live_image_data_url=immediate_live_url,
+            inspection_status=inspection_status,
+        )
+        set_cached_scan(str(scan_id), record)
+        return record
+    existing = existing  # Supabase available, proceed with normal DB path
     if existing is None:
         event = ScanEvent(
             id=scan_id,
@@ -442,23 +514,61 @@ async def save_scan(
 # get_scan
 # ---------------------------------------------------------------------------
 
-async def get_scan(db: AsyncSession, document_id: str) -> ScanRecord | None:
-    """Fetch a scan by document_id. Checks fast in-memory cache first."""
+async def get_scan(db: "AsyncSession | None", document_id: str) -> "ScanRecord | None":
+    """
+    Fetch a scan by document_id.
+    Priority: 1. In-memory cache  2. Supabase DB (if online)  3. SQLite offline store.
+    """
     cached = get_cached_scan(document_id)
     if cached is not None:
         return cached
 
-    try:
-        scan_id = uuid.UUID(document_id)
-    except ValueError:
-        return None
+    # Attempt DB lookup if session is available
+    if db is not None:
+        try:
+            scan_id = uuid.UUID(document_id)
+        except ValueError:
+            return None
+        try:
+            row = await db.get(ScanEvent, scan_id)
+            if row is not None:
+                rec = _scan_event_to_record(row)
+                set_cached_scan(document_id, rec)
+                return rec
+        except Exception as exc:
+            logger.warning(
+                "get_scan_db_error_falling_back_to_offline",
+                document_id=document_id,
+                error=str(exc)[:200],
+            )
 
-    row = await db.get(ScanEvent, scan_id)
-    if row is None:
+    # Offline fallback — reconstruct from SQLite offline store
+    try:
+        from backend.orchestrator.core.offline_sync import get_offline_store
+        payload = get_offline_store().get_offline_record(document_id)
+        if payload is None:
+            return None
+        pipeline = PipelineResult.model_validate(payload)
+        rec = ScanRecord(
+            document_id=document_id,
+            document_type=payload.get("document_type", "passport"),
+            checkpoint_id=payload.get("checkpoint_id"),
+            uploaded_at=payload.get("offline_queued_at") or _utc_now_iso(),
+            pipeline=pipeline,
+            doc_image_data_url=payload.get("doc_image_data_url"),
+            doc_face_crop_data_url=payload.get("doc_face_crop_data_url"),
+            live_image_data_url=payload.get("live_image_data_url"),
+            inspection_status=payload.get("inspection_status", "standard_clearance"),
+        )
+        set_cached_scan(document_id, rec)
+        return rec
+    except Exception as exc:
+        logger.warning(
+            "get_scan_offline_fallback_error",
+            document_id=document_id,
+            error=str(exc)[:200],
+        )
         return None
-    rec = _scan_event_to_record(row)
-    set_cached_scan(document_id, rec)
-    return rec
 
 
 # ---------------------------------------------------------------------------

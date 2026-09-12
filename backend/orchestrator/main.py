@@ -51,6 +51,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("rekognition_warmup_failed", error=str(e))
 
+    # 4. Start Offline SQLite → Supabase background sync loop
+    try:
+        from backend.orchestrator.core.offline_sync import (
+            get_offline_store,
+            start_sync_background_loop,
+        )
+        pending = get_offline_store().pending_count()
+        if pending > 0:
+            logger.info(
+                "offline_queue_has_pending_records",
+                pending=pending,
+                hint="Will sync to Supabase automatically when connectivity is available.",
+            )
+        start_sync_background_loop()
+        logger.info("offline_sync_background_loop_started", interval_seconds=30)
+    except Exception as e:
+        logger.warning("offline_sync_startup_failed", error=str(e))
+
     yield
 
 

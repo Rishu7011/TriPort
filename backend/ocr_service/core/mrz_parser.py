@@ -95,15 +95,36 @@ def parse_td3(line1: str, line2: str) -> MRZResult:
     expiry_check = line2[27]
 
     # Checksum auto-correction
-    CHAR_CORRECTIONS = {"2": "Z", "0": "O", "1": "I", "8": "B", "5": "S", "4": "A"}
-    DIGIT_CORRECTIONS = {"O": "0", "I": "1", "Z": "2", "S": "5", "B": "8", "A": "4"}
+    CHAR_CORRECTIONS = {"2": "Z", "0": "O", "1": "I", "8": "B", "5": "S", "4": "A", "6": "G"}
+    DIGIT_CORRECTIONS = {"O": "0", "I": "1", "Z": "2", "S": "5", "B": "8", "A": "4", "Q": "0", "D": "0"}
 
     if not _validate_check_digit(doc_raw_9, doc_check):
-        first_char = doc_raw_9[0]
-        if first_char in CHAR_CORRECTIONS:
-            corrected_9 = CHAR_CORRECTIONS[first_char] + doc_raw_9[1:]
-            if _validate_check_digit(corrected_9, doc_check):
-                doc_raw_9 = corrected_9
+        first_char = CHAR_CORRECTIONS.get(doc_raw_9[0], doc_raw_9[0])
+        cand1 = first_char + doc_raw_9[1:]
+        if _validate_check_digit(cand1, doc_check):
+            doc_raw_9 = cand1
+        else:
+            # Try correcting numeric digits in remainder with 1-letter prefix (e.g. P1234567)
+            cand2 = doc_raw_9[:1] + "".join(DIGIT_CORRECTIONS.get(c, c) for c in doc_raw_9[1:])
+            if _validate_check_digit(cand2, doc_check):
+                doc_raw_9 = cand2
+            else:
+                # Try correcting numeric digits in remainder with 2-letter prefix (e.g. AA0001618)
+                cand3 = doc_raw_9[:2] + "".join(DIGIT_CORRECTIONS.get(c, c) for c in doc_raw_9[2:])
+                if _validate_check_digit(cand3, doc_check):
+                    doc_raw_9 = cand3
+                else:
+                    cand4 = "".join(DIGIT_CORRECTIONS.get(c, c) for c in doc_raw_9)
+                    if _validate_check_digit(cand4, doc_check):
+                        doc_raw_9 = cand4
+
+    # Nationality recovery: if OCR confused letters for digits in line 2 (e.g. 860 for BGD)
+    issuing_country = line1[2:5].replace("<", "")
+    if any(c.isdigit() for c in nationality):
+        if len(issuing_country) == 3 and issuing_country.isalpha():
+            nationality = issuing_country
+        else:
+            nationality = "".join(CHAR_CORRECTIONS.get(c, c) for c in nationality)
 
     if not _validate_check_digit(dob_raw, dob_check):
         corrected_dob = "".join(DIGIT_CORRECTIONS.get(c, c) for c in dob_raw)
@@ -316,7 +337,8 @@ def parse_mrz(image_bytes: bytes, ocr_text_lines: list[str] | None = None) -> MR
     Parse MRZ from OCR text lines first, falling back to PassportEye if available.
     """
     if ocr_text_lines:
-        res = parse_mrz_from_text_lines(ocr_text_lines)
+        str_lines = [l[0] if isinstance(l, (list, tuple)) else str(l) for l in ocr_text_lines]
+        res = parse_mrz_from_text_lines(str_lines)
         if res.mrz_present:
             return res
 

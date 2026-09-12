@@ -179,6 +179,8 @@ interface SandboxRuleResult {
   severity?: string;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
 export default function RulesAndThresholdAdminPage() {
   const [selectedDocType, setSelectedDocType] = useState("passport");
   const [yamlContent, setYamlContent] = useState("");
@@ -213,7 +215,7 @@ export default function RulesAndThresholdAdminPage() {
   const fetchYamlRules = async (docType: string) => {
     setLoadingYaml(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/validation/rules/${docType}`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/validation/rules/${docType}`);
       if (res.ok) {
         const data = await res.json();
         setYamlContent(data.yaml_content || "");
@@ -252,7 +254,7 @@ export default function RulesAndThresholdAdminPage() {
       let res: Response;
       if (isRegional) {
         // Evaluate via regional validation endpoint
-        res = await fetch("http://localhost:8000/api/v1/validation/regional-validate", {
+        res = await fetch(`${API_BASE_URL}/api/v1/validation/regional-validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -263,7 +265,7 @@ export default function RulesAndThresholdAdminPage() {
         });
       } else {
         // Evaluate via universal validation endpoint (fires both universal + regional)
-        res = await fetch("http://localhost:8000/api/v1/validation/validate", {
+        res = await fetch(`${API_BASE_URL}/api/v1/validation/validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

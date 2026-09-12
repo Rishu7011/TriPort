@@ -598,6 +598,11 @@ def check_ocr_quality(state: ScreeningState) -> str:
     if doc_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT] and len(fields) < 2:
         return "fallback"
 
+    # Check 3: Low average confidence (< 0.60)
+    confidences = [f.confidence for f in fields if f.confidence is not None]
+    if confidences and (sum(confidences) / len(confidences)) < 0.60:
+        return "fallback"
+
     return "continue"
 
 

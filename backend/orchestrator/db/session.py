@@ -174,3 +174,35 @@ async def get_session_factory() -> async_sessionmaker[AsyncSession]:
         await init_engine_and_tables()
     return _session_factory
 
+
+async def get_db_optional() -> AsyncGenerator[AsyncSession | None, None]:
+    """
+    FastAPI dependency — yields an AsyncSession if Supabase is reachable,
+    or None if the database is offline / unreachable.
+
+    Unlike get_db(), this dependency NEVER raises HTTP 503.
+    Call sites must handle a None session gracefully (e.g. fallback to SQLite queue).
+    """
+    global _session_factory
+    if _engine is None or _session_factory is None:
+        try:
+            await init_engine_and_tables()
+        except Exception as exc:
+            logger.warning(
+                "db_unavailable_offline_mode_active",
+                reason=str(exc)[:200],
+            )
+            yield None
+            return
+
+    if _session_factory is None:
+        yield None
+        return
+
+    try:
+        async with _session_factory() as session:
+            yield session
+    except Exception as exc:
+        logger.warning("db_session_failed_yielding_none", error=str(exc)[:200])
+        yield None
+

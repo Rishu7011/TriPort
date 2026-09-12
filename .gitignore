@@ -131,8 +131,11 @@ pgdata/
 *.db
 *.sqlite
 *.sqlite3
-backend/data/*.db
+*.db-shm
+*.db-wal
 
+# Offline SQLite buffer — never commit local test data
+backend/data/
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Uploaded / scanned document images  (NEVER commit real documents)
@@ -193,3 +196,4 @@ phase.md
 plan.md
 PROJECT_STATUS_ANALYSIS.md
 graphify-out/
+test_passports

@@ -45,6 +45,9 @@ easyocr>=1.7.1
 Pillow>=10.3.0
 pillow-heif>=1.0.0
 google-generativeai>=0.5.4       # Gemini Flash multimodal vision fallback
+passporteye>=2.2.2               # Passport MRZ extraction fallback
+pymupdf>=1.24.0                  # Fast PDF parsing & rasterization for document OCR
+
 
 # ── 8. Computer Vision & Forensic Tampering Detection ────────────────────────
 opencv-python>=4.9.0

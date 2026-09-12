@@ -23,6 +23,24 @@ export function DocumentResultsScreen({
   const validation = pipeline?.validation;
   const tampering = pipeline?.tampering;
 
+  // Phase 9: Multilingual passport metadata
+  const detectedLanguages: string[] = extraction?.detected_languages || [];
+  const primaryScript: string | null = extraction?.primary_script || null;
+  const isMultilingual: boolean = Boolean(extraction?.is_multilingual);
+
+  // Language display name map (ISO 639-1 → human label)
+  const LANG_DISPLAY: Record<string, string> = {
+    en: "English", de: "German", fr: "French", es: "Spanish",
+    ar: "Arabic", ru: "Russian", hi: "Hindi", ne: "Nepali",
+    bn: "Bengali", th: "Thai", my: "Burmese", si: "Sinhala",
+    zh: "Chinese", ja: "Japanese",
+  };
+  const langBadgeText = isMultilingual && detectedLanguages.length > 0
+    ? detectedLanguages
+        .map((l) => LANG_DISPLAY[l] || l.toUpperCase())
+        .join(" + ") + " (ICAO)"
+    : null;
+
   // Real backend gating decision (tampering is actionable if score >= 0.35 or critical check like ELA is flagged)
   const isTamperingFlagged = Boolean(
     tampering?.flagged &&
@@ -234,8 +252,10 @@ export function DocumentResultsScreen({
     id: string;
     label: string;
     ocrValue: string;
+    ocrNativeValue?: string | null;   // Phase 9: original script text
     mrzValue: string;
-    status: "MATCH" | "MISMATCH" | "VERIFIED";
+    status: "MATCH" | "MISMATCH" | "VERIFIED" | "ICAO_MATCH";
+    matchReason?: string;             // Phase 9: e.g. "ICAO Transliteration"
     conf: number;
     isPrimary?: boolean;
   }
@@ -246,32 +266,63 @@ export function DocumentResultsScreen({
     const mrzF = mrzObj?.mrz_fields || {};
 
     const cleanStr = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-    const areMatching = (v1: string, v2: string) => {
-      if (!v1 || !v2) return false;
+
+    // Phase 9: Client-side ICAO Doc 9303 diacritic transliteration for name comparison
+    // Handles German umlauts and common diacritics so MÜLLER === MUELLER
+    const icaoTransliterate = (s: string): string => {
+      return s
+        .toUpperCase()
+        .replace(/Ä/g, "AE").replace(/Ö/g, "OE").replace(/Ü/g, "UE").replace(/ß/g, "SS")
+        .replace(/É|È|Ê|Ë/g, "E").replace(/À|Â/g, "A").replace(/Á/g, "A")
+        .replace(/Î|Ï/g, "I").replace(/Í|Ì/g, "I")
+        .replace(/Ô|Ó|Ò/g, "O").replace(/Ú|Ù|Û/g, "U")
+        .replace(/Ç/g, "C").replace(/Ñ/g, "N")
+        .replace(/Å/g, "AA").replace(/Æ/g, "AE").replace(/Ø/g, "OE")
+        .replace(/[^A-Z0-9 ]/g, "");
+    };
+
+    // Upgraded areMatching: checks exact → ICAO transliteration → date format variants
+    const areMatching = (v1: string, v2: string): { match: boolean; reason: string } => {
+      if (!v1 || !v2) return { match: false, reason: "" };
       const c1 = cleanStr(v1);
       const c2 = cleanStr(v2);
-      if (c1 === c2) return true;
-      // Handle Date format variants: YYMMDD vs DDMMYYYY
+      if (c1 === c2) return { match: true, reason: "EXACT" };
+      // ICAO transliteration match
+      const t1 = cleanStr(icaoTransliterate(v1));
+      const t2 = cleanStr(icaoTransliterate(v2));
+      if (t1 === t2 || t1 === c2 || c1 === t2) return { match: true, reason: "ICAO_TRANSLITERATION" };
+      // Date format variants: YYMMDD vs DDMMYYYY
       if (c1.length === 6 && c2.length === 8) {
-        return c1 === c2.slice(4, 8) + c2.slice(2, 4) + c2.slice(0, 2) || c1 === c2.slice(6, 8) + c2.slice(2, 4) + c2.slice(0, 2);
+        const dateMatch =
+          c1 === c2.slice(4, 8) + c2.slice(2, 4) + c2.slice(0, 2) ||
+          c1 === c2.slice(6, 8) + c2.slice(2, 4) + c2.slice(0, 2);
+        if (dateMatch) return { match: true, reason: "DATE_FORMAT" };
       }
       if (c2.length === 6 && c1.length === 8) {
-        return c2 === c1.slice(4, 8) + c1.slice(2, 4) + c1.slice(0, 2) || c2 === c1.slice(6, 8) + c1.slice(2, 4) + c1.slice(0, 2);
+        const dateMatch =
+          c2 === c1.slice(4, 8) + c1.slice(2, 4) + c1.slice(0, 2) ||
+          c2 === c1.slice(6, 8) + c1.slice(2, 4) + c1.slice(0, 2);
+        if (dateMatch) return { match: true, reason: "DATE_FORMAT" };
       }
-      return false;
+      return { match: false, reason: "" };
     };
 
     // 1. Full Name
     const ocrName = resolvedFullName;
     const mrzName = (mrzF.name || `${mrzF.given_names || ""} ${mrzF.surname || ""}`).trim();
+    // Phase 9: pick up native_value from the name field if present
+    const nameField = getF("name") || getF("full_name");
+    const ocrNameNative = nameField?.native_value ?? null;
     if (ocrName || mrzName) {
-      const match = areMatching(ocrName, mrzName);
+      const { match, reason } = areMatching(ocrName, mrzName);
       passportComparisons.push({
         id: "pass_name",
         label: "FULL NAME",
         ocrValue: ocrName || mrzName,
+        ocrNativeValue: ocrNameNative,
         mrzValue: mrzName || ocrName,
-        status: ocrName && mrzName ? (match ? "MATCH" : "MISMATCH") : "VERIFIED",
+        status: ocrName && mrzName ? (match ? (reason === "ICAO_TRANSLITERATION" ? "ICAO_MATCH" : "MATCH") : "MISMATCH") : "VERIFIED",
+        matchReason: reason || undefined,
         conf: nameConfidence <= 1 ? nameConfidence * 100 : nameConfidence,
         isPrimary: true,
       });
@@ -284,7 +335,7 @@ export function DocumentResultsScreen({
       "";
     const mrzDoc = mrzF.passport_number || mrzF.doc_number || "";
     if (ocrDoc || mrzDoc) {
-      const match = areMatching(ocrDoc, mrzDoc);
+      const { match } = areMatching(ocrDoc, mrzDoc);
       const conf = getF("passport_number")?.confidence ?? getF("doc_number")?.confidence ?? 0.99;
       passportComparisons.push({
         id: "pass_doc_num",
@@ -301,7 +352,7 @@ export function DocumentResultsScreen({
     const ocrDob = getF("date_of_birth")?.field_value || getF("dob")?.field_value || "";
     const mrzDob = mrzF.date_of_birth || mrzF.raw_dob || "";
     if (ocrDob || mrzDob) {
-      const match = areMatching(ocrDob, mrzDob);
+      const { match } = areMatching(ocrDob, mrzDob);
       const conf = getF("date_of_birth")?.confidence ?? getF("dob")?.confidence ?? 0.95;
       passportComparisons.push({
         id: "pass_dob",
@@ -317,7 +368,7 @@ export function DocumentResultsScreen({
     const ocrNat = getF("nationality")?.field_value || "";
     const mrzNat = mrzF.nationality || "";
     if (ocrNat || mrzNat) {
-      const match = areMatching(ocrNat, mrzNat);
+      const { match } = areMatching(ocrNat, mrzNat);
       const conf = getF("nationality")?.confidence ?? 0.95;
       passportComparisons.push({
         id: "pass_nat",
@@ -333,7 +384,7 @@ export function DocumentResultsScreen({
     const ocrSex = getF("sex")?.field_value || getF("gender")?.field_value || "";
     const mrzSex = mrzF.sex || mrzF.gender || "";
     if (ocrSex || mrzSex) {
-      const match = areMatching(ocrSex, mrzSex);
+      const { match } = areMatching(ocrSex, mrzSex);
       const conf = getF("sex")?.confidence ?? getF("gender")?.confidence ?? 0.98;
       passportComparisons.push({
         id: "pass_sex",
@@ -349,7 +400,7 @@ export function DocumentResultsScreen({
     const ocrExp = getF("date_of_expiry")?.field_value || getF("expiry_date")?.field_value || "";
     const mrzExp = mrzF.date_of_expiry || mrzF.raw_expiry || "";
     if (ocrExp || mrzExp) {
-      const match = areMatching(ocrExp, mrzExp);
+      const { match } = areMatching(ocrExp, mrzExp);
       const conf = getF("date_of_expiry")?.confidence ?? getF("expiry_date")?.confidence ?? 0.95;
       passportComparisons.push({
         id: "pass_exp",
@@ -736,15 +787,15 @@ export function DocumentResultsScreen({
         </div>
       )}
 
-      {/* Main Forensic Grid: 50/50 Balanced Split */}
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-        {/* Left Column (50% Space): Extracted Data + Forensics */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-6">
+      {/* Main Forensic Grid: Proportionate Data (Left) vs Visual Evidence (Right ~32% / max 380px) */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* Left Column: Extracted Data + Forensics */}
+        <div className="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
           {/* Extracted Entity Data (With Passport OCR vs MRZ Cross-Check, or Direct Attributes for Other Documents) */}
           <div className="bg-surface-container border border-outline-variant/50 p-5 relative overflow-hidden group">
-            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/60 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary-fixed text-[18px]">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 border-b border-outline-variant/60 pb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-primary-fixed text-[18px] shrink-0">
                   {isPassport ? "compare_arrows" : "badge"}
                 </span>
                 <h3 className="font-label-caps text-on-surface uppercase tracking-widest text-xs m-0">
@@ -753,61 +804,79 @@ export function DocumentResultsScreen({
                     : `EXTRACTED ENTITY DATA (${allDisplayFields.length} ATTRIBUTES)`}
                 </h3>
               </div>
-              <span className="font-data-mono-md text-xs text-primary-fixed">
-                {isPassport ? "ICAO-9303 DUAL-ZONE CROSS-CHECK" : "ENGINE: ICAO-9303 / GEMINI HYBRID"}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                {langBadgeText && (
+                  <span className="bg-primary-fixed/10 text-primary-fixed border border-primary-fixed/30 px-2 py-0.5 text-[10px] font-data-mono-md flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[12px]">translate</span>
+                    <span>{langBadgeText}</span>
+                  </span>
+                )}
+                <span className="font-data-mono-md text-xs text-primary-fixed whitespace-nowrap">
+                  {isPassport ? "ICAO-9303 DUAL-ZONE CROSS-CHECK" : "ENGINE: ICAO-9303 / GEMINI HYBRID"}
+                </span>
+              </div>
             </div>
 
             {isPassport && passportComparisons.length > 0 ? (
               /* Passport Specialized View: VIZ OCR vs MRZ Cross-Comparison */
               <div className="flex flex-col gap-1.5 max-h-[350px] overflow-y-auto pr-1">
                 {/* Column Headers */}
-                <div className="hidden sm:grid grid-cols-12 gap-2 px-2 py-1 bg-surface/80 border-b border-outline-variant/40 text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider">
-                  <div className="col-span-3">ATTRIBUTE</div>
-                  <div className="col-span-3">VIZ (OCR TEXT)</div>
-                  <div className="col-span-3">MRZ (ICAO 9303)</div>
-                  <div className="col-span-2 text-center">CROSS-CHECK</div>
-                  <div className="col-span-1 text-right">CONF.</div>
+                <div className="hidden sm:grid sm:grid-cols-[125px_1fr_1fr_90px_50px] gap-2 sm:gap-3 px-2 py-1.5 bg-surface/80 border-b border-outline-variant/40 text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider items-center">
+                  <div>ATTRIBUTE</div>
+                  <div>VIZ (OCR TEXT)</div>
+                  <div>MRZ (ICAO 9303)</div>
+                  <div className="text-center">CROSS-CHECK</div>
+                  <div className="text-right">CONF.</div>
                 </div>
 
                 {passportComparisons.map((row) => (
                   <div
                     key={row.id}
-                    className={`grid grid-cols-1 sm:grid-cols-12 gap-2 items-center py-2 px-2 border-b border-outline-variant/20 ${
+                    className={`grid grid-cols-1 sm:grid-cols-[125px_1fr_1fr_90px_50px] gap-2 sm:gap-3 items-center py-2 px-2 border-b border-outline-variant/20 ${
                       row.isPrimary
                         ? "bg-primary-fixed/5 border-l-2 border-primary-fixed"
                         : "hover:bg-surface/30"
                     }`}
                   >
                     {/* Attribute */}
-                    <div className="sm:col-span-3 flex flex-col">
-                      <span className="font-label-caps text-on-surface-variant uppercase text-[10px]">
+                    <div className="flex flex-col">
+                      <span className="font-label-caps text-on-surface-variant uppercase text-[10px] tracking-wide">
                         {row.label}
                       </span>
                     </div>
 
                     {/* VIZ (OCR) */}
-                    <div className="sm:col-span-3 flex items-center gap-1.5 min-w-0">
-                      <span className="text-[9px] px-1 bg-surface-container border border-outline-variant/40 text-on-surface-variant font-data-mono-md shrink-0">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <span className="text-[9px] px-1 py-0.5 bg-surface-container border border-outline-variant/40 text-on-surface-variant font-data-mono-md shrink-0 mt-0.5">
                         OCR
                       </span>
-                      <span
-                        className={`font-data-mono-md text-xs truncate ${
-                          row.isPrimary ? "text-on-surface font-bold" : "text-on-surface"
-                        }`}
-                        title={row.ocrValue}
-                      >
-                        {row.ocrValue || "—"}
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span
+                          className={`font-data-mono-md text-xs break-words whitespace-normal leading-snug ${
+                            row.isPrimary ? "text-on-surface font-bold" : "text-on-surface"
+                          }`}
+                          title={row.ocrValue}
+                        >
+                          {row.ocrValue || "—"}
+                        </span>
+                        {row.ocrNativeValue && row.ocrNativeValue !== row.ocrValue && (
+                          <span
+                            className="font-data-mono-md text-[10px] text-on-surface-variant/70 break-words whitespace-normal leading-tight mt-0.5"
+                            title={`Native script: ${row.ocrNativeValue}`}
+                          >
+                            {row.ocrNativeValue}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* MRZ */}
-                    <div className="sm:col-span-3 flex items-center gap-1.5 min-w-0">
-                      <span className="text-[9px] px-1 bg-primary-fixed/10 border border-primary-fixed/30 text-primary-fixed font-data-mono-md shrink-0">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <span className="text-[9px] px-1 py-0.5 bg-primary-fixed/10 border border-primary-fixed/30 text-primary-fixed font-data-mono-md shrink-0 mt-0.5">
                         MRZ
                       </span>
                       <span
-                        className={`font-data-mono-md text-xs truncate ${
+                        className={`font-data-mono-md text-xs break-words whitespace-normal leading-snug ${
                           row.isPrimary ? "text-primary-fixed font-bold" : "text-on-surface"
                         }`}
                         title={row.mrzValue}
@@ -817,27 +886,35 @@ export function DocumentResultsScreen({
                     </div>
 
                     {/* Status Badge */}
-                    <div className="sm:col-span-2 flex justify-start sm:justify-center">
+                    <div className="flex justify-start sm:justify-center">
                       {row.status === "MATCH" ? (
-                        <span className="bg-primary-fixed/15 text-primary-fixed border border-primary-fixed/40 px-2 py-0.5 text-[10px] font-data-mono-md flex items-center gap-1">
+                        <span className="bg-primary-fixed/15 text-primary-fixed border border-primary-fixed/40 px-1.5 py-0.5 text-[10px] font-data-mono-md flex items-center gap-1">
                           <span className="material-symbols-outlined text-[13px]">check</span>
                           <span>MATCH</span>
                         </span>
+                      ) : row.status === "ICAO_MATCH" ? (
+                        <span
+                          className="bg-primary-fixed/20 text-primary-fixed border border-primary-fixed/50 px-1.5 py-0.5 text-[9px] font-data-mono-md flex items-center gap-0.5"
+                          title="Matched via ICAO Doc 9303 Transliteration (e.g. MÜLLER → MUELLER)"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">translate</span>
+                          <span>ICAO MATCH</span>
+                        </span>
                       ) : row.status === "MISMATCH" ? (
-                        <span className="bg-error/15 text-error border border-error/40 px-2 py-0.5 text-[10px] font-data-mono-md flex items-center gap-1 font-bold">
+                        <span className="bg-error/15 text-error border border-error/40 px-1.5 py-0.5 text-[10px] font-data-mono-md flex items-center gap-1 font-bold">
                           <span className="material-symbols-outlined text-[13px]">close</span>
                           <span>MISMATCH</span>
                         </span>
                       ) : (
-                        <span className="bg-surface text-on-surface-variant border border-outline-variant/40 px-2 py-0.5 text-[10px] font-data-mono-md">
+                        <span className="bg-surface text-on-surface-variant border border-outline-variant/40 px-1.5 py-0.5 text-[10px] font-data-mono-md">
                           VERIFIED
                         </span>
                       )}
                     </div>
 
                     {/* Subtle Decreased Green Percentage Meter */}
-                    <div className="sm:col-span-1 flex items-center justify-end gap-1.5">
-                      <div className="w-8 h-1 bg-surface-variant rounded-full overflow-hidden shrink-0">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <div className="w-6 h-1 bg-surface-variant rounded-full overflow-hidden shrink-0">
                         <div
                           className="h-full bg-primary-fixed transition-all duration-700"
                           style={{ width: `${Math.min(100, row.conf)}%` }}
@@ -1113,8 +1190,8 @@ export function DocumentResultsScreen({
           </div>
         </div>
 
-        {/* Right Column (50% Space): Prominent Visual Document & Portrait Scans */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-6">
+        {/* Right Column: Visual Document & Portrait Scans (Proportionate Width) */}
+        <div className="w-full lg:w-[32%] xl:w-[30%] lg:min-w-[310px] lg:max-w-[380px] xl:max-w-[400px] lg:shrink-0 flex flex-col gap-6 sticky top-4">
           {/* Document Scan View */}
           <div className="bg-surface-container border border-outline-variant/50 p-4 h-[280px] flex flex-col relative group">
             <div className="flex items-center justify-between px-1 mb-2">

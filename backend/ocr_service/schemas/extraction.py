@@ -61,9 +61,15 @@ class ExtractedField(BaseModel):
     """
     One extracted field from a document.
     e.g. {"field_name": "date_of_expiry", "field_value": "2028-10-15", "confidence": 0.97}
+
+    Multilingual passport support (Phase 9):
+      - field_value       : Normalized English/ASCII value (used for MRZ cross-check and rules)
+      - native_value      : Original script value (e.g. "MÜLLER", "राहुल शर्मा", "محمد")
+      - transliterated_value : ICAO Doc 9303 Latin transliteration (e.g. "MUELLER", "RAHUL SHARMA")
+      - language          : ISO 639-1 code of the native text (e.g. "de", "hi", "ar", "bn")
     """
     field_name: str = Field(..., description="e.g. 'name', 'passport_number', 'date_of_expiry'")
-    field_value: str | None = Field(None, description="Extracted text value, None if not found")
+    field_value: str | None = Field(None, description="Normalized English/ASCII value — primary field for rules engine and MRZ cross-check")
     confidence: float | None = Field(
         None,
         ge=0.0,
@@ -77,6 +83,19 @@ class ExtractedField(BaseModel):
     source: str = Field(
         default="ocr",
         description="Extraction source ('ocr', 'mrz', 'llm_fallback', etc.)",
+    )
+    # --- Phase 9: Multilingual passport support ---
+    native_value: str | None = Field(
+        None,
+        description="Original script value from VIZ (e.g. 'JÜRGEN MÜLLER', 'राहुल शर्मा', 'محمد')",
+    )
+    transliterated_value: str | None = Field(
+        None,
+        description="ICAO Doc 9303 Part 3 Sec.6 Latin transliteration (e.g. 'JUERGEN MUELLER', 'RAHUL SHARMA')",
+    )
+    language: str | None = Field(
+        None,
+        description="ISO 639-1 language code of the native_value text (e.g. 'de', 'hi', 'ar', 'bn', 'ru')",
     )
 
     def model_post_init(self, __context: Any) -> None:
@@ -147,6 +166,19 @@ class ExtractionResponse(BaseModel):
     warnings: list[str] = Field(
         default_factory=list,
         description="Non-fatal issues, e.g. 'Low confidence on date_of_birth (0.41)'",
+    )
+    # --- Phase 9: Multilingual passport pipeline metadata ---
+    detected_languages: list[str] = Field(
+        default_factory=list,
+        description="ISO 639-1 codes of scripts detected in VIZ (e.g. ['de', 'en'] or ['hi', 'en'])",
+    )
+    primary_script: str | None = Field(
+        None,
+        description="Dominant non-Latin script detected (e.g. 'devanagari', 'arabic', 'cyrillic', 'bengali', 'latin')",
+    )
+    is_multilingual: bool = Field(
+        default=False,
+        description="True when passport VIZ contains labels/names in a non-English script alongside English",
     )
 
 

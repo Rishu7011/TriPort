@@ -82,8 +82,13 @@ async def call_ocr_service(
     # In-process direct fallback
     logger.info("Executing OCR via internal core pipeline", document_type=document_type.value if document_type else "auto")
     from backend.ocr_service.core.classifier import classify_document
-    from backend.ocr_service.core.field_extractor import extract_fields, extract_raw_ocr_lines
+    from backend.ocr_service.core.field_extractor import (
+        extract_fields,
+        extract_raw_ocr_lines,
+        detect_multilingual_ocr_metadata,
+    )
     from backend.ocr_service.core.mrz_parser import parse_mrz
+    from backend.ocr_service.core.transliteration import detect_script
 
     extracted_dict: dict[str, ExtractedField] = {}
     warnings: list[str] = []
@@ -97,6 +102,9 @@ async def call_ocr_service(
 
     if not document_type:
         document_type, _, _ = classify_document(image_bytes, ocr_lines=raw_ocr_lines, provider=provider)
+
+    # Phase 9: Detect multilingual script metadata from OCR lines
+    detected_languages, primary_script, is_multilingual = detect_multilingual_ocr_metadata(raw_ocr_lines)
 
     text_lines = [t for t, _ in raw_ocr_lines]
     mrz_res: MRZResult = parse_mrz(image_bytes, ocr_text_lines=text_lines)
@@ -119,17 +127,38 @@ async def call_ocr_service(
         if f.field_name not in extracted_dict:
             extracted_dict[f.field_name] = f
 
+    # Phase 9: LLM fallback for:
+    # (a) Standard fallback cases (sparse extraction / non-MRZ docs)
+    # (b) Non-Latin script passports not covered by local EasyOCR (Arabic, Cyrillic, Thai, etc.)
+    non_local_scripts = {"arabic", "cyrillic", "thai", "burmese", "sinhala", "chinese", "japanese"}
+    needs_llm_for_script = (
+        primary_script in non_local_scripts
+        and document_type == DocumentType.PASSPORT
+        and len([f for f in extracted_dict.values() if f.field_name in ("name", "surname", "given_names")]) == 0
+    )
+
     if (not extracted_dict and not mrz_res.mrz_present) or (
         document_type in [DocumentType.DRIVING_LICENSE, DocumentType.PERMIT, DocumentType.FERRY_TICKET]
         and len(extracted_dict) < 2
-    ):
+    ) or needs_llm_for_script:
         from backend.ocr_service.core.llm_fallback import extract_fields_with_llm
         _, llm_fields = extract_fields_with_llm(image_bytes, document_type)
         if llm_fields:
+            if needs_llm_for_script:
+                logger.info(
+                    "LLM Vision fallback triggered for non-Latin script passport",
+                    primary_script=primary_script,
+                    document_type=document_type.value,
+                )
             primary_method = ExtractionMethod.LLM
             for f in llm_fields:
                 extracted_dict[f.field_name] = f
-
+            # Update language metadata from LLM results if richer
+            llm_langs = list({
+                f.language for f in llm_fields if f.language
+            })
+            if llm_langs and not detected_languages:
+                detected_languages = llm_langs + ["en"]
 
     return ExtractionResponse(
         document_type=document_type,
@@ -139,6 +168,9 @@ async def call_ocr_service(
         fields=list(extracted_dict.values()),
         mrz=mrz_res,
         warnings=warnings,
+        detected_languages=detected_languages,
+        primary_script=primary_script,
+        is_multilingual=is_multilingual,
     )
 
 

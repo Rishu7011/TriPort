@@ -145,10 +145,16 @@ export function BiometricScreen({
     cancelAutoClear();
     setCapturedImageUrl(null);
     setVerificationResult(null);
-    if (videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
+    setCameraError(null);
   };
+
+  // Re-attach stream to video element after retake (video is always in DOM now)
+  useEffect(() => {
+    if (!capturedImageUrl && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [capturedImageUrl]);
 
   // Real backend metrics
   const oneToOne = verificationResult?.face?.one_to_one;
@@ -284,7 +290,7 @@ export function BiometricScreen({
       )}
 
       {/* Main Dual-Source Comparison View */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-[420px]">
+      <div className="flex flex-col md:flex-row gap-4">
         {/* Source A: Document Portrait */}
         <div className="flex-1 flex flex-col bg-surface-container-low border border-outline-variant/60 p-4 relative overflow-hidden group">
           <div className="flex justify-between items-start mb-3 z-10 relative">
@@ -304,7 +310,7 @@ export function BiometricScreen({
             </div>
           </div>
 
-          <div className="flex-1 relative border border-outline-variant/40 bg-surface-container-lowest flex items-center justify-center overflow-hidden min-h-[300px]">
+          <div className="relative border border-outline-variant/40 bg-surface-container-lowest flex items-center justify-center overflow-hidden h-[260px]">
             {docPortraitUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -356,9 +362,31 @@ export function BiometricScreen({
             </div>
           </div>
 
-          <div className="flex-1 relative border border-primary-fixed/30 bg-surface-container-lowest flex items-center justify-center overflow-hidden min-h-[300px]">
-            {cameraError ? (
-              <div className="p-4 text-center flex flex-col items-center gap-2">
+          <div className="relative border border-primary-fixed/30 bg-surface-container-lowest flex items-center justify-center overflow-hidden h-[260px]">
+            {/* Video always stays in DOM so videoRef is never null on retake */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover ${
+                capturedImageUrl || cameraError ? "hidden" : ""
+              }`}
+            />
+
+            {/* Captured snapshot overlaid on top */}
+            {capturedImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={capturedImageUrl}
+                alt="Captured Live Traveler"
+                className="absolute inset-0 w-full h-full object-contain filter contrast-110"
+              />
+            )}
+
+            {/* Camera error state */}
+            {cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
                 <span className="material-symbols-outlined text-error text-[36px]">
                   videocam_off
                 </span>
@@ -366,21 +394,6 @@ export function BiometricScreen({
                   {cameraError}
                 </span>
               </div>
-            ) : capturedImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={capturedImageUrl}
-                alt="Captured Live Traveler"
-                className="w-full h-full object-contain filter contrast-110"
-              />
-            ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
             )}
 
             {/* Tactical Viewfinder Overlay */}

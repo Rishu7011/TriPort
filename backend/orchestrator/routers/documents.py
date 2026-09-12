@@ -21,7 +21,7 @@ from backend.orchestrator.auth.dependencies import require_roles
 from backend.orchestrator.auth.security import UserTokenData
 from backend.orchestrator.core.pipeline import run_stage1_pipeline, run_stage2_pipeline
 from backend.orchestrator.core import scan_store
-from backend.orchestrator.db.session import get_db
+from backend.orchestrator.db.session import get_db, get_db_optional
 from backend.orchestrator.db.models import (
     AuditLedgerEntry,
     FaceVerificationResult,
@@ -77,8 +77,8 @@ def _normalize_tampering_detail(raw: Any) -> Any:
     return raw
 
 
-async def _get_scan_or_404(db: AsyncSession, document_id: str) -> scan_store.ScanRecord:
-    """Fetch a scan from DB or raise 404."""
+async def _get_scan_or_404(db: "AsyncSession | None", document_id: str) -> scan_store.ScanRecord:
+    """Fetch a scan from DB/cache/SQLite or raise 404."""
     record = await scan_store.get_scan(db, document_id)
     if not record:
         raise HTTPException(
@@ -131,7 +131,7 @@ async def upload_and_screen_document(
     live_image: UploadFile | None = File(None, description="Optional live traveler face photo alias (legacy parameter)"),
     checkpoint_id: str | None = Form(None, description="Border checkpoint UUID"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession | None = Depends(get_db_optional),
 ) -> UploadResponse:
     try:
         image_bytes = await file.read()
@@ -214,7 +214,7 @@ async def upload_and_screen_document(
 async def get_document_pipeline(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ) -> UploadResponse:
     record = await _get_scan_or_404(db, document_id)
     return UploadResponse(
@@ -235,7 +235,7 @@ async def get_document_pipeline(
 async def get_document_extraction(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     extraction = record.pipeline.extraction
@@ -265,7 +265,7 @@ async def get_document_extraction(
 async def get_document_validation(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     validation = record.pipeline.validation
@@ -290,7 +290,7 @@ async def get_document_validation(
 async def get_document_tampering(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     tampering = record.pipeline.tampering
@@ -322,7 +322,7 @@ async def get_document_tampering(
 async def get_document_face(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     return _face_response(record)
@@ -339,7 +339,7 @@ async def verify_live_face(
     document_id: str,
     file: UploadFile = File(..., description="Live camera snapshot (JPEG/PNG)"),
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     try:
@@ -388,9 +388,15 @@ async def verify_live_face(
         db=db,
     )
 
-    # Upload live image to Supabase Storage
+    # Upload live image to Supabase Storage — fall back to data URL if offline
     from backend.orchestrator.storage import supabase_storage
-    live_url = await supabase_storage.upload_live_capture_image(live_bytes, document_id)
+    live_url: str | None = None
+    try:
+        live_url = await supabase_storage.upload_live_capture_image(live_bytes, document_id)
+    except Exception as exc:
+        logger.warning("live_image_upload_failed_using_data_url", error=str(exc))
+    if not live_url:
+        live_url = f"data:image/jpeg;base64,{base64.b64encode(live_bytes).decode('ascii')}"
 
     # Update record view model and status
     record.pipeline = stage2_result
@@ -398,58 +404,79 @@ async def verify_live_face(
     record.inspection_status = meta.get("inspection_status", "standard_clearance")
 
     # Persist Stage 2 child tables and scan_event update
-    try:
-        scan_id = uuid.UUID(document_id)
-        from sqlalchemy import delete as sa_delete
+    if db is not None:
+        # ── ONLINE: write to Supabase ────────────────────────────────────────
+        try:
+            scan_id = uuid.UUID(document_id)
+            from sqlalchemy import delete as sa_delete
 
-        # Upsert face_verification_results
-        face_res = stage2_result.face
-        if face_res:
-            await db.execute(
-                sa_delete(FaceVerificationResult).where(
-                    FaceVerificationResult.scan_event_id == scan_id
+            # Upsert face_verification_results
+            face_res = stage2_result.face
+            if face_res:
+                await db.execute(
+                    sa_delete(FaceVerificationResult).where(
+                        FaceVerificationResult.scan_event_id == scan_id
+                    )
                 )
+                one_to_one = face_res.one_to_one
+                dedup = face_res.dedup
+                liveness = face_res.liveness
+                db.add(FaceVerificationResult(
+                    scan_event_id=scan_id,
+                    one_to_one_matched=one_to_one.matched if one_to_one else None,
+                    match_score=one_to_one.match_score if one_to_one else None,
+                    cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
+                    dedup_has_duplicates=dedup.has_duplicates if dedup else None,
+                    dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
+                    liveness_is_live=liveness.is_live if liveness else None,
+                    liveness_score=liveness.liveness_score if liveness else None,
+                    bypassed=face_res.bypassed,
+                    bypassed_reason=face_res.bypassed_reason,
+                ))
+
+            # Upsert risk_results
+            risk_res = stage2_result.risk_score
+            if risk_res:
+                await db.execute(
+                    sa_delete(RiskResult).where(RiskResult.scan_event_id == scan_id)
+                )
+                db.add(RiskResult(
+                    scan_event_id=scan_id,
+                    score=risk_res.score,
+                    band=risk_res.band.value if hasattr(risk_res.band, "value") else str(risk_res.band),
+                    reasons=risk_res.reasons,
+                    sub_scores=risk_res.sub_scores.model_dump() if risk_res.sub_scores else None,
+                ))
+
+            # Update scan_events
+            event_row = await db.get(ScanEvent, scan_id)
+            if event_row:
+                event_row.live_image_url = live_url
+                event_row.inspection_status = record.inspection_status
+                event_row.pipeline_snapshot = record.pipeline.model_dump(mode="json")
+
+            await db.commit()
+        except Exception as exc:
+            logger.warning("Failed to persist Stage 2 DB updates", error=str(exc))
+    else:
+        # ── OFFLINE: merge into SQLite pending_screenings ────────────────────
+        from backend.orchestrator.core.offline_sync import get_offline_store
+        try:
+            stage2_dict = stage2_result.model_dump(mode="json")
+            get_offline_store().update_offline_screening_stage2(
+                document_id=document_id,
+                stage2_payload={
+                    **stage2_dict,
+                    "live_image_data_url": live_url,
+                },
+                live_image_url=live_url,
+                inspection_status=record.inspection_status,
             )
-            one_to_one = face_res.one_to_one
-            dedup = face_res.dedup
-            liveness = face_res.liveness
-            db.add(FaceVerificationResult(
-                scan_event_id=scan_id,
-                one_to_one_matched=one_to_one.matched if one_to_one else None,
-                match_score=one_to_one.match_score if one_to_one else None,
-                cosine_similarity=one_to_one.cosine_similarity if one_to_one else None,
-                dedup_has_duplicates=dedup.has_duplicates if dedup else None,
-                dedup_hits=([h.model_dump() for h in dedup.hits] if dedup else None),
-                liveness_is_live=liveness.is_live if liveness else None,
-                liveness_score=liveness.liveness_score if liveness else None,
-                bypassed=face_res.bypassed,
-                bypassed_reason=face_res.bypassed_reason,
-            ))
+        except Exception as exc:
+            logger.warning("Failed to persist Stage 2 offline update", error=str(exc))
 
-        # Upsert risk_results
-        risk_res = stage2_result.risk_score
-        if risk_res:
-            await db.execute(
-                sa_delete(RiskResult).where(RiskResult.scan_event_id == scan_id)
-            )
-            db.add(RiskResult(
-                scan_event_id=scan_id,
-                score=risk_res.score,
-                band=risk_res.band.value if hasattr(risk_res.band, "value") else str(risk_res.band),
-                reasons=risk_res.reasons,
-                sub_scores=risk_res.sub_scores.model_dump() if risk_res.sub_scores else None,
-            ))
-
-        # Update scan_events
-        event_row = await db.get(ScanEvent, scan_id)
-        if event_row:
-            event_row.live_image_url = live_url
-            event_row.inspection_status = record.inspection_status
-            event_row.pipeline_snapshot = record.pipeline.model_dump(mode="json")
-
-        await db.commit()
-    except Exception as exc:
-        logger.warning("Failed to persist Stage 2 DB updates", error=str(exc))
+    # Update in-memory cache with final record
+    scan_store.set_cached_scan(document_id, record)
 
     # Append distinct Stage 2 event to audit ledger
     one_to_one = stage2_result.face.one_to_one if stage2_result.face else None
@@ -498,7 +525,7 @@ async def verify_live_face(
 async def get_document_risk(
     document_id: str,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
     record = await _get_scan_or_404(db, document_id)
     risk = record.pipeline.risk_score
@@ -529,70 +556,100 @@ async def record_officer_decision(
     document_id: str,
     body: DecisionRequest,
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ) -> DecisionResponse:
     await _get_scan_or_404(db, document_id)
 
     acting_officer_id = body.officer_id or current_user.user_id
 
-    # Insert officer_decisions row
-    try:
-        scan_id = uuid.UUID(document_id)
-        officer_uuid = None
+    if db is not None:
+        # ── ONLINE: persist decision row and update scan_events ──────────────
         try:
-            officer_uuid = uuid.UUID(acting_officer_id) if acting_officer_id else None
-        except ValueError:
-            pass
+            scan_id = uuid.UUID(document_id)
+            officer_uuid = None
+            try:
+                officer_uuid = uuid.UUID(acting_officer_id) if acting_officer_id else None
+            except ValueError:
+                pass
 
-        decision_row = OfficerDecision(
-            scan_event_id=scan_id,
-            officer_id=officer_uuid,
-            decision=body.decision,
-            notes=body.notes,
-        )
-        db.add(decision_row)
+            decision_row = OfficerDecision(
+                scan_event_id=scan_id,
+                officer_id=officer_uuid,
+                decision=body.decision,
+                notes=body.notes,
+            )
+            db.add(decision_row)
 
-        # Also update inspection_status on scan_events for decision-driven status changes
-        decision_to_status = {
+            # Also update inspection_status on scan_events for decision-driven status changes
+            decision_to_status = {
+                "approve": "approved",
+                "reject": "rejected",
+                "flag": "secondary_inspection",
+                "escalate": "secondary_inspection",
+            }
+            new_status = decision_to_status.get(body.decision.lower())
+            if new_status:
+                await scan_store.update_inspection_status(db, document_id, new_status)
+
+        except Exception as exc:
+            logger.warning("Failed to persist officer decision row", error=str(exc))
+    else:
+        # ── OFFLINE: record decision in SQLite ───────────────────────────────
+        from backend.orchestrator.core.offline_sync import get_offline_store
+        try:
+            get_offline_store().record_offline_decision(
+                document_id=document_id,
+                decision=body.decision,
+                notes=body.notes,
+            )
+        except Exception as exc:
+            logger.warning("Failed to record offline officer decision", error=str(exc))
+
+    # Update in-memory cached record status
+    cached = scan_store.get_cached_scan(document_id)
+    if cached:
+        decision_to_status_map = {
             "approve": "approved",
             "reject": "rejected",
             "flag": "secondary_inspection",
             "escalate": "secondary_inspection",
         }
-        new_status = decision_to_status.get(body.decision.lower())
+        new_status = decision_to_status_map.get(body.decision.lower())
         if new_status:
-            await scan_store.update_inspection_status(db, document_id, new_status)
+            cached.inspection_status = new_status
 
-    except Exception as exc:
-        logger.warning("Failed to persist officer decision row", error=str(exc))
-
-    # Append to audit ledger
+    # Append to audit ledger (best-effort — uses its own session factory)
     ledger_payload = {
         "decision": body.decision,
         "notes": body.notes,
         "officer_id": acting_officer_id,
     }
-    ledger_entry = await append_event(
-        event_type="officer_decision",
-        payload=ledger_payload,
-        document_id=document_id,
-        officer_id=acting_officer_id,
-        db=db,
-    )
+    sequence_num = 0
+    try:
+        ledger_entry = await append_event(
+            event_type="officer_decision",
+            payload=ledger_payload,
+            document_id=document_id,
+            officer_id=acting_officer_id,
+            db=db,
+        )
+        sequence_num = ledger_entry.sequence_num
+    except Exception as exc:
+        logger.warning("audit_ledger_append_failed_offline", error=str(exc))
 
     logger.info(
         "officer_decision_recorded",
         document_id=document_id,
         officer_id=acting_officer_id,
         decision=body.decision,
-        sequence_num=ledger_entry.sequence_num,
+        sequence_num=sequence_num,
     )
 
     return DecisionResponse(
         document_id=document_id,
         decision=body.decision,
         recorded=True,
-        ledger_sequence=ledger_entry.sequence_num,
+        ledger_sequence=sequence_num,
     )
 
 
@@ -680,8 +737,10 @@ async def get_cluster_history_endpoint(
 )
 async def get_secondary_inspection_queue(
     current_user: UserTokenData = Depends(require_roles(STANDARD_ROLES)),
-    db: AsyncSession = Depends(get_db),
+    db: "AsyncSession | None" = Depends(get_db_optional),
 ):
+    if db is None:
+        return {"queue": [], "count": 0, "offline": True}
     queue_items = []
     for record in await scan_store.list_secondary_queue(db):
         risk = record.pipeline.risk_score

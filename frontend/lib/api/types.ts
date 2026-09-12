@@ -45,6 +45,14 @@ export interface ExtractedFieldItem {
   field_name: string;
   field_value: string | null;
   confidence: number | null;
+  extraction_method?: string;
+  source?: string;
+  /** Phase 9: Original script value from VIZ (e.g. 'JÜRGEN MÜLLER', 'राहुल शर्मा', 'محمد') */
+  native_value?: string | null;
+  /** Phase 9: ICAO Doc 9303 Part 3 Sec.6 Latin transliteration (e.g. 'JUERGEN MUELLER', 'RAHUL SHARMA') */
+  transliterated_value?: string | null;
+  /** Phase 9: ISO 639-1 language code of the native_value text (e.g. 'de', 'hi', 'ar', 'bn', 'ru') */
+  language?: string | null;
 }
 
 export interface MrzFields {
@@ -71,6 +79,12 @@ export interface ExtractionResult {
   mrz?: MrzResult;
   uploaded_at?: string;
   image_url?: string;
+  /** Phase 9: ISO 639-1 codes of scripts detected in VIZ (e.g. ['de', 'en'] or ['hi', 'en']) */
+  detected_languages?: string[];
+  /** Phase 9: Dominant non-Latin script detected (e.g. 'devanagari', 'arabic', 'cyrillic') */
+  primary_script?: string | null;
+  /** Phase 9: True when passport VIZ contains labels/names in a non-English script */
+  is_multilingual?: boolean;
 }
 
 export interface RuleResultItem {

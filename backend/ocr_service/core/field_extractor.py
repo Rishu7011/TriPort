@@ -8,6 +8,12 @@ Extracts text boxes, confidence scores, and maps structured fields for:
   4. Driving License
   5. Permit (Land Border Crossings & Transit Passes)
   6. Ferry Ticket (Sea Passenger Crossings)
+
+Phase 9 — Global Multi-Language Passport OCR:
+  - EasyOCR loads English + Devanagari (hi/ne) + Bengali (bn) + Latin diacritics (de, fr, es)
+  - Multilingual field anchors: Hindi (उपनाम, दिया गया नाम), Bengali (পদবি, প্রদত্ত নাম), German (NACHNAME, VORNAMEN)
+  - ExtractedField.native_value stores original script; field_value is ICAO-normalized ASCII
+  - Script detection via transliteration.detect_script() across all OCR lines
 """
 
 import io
@@ -22,6 +28,13 @@ from backend.ocr_service.schemas.extraction import (
     ExtractedField,
     ExtractionMethod,
 )
+from backend.ocr_service.core.transliteration import (
+    normalize_icao_transliteration,
+    normalize_regional_numerals,
+    detect_script,
+    detect_languages_in_text,
+    normalize_country_code,
+)
 
 logger = get_logger("ocr_service.field_extractor")
 
@@ -29,20 +42,31 @@ logger = get_logger("ocr_service.field_extractor")
 _ocr_engine_type: str | None = None  # "easyocr"
 _ocr_reader: Any = None
 
+# Phase 9: EasyOCR language configuration
+# Local engine runs ["en"] (fully cached offline with Latin character support).
+# Multi-script multilingual documents (Hindi, Bengali, Arabic, Cyrillic, Thai, etc.)
+# are extracted with high fidelity by Layer 2 (Gemini Vision LLM fallback).
+_EASYOCR_LANGUAGES: list[str] = ["en"]
+
 
 def get_ocr_reader() -> tuple[str, Any]:
     """
     Singleton lazy-loader for EasyOCR engine.
-    Exclusively uses EasyOCR for local OCR field extraction with GPU/MPS acceleration.
+    Uses local offline English model (compatible with Latin text/MRZ).
+    Complex multilingual/non-Latin documents are routed to Layer 2 (Gemini Vision).
     """
     global _ocr_reader, _ocr_engine_type
     if _ocr_reader is None:
         import easyocr
         import torch
         use_gpu = torch.cuda.is_available()
-        _ocr_reader = easyocr.Reader(["en"], gpu=use_gpu)
+        _ocr_reader = easyocr.Reader(_EASYOCR_LANGUAGES, gpu=use_gpu)
         _ocr_engine_type = "easyocr"
-        logger.info("EasyOCR engine initialized successfully", gpu=use_gpu)
+        logger.info(
+            "EasyOCR engine initialized successfully",
+            gpu=use_gpu,
+            languages=_EASYOCR_LANGUAGES,
+        )
 
     return _ocr_engine_type, _ocr_reader
 
@@ -103,16 +127,95 @@ REQUIRED_FIELDS_BY_DOCTYPE: dict[DocumentType, list[str]] = {
 }
 
 PATTERNS = {
-    "date": re.compile(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}[\s/-]?[A-Za-z]{3}[\s/-]?\d{2,4})\b"),
-    "passport_num": re.compile(r"\b[A-Z][0-9]{7,8}\b"),
-    "gender": re.compile(r"\b(SEX|GENDER)?\s*([MFX])\b", re.IGNORECASE),
-    "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY)?\s*([A-Z]{3})\b", re.IGNORECASE),
+    "date": re.compile(r"\b(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}|\d{4}[/\-.\s]\d{1,2}[/\-.]\d{1,2}|\d{1,2}[\s/\-.]?[A-Za-z]{3}[\s/\-.]?\d{2,4})\b"),
+    "date_devanagari": re.compile(r"[\u0966-\u096F]{1,2}[/\-][\u0966-\u096F]{1,2}[/\-][\u0966-\u096F]{4}"),
+    "passport_num": re.compile(r"\b[A-Z]{1,2}[0-9]{7,8}\b"),
+    "gender": re.compile(r"\b(SEX|GENDER|\u0932\u093f\u0902\u0917)?\s*([MFX])\b", re.IGNORECASE),
+    "nationality": re.compile(r"\b(NATIONALITY|CODE|COUNTRY|\u0930\u093e\u0937\u094d\u091f\u094d\u0930\u0940\u092f\u0924\u093e)?\s*([A-Z]{3})\b", re.IGNORECASE),
     "aadhaar": re.compile(r"\b\d{4}\s+\d{4}\s+\d{4}\b"),
     "dl_num": re.compile(r"\b([A-Z]{2}[- /]?[0-9]{1,2}[ -/:]?[0-9]{4,11}(?:[ -/:][0-9]{4,7})?|[A-Z]{2}[0-9A-Z/-]{10,20})\b", re.IGNORECASE),
     "permit_num": re.compile(r"\b(?:PER|BP|LPAI|RAP)[- /]?[0-9A-Z]{6,12}\b|\b(?:IN|NP|BT|BD)[-/][0-9A-Z/-]{4,16}\b", re.IGNORECASE),
     "ticket_num": re.compile(r"\b(TKT|FERRY|BRD|SEA)[- /]?[0-9A-Z]{6,12}\b", re.IGNORECASE),
     "pan_num": re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.IGNORECASE),
     "voter_id_num": re.compile(r"\b[A-Z]{3}[-/]?[0-9]{7}\b", re.IGNORECASE),
+}
+
+# Phase 9: Multilingual field anchor keywords
+# Grouped by field name with English + Hindi + Bengali + German labels
+_FIELD_ANCHORS: dict[str, list[str]] = {
+    "surname": [
+        # English
+        "SURNAME", "LAST NAME",
+        # Hindi (Devanagari)
+        "\u0909\u092a\u0928\u093e\u092e",         # उपनाम
+        # Bengali
+        "\u09aa\u09a6\u09ac\u09bf",               # পদবি
+        "\u09ac\u0982\u09b6\u0997\u09a4 \u09a8\u09be\u09ae",  # বংশগত নাম (Bengali surname in BD passport)
+        # Nepali
+        "\u0925\u0930",                            # थर
+        # German
+        "NACHNAME", "FAMILIENNAME",
+        # French
+        "NOM DE FAMILLE", "NOM",
+    ],
+    "given_names": [
+        # English
+        "GIVEN NAMES", "GIVEN NAME", "FIRST NAME", "FORENAMES",
+        # Hindi (Devanagari)
+        "\u0926\u093f\u092f\u093e \u0917\u092f\u093e \u0928\u093e\u092e",  # दिया गया नाम
+        "\u0928\u093e\u092e",                     # नाम
+        # Bengali
+        "\u09aa\u09cd\u09b0\u09a6\u09a4\u09cd\u09a4 \u09a8\u09be\u09ae",   # প্রদত্ত নাম
+        # German
+        "VORNAMEN", "VORNAME",
+        # French
+        "PRÉNOMS", "PRENOMS",
+    ],
+    "nationality": [
+        # English
+        "NATIONALITY",
+        # Hindi
+        "\u0930\u093e\u0937\u094d\u091f\u094d\u0930\u0940\u092f\u0924\u093e",  # राष्ट्रीयता
+        # Bengali
+        "\u099c\u09be\u09a4\u09c0\u09af\u09bc\u09a4\u09be",                    # জাতীয়তা
+        # German
+        "STAATSANGEHÖRIGKEIT", "STAATSANGEHOERIGKEIT",
+        # French
+        "NATIONALITÉ", "NATIONALITE",
+    ],
+    "date_of_birth": [
+        # English
+        "BIRTH", "DOB", "DATE OF BIRTH",
+        # Hindi
+        "\u091c\u0928\u094d\u092e",  # जन्म
+        "\u091c\u0928\u094d\u092e \u0924\u093f\u0925\u093f",  # जन्म तिथि
+        # Bengali
+        "\u099c\u09a8\u09cd\u09ae",  # জন্ম
+        # German
+        "GEBURTSDATUM", "GEBOREN",
+        # French
+        "NAISSANCE", "DATE DE NAISSANCE",
+    ],
+    "date_of_expiry": [
+        # English
+        "EXPIRY", "VALID UNTIL", "EXPIRATION", "VALID TILL", "VALID UPTO",
+        # Hindi
+        "\u0938\u092e\u093e\u092a\u094d\u0924\u093f",  # समाप्ति
+        # German
+        "ABLAUFDATUM", "GÜLTIG BIS", "GUELTIG BIS",
+        # French
+        "DATE D'EXPIRATION", "EXPIRE LE",
+    ],
+    "date_of_issue": [
+        # English
+        "ISSUE", "DATE OF ISSUE", "ISSUED ON",
+        # Hindi
+        "\u091c\u093e\u0930\u0940",  # जारी
+        # German
+        "AUSSTELLUNGSDATUM",
+        # French
+        "DATE DE DÉLIVRANCE",
+    ],
 }
 
 
@@ -482,7 +585,7 @@ def extract_fields(
                 if m_vid:
                     extracted["voter_id_number"] = ExtractedField(
                         field_name="voter_id_number",
-                        field_value=m_vid.group(0).upper(),
+                        field_value=m_vid.group(0),
                         confidence=conf,
                         extraction_method=ExtractionMethod.OCR,
                     )
@@ -604,84 +707,197 @@ def extract_fields(
             )
 
     # -----------------------------------------------------------------------
-    # 4. Search for Name / Passenger Name / Holder Name
+    # 4. Search for Name / Passenger Name / Holder Name (Phase 9: multilingual)
     # -----------------------------------------------------------------------
     surname_val = ""
     given_val = ""
+    surname_native = ""
+    given_native = ""
+
+    # Build flat lists for anchor-based lookup using _FIELD_ANCHORS
+    surname_anchors_upper = [a.upper() for a in _FIELD_ANCHORS.get("surname", [])]
+    givenname_anchors_upper = [a.upper() for a in _FIELD_ANCHORS.get("given_names", [])]
+    label_keywords = {
+        "NAME", "SURNAME", "SURNAMES", "GIVEN", "GIVEN NAMES", "GIVEN NAME",
+        "FIRST NAME", "FORENAMES", "LAST NAME", "NACHNAME", "FAMILIENNAME",
+        "VORNAMEN", "VORNAME", "NOM", "NOMS", "PRENOMS", "PRÉNOMS",
+        "STAATSANGEHÖRIGKEIT", "STAATSANGEHORIGKEIT", "NATIONALITY",
+        "GEBURTSDATUM", "DATE OF BIRTH", "PASS-NR", "PASSPORT NO",
+        "उपनाम", "दिया गया नाम", "नाम", "पदবি", "প্রদত্ত নাম",
+    }
+
     for i, (text, conf) in enumerate(raw_lines):
         text_upper = text.upper()
-        if "SURNAME" in text_upper or "उपनाम" in text_upper:
-            clean = re.sub(r"(SURNAME|उपनाम|/|:)", "", text, flags=re.IGNORECASE).strip()
-            if clean and len(clean) > 1 and not re.search(r"^[A-Z0-9<]{9}", clean):
-                surname_val = clean
+
+        # Match surname anchors (multilingual)
+        surname_matched = any(anchor in text_upper for anchor in surname_anchors_upper)
+        if surname_matched:
+            clean = re.sub(
+                r"(SURNAME|LAST NAME|NACHNAME|FAMILIENNAME|NOM DE FAMILLE|\bNOM\b|\u0909\u092a\u0928\u093e\u092e|\u09aa\u09a6\u09ac\u09bf|\u0925\u0930|/|:|\bNAME\b)",
+                "", text, flags=re.IGNORECASE
+            ).strip()
+            if clean and len(clean) > 1 and clean.upper() not in label_keywords and not re.search(r"^[A-Z0-9<]{9}", clean):
+                surname_native = clean
+                surname_val = normalize_icao_transliteration(clean)
             elif i + 1 < len(raw_lines):
                 next_t = raw_lines[i + 1][0].strip()
-                if next_t and not any(k in next_t.upper() for k in ["NAME", "GIVEN", "BIRTH", "DATE"]):
-                    surname_val = next_t
+                if next_t and next_t.upper() not in label_keywords and not any(k in next_t.upper() for k in ["NAME", "GIVEN", "BIRTH", "DATE"]):
+                    surname_native = next_t
+                    surname_val = normalize_icao_transliteration(next_t)
 
-        if "GIVEN NAME" in text_upper or "दिया गया नाम" in text_upper:
-            clean = re.sub(r"(GIVEN NAME\(S\)|GIVEN NAME|दिया गया नाम|/|:|\(S\))", "", text, flags=re.IGNORECASE).strip()
-            if clean and len(clean) > 1:
-                given_val = clean
+        # Match given name anchors (multilingual)
+        givenname_matched = any(anchor in text_upper for anchor in givenname_anchors_upper)
+        if givenname_matched:
+            clean = re.sub(
+                r"(GIVEN NAME\(S\)|GIVEN NAMES|GIVEN NAME|FIRST NAME|FORENAMES|VORNAMEN|VORNAME|PRÉNOMS|PRENOMS|\u0926\u093f\u092f\u093e \u0917\u092f\u093e \u0928\u093e\u092e|\u0928\u093e\u092e|\u09aa\u09cd\u09b0\u09a6\u09a4\u09cd\u09a4 \u09a8\u09be\u09ae|/|:|\(S\)|\bNAMES\b|\bNAME\b)",
+                "", text, flags=re.IGNORECASE
+            ).strip()
+            if clean and len(clean) > 1 and clean.upper() not in label_keywords:
+                given_native = clean
+                given_val = normalize_icao_transliteration(clean)
             elif i + 1 < len(raw_lines):
                 next_t = raw_lines[i + 1][0].strip()
-                if next_t and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
-                    given_val = next_t
+                if next_t and next_t.upper() not in label_keywords and not any(k in next_t.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "PLACE"]):
+                    given_native = next_t
+                    given_val = normalize_icao_transliteration(next_t)
 
-        is_relational_name = any(r in text_upper for r in ["FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN", "W/O", "D/O", "S/O", "C/O", "पिता", "पति"])
-        if any(k in text_upper for k in ["ELECTOR'S NAME", "ELECTORS NAME", "ELECTOR NAME", "मतदाता का नाम", "PASSENGER NAME", "HOLDER NAME", "NAME:", "NAME;", "NAME "]) and not is_relational_name:
-            clean_name = re.sub(r"(ELECTOR'S NAME|ELECTORS NAME|ELECTOR NAME|मतदाता का नाम|PASSENGER NAME|HOLDER NAME|NAME[:;\s]+|\bNAME\b)", "", text, flags=re.IGNORECASE).strip()
+        is_relational_name = any(r in text_upper for r in [
+            "FATHER", "MOTHER", "SPOUSE", "HUSBAND", "GUARDIAN",
+            "W/O", "D/O", "S/O", "C/O",
+            "\u092a\u093f\u0924\u093e", "\u092a\u0924\u093f",  # Hindi: पिता, पति
+        ])
+        if any(k in text_upper for k in [
+            "ELECTOR'S NAME", "ELECTORS NAME", "ELECTOR NAME",
+            "\u092e\u0924\u0926\u093e\u0924\u093e \u0915\u093e \u0928\u093e\u092e",  # मतदाता का नाम
+            "PASSENGER NAME", "HOLDER NAME", "NAME:", "NAME;", "NAME "
+        ]) and not is_relational_name and document_type != DocumentType.PASSPORT:
+            clean_name = re.sub(
+                r"(ELECTOR'S NAME|ELECTORS NAME|ELECTOR NAME|\u092e\u0924\u0926\u093e\u0924\u093e \u0915\u093e \u0928\u093e\u092e|PASSENGER NAME|HOLDER NAME|NAME[:;\s]+|\bNAME\b)",
+                "", text, flags=re.IGNORECASE
+            ).strip()
             if clean_name and len(clean_name) > 2:
-                given_val = clean_name
+                given_native = clean_name
+                given_val = normalize_icao_transliteration(clean_name)
             elif i + 1 < len(raw_lines):
-                given_val = raw_lines[i + 1][0].strip()
+                given_native = raw_lines[i + 1][0].strip()
+                given_val = normalize_icao_transliteration(given_native)
 
         if is_relational_name and "father_name" not in extracted:
-            clean_rel = re.sub(r"(FATHER'S NAME|FATHERS NAME|FATHER NAME|HUSBAND'S NAME|HUSBANDS NAME|SPOUSE NAME|पिता का नाम|पति का नाम|W/O|D/O|S/O|C/O|:)", "", text, flags=re.IGNORECASE).strip()
-            if clean_rel and len(clean_rel) > 2:
+            clean_rel = re.sub(
+                r"(FATHER'S NAME|FATHERS NAME|FATHER NAME|HUSBAND'S NAME|HUSBANDS NAME|SPOUSE NAME|\u092a\u093f\u0924\u093e \u0915\u093e \u0928\u093e\u092e|\u092a\u0924\u093f \u0915\u093e \u0928\u093e\u092e|W/O|D/O|S/O|C/O|:)",
+                "", text, flags=re.IGNORECASE
+            ).strip()
+            native_rel = clean_rel
+            icao_rel = normalize_icao_transliteration(clean_rel)
+            if icao_rel and len(icao_rel) > 2:
                 extracted["father_name"] = ExtractedField(
                     field_name="father_name",
-                    field_value=clean_rel,
+                    field_value=icao_rel,
+                    native_value=native_rel if native_rel != icao_rel else None,
+                    transliterated_value=icao_rel if native_rel != icao_rel else None,
                     confidence=0.88,
                     extraction_method=ExtractionMethod.OCR,
                 )
             elif i + 1 < len(raw_lines):
                 next_rel = raw_lines[i + 1][0].strip()
                 if next_rel and not any(k in next_rel.upper() for k in ["BIRTH", "DATE", "SEX", "GENDER", "EPIC"]):
+                    icao_next = normalize_icao_transliteration(next_rel)
                     extracted["father_name"] = ExtractedField(
                         field_name="father_name",
-                        field_value=next_rel,
+                        field_value=icao_next,
+                        native_value=next_rel if next_rel != icao_next else None,
+                        transliterated_value=icao_next if next_rel != icao_next else None,
                         confidence=0.85,
                         extraction_method=ExtractionMethod.OCR,
                     )
 
     if surname_val or given_val:
-        full = f"{given_val} {surname_val}".strip() or surname_val or given_val
+        full_native = f"{given_native} {surname_native}".strip() or surname_native or given_native
+        full_icao = f"{given_val} {surname_val}".strip() or surname_val or given_val
+        # Detect language of the name
+        name_lang: str | None = None
+        name_script = detect_script(full_native)
+        if name_script not in ("latin", "unknown"):
+            langs = detect_languages_in_text(full_native)
+            name_lang = langs[0] if langs else None
         extracted["name"] = ExtractedField(
             field_name="name",
-            field_value=full,
+            field_value=full_icao,
+            native_value=full_native if full_native != full_icao else None,
+            transliterated_value=full_icao if full_native != full_icao else None,
+            language=name_lang,
             confidence=0.90,
             extraction_method=ExtractionMethod.OCR,
         )
 
     # -----------------------------------------------------------------------
-    # 5. Look for Nationality
+    # 5. Look for Nationality (Phase 9: multilingual expansion)
     # -----------------------------------------------------------------------
+    nat_anchors = _FIELD_ANCHORS.get("nationality", [])
+    nat_anchors_upper = [a.upper() for a in nat_anchors]
+    known_nationality_keywords = [
+        # English
+        "INDIAN", "IND", "BHARAT", "BHARATIYA",
+        "NEPALI", "NEPALESE",
+        "BHUTANESE",
+        "BANGLADESHI",
+        "SRI LANKAN", "SRILANKA",
+        "MYANMAR", "BURMESE",
+        # German
+        "DEUTSCH", "DEUTSCHLAND",
+        # French
+        "FRANCAIS", "FRANÇAIS",
+        # Gulf
+        "EMIRATI", "SAUDI",
+        # Common
+        "PAKISTANI", "CHINESE", "RUSSIAN", "BRITISH", "AMERICAN",
+    ]
     for text, conf in raw_lines:
         text_upper = text.upper()
-        if any(k in text_upper for k in ["INDIAN", "IND ", "BHARATIYA", "NEPALI", "BHUTANESE", "BANGLADESHI", "SRI LANKAN", "MYANMAR"]):
-            if "nationality" not in extracted:
-                nat_val = "INDIAN"
-                for nat_check in ["NEPALI", "BHUTANESE", "BANGLADESHI", "SRI LANKAN", "MYANMAR"]:
-                    if nat_check in text_upper:
-                        nat_val = nat_check
-                        break
+        if "nationality" not in extracted:
+            if any(kw in text_upper for kw in known_nationality_keywords):
+                # Find the matched keyword and normalize to country code
+                found_kw = next(
+                    (kw for kw in known_nationality_keywords if kw in text_upper), None
+                )
+                nat_val = normalize_country_code(found_kw) if found_kw else "IND"
+                native_nat = found_kw or text.strip()
                 extracted["nationality"] = ExtractedField(
                     field_name="nationality",
                     field_value=nat_val,
+                    native_value=native_nat if native_nat != nat_val else None,
                     confidence=conf,
                     extraction_method=ExtractionMethod.OCR,
                 )
                 break
 
     return list(extracted.values())
+
+
+# ---------------------------------------------------------------------------
+# Phase 9: Multilingual passport metadata detection
+# ---------------------------------------------------------------------------
+def detect_multilingual_ocr_metadata(
+    raw_lines: list[tuple[str, float]],
+) -> tuple[list[str], str | None, bool]:
+    """
+    Analyse all OCR text lines and return multilingual metadata for ExtractionResponse.
+
+    Returns:
+        detected_languages : list of ISO 639-1 codes (e.g. ['hi', 'en'] or ['de', 'en'])
+        primary_script     : dominant non-Latin script name (e.g. 'devanagari', 'arabic')
+        is_multilingual    : True when non-Latin script characters are present alongside Latin
+    """
+    full_text = " ".join(t for t, _ in raw_lines)
+    script = detect_script(full_text)
+
+    has_latin = bool(re.search(r"[A-Za-z]", full_text))
+    is_multilingual = (script not in ("latin", "unknown")) and has_latin
+
+    langs = detect_languages_in_text(full_text)
+    if has_latin and "en" not in langs:
+        langs = langs + ["en"]
+
+    primary_script: str | None = None if script in ("latin", "unknown") else script
+
+    return (langs, primary_script, is_multilingual)

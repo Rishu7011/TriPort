@@ -32,11 +32,11 @@
   severity: high
 
 - rule_name: passport_number_format
-  description: "Passport number must match standard format (1 letter followed by 7-8 digits)."
+  description: "Passport number must match standard format (1-2 letters followed by 7-8 digits)."
   rule_type: regex_format
   field: passport_number
-  pattern: "^[A-Z][0-9]{7,8}$"
-  error_message: "Passport number does not conform to standard format (e.g. A1234567)."
+  pattern: "^[A-Z]{1,2}[0-9]{7,8}$"
+  error_message: "Passport number does not conform to standard format (e.g. A1234567 or AA0001618)."
   severity: critical
 
 - rule_name: nationality_code_format
