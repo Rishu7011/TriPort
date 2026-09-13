@@ -6,6 +6,7 @@ Every service imports from this module — single source of truth.
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 # Resolve backend/.env relative to this file so it works regardless of cwd
 _ENV_FILE = Path(__file__).parent / ".env"
 
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
 
     # ── LLM fallback (Pluggable Vision Model: Gemini / OpenAI / Anthropic / Local) ─
     llm_provider: str = "gemini"  # "gemini", "openai", "anthropic", or "generic"
-    llm_api_key: str = "AQ.Ab8RN6Jgm2pRLAldbDjpV8h6OceKnYWDPfJiKY0GJjE1qwT1fA"
+    llm_api_key: str = ""  # Set LLM_API_KEY in .env
     llm_model: str = "gemini-3.5-flash"
     llm_fallback_confidence_threshold: float = 0.6
 
